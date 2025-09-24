@@ -1,4 +1,7 @@
-use bunner_qs::{QueryMap, StringifyError, StringifyOptions, stringify, stringify_with_options};
+use bunner_qs::{
+    QueryMap, StringifyError, StringifyOptions, stringify, stringify_with_options,
+    stringify_with_sorter,
+};
 fn map(entries: &[(&str, &[&str])]) -> QueryMap {
     let mut result = QueryMap::new();
     for (key, values) in entries {
@@ -61,4 +64,25 @@ fn rejects_control_characters_in_key() {
     map.insert("bad\x07key".to_string(), vec!["value".to_string()]);
     let error = stringify(&map).expect_err("control characters in key should be rejected");
     assert!(matches!(error, StringifyError::InvalidKey { .. }));
+}
+
+#[test]
+fn respects_custom_sorter() {
+    let map = map(&[("b", &["2"]), ("a", &["1"]), ("c", &["3"])]);
+    let options = StringifyOptions::default();
+    let mut sorter = |left: &str, right: &str| right.cmp(left);
+    let encoded = stringify_with_sorter(&map, &options, Some(&mut sorter))
+        .expect("custom sorter should succeed");
+    assert_eq!(encoded, "c=3&b=2&a=1");
+}
+
+#[test]
+fn builder_constructs_stringify_options() {
+    let options = StringifyOptions::builder()
+        .space_as_plus(true)
+        .add_query_prefix(true)
+        .build();
+
+    assert!(options.space_as_plus);
+    assert!(options.add_query_prefix);
 }

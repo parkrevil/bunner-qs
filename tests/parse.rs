@@ -84,3 +84,20 @@ fn allows_empty_input() {
     let parsed = parse("").expect("empty input should succeed");
     assert!(parsed.is_empty());
 }
+
+#[test]
+fn builder_constructs_parse_options() {
+    let options = ParseOptions::builder()
+        .space_as_plus(true)
+        .max_params(Some(8))
+        .max_length(Some(128))
+        .max_depth(Some(2))
+        .allow_duplicates(false)
+        .build();
+
+    assert!(options.space_as_plus);
+    assert_eq!(options.max_params, Some(8));
+    assert_eq!(options.max_length, Some(128));
+    assert_eq!(options.max_depth, Some(2));
+    assert!(!options.allow_duplicates);
+}

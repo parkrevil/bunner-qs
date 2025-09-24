@@ -1,5 +1,7 @@
 use crate::{QueryMap, StringifyError, StringifyOptions, StringifyResult};
 
+pub type Sorter<'a> = &'a mut dyn FnMut(&str, &str) -> std::cmp::Ordering;
+
 pub fn stringify(map: &QueryMap) -> StringifyResult<String> {
     stringify_with_options(map, &StringifyOptions::default())
 }
@@ -7,6 +9,14 @@ pub fn stringify(map: &QueryMap) -> StringifyResult<String> {
 pub fn stringify_with_options(
     map: &QueryMap,
     options: &StringifyOptions,
+) -> StringifyResult<String> {
+    stringify_with_sorter(map, options, None)
+}
+
+pub fn stringify_with_sorter(
+    map: &QueryMap,
+    options: &StringifyOptions,
+    sorter: Option<Sorter<'_>>,
 ) -> StringifyResult<String> {
     if map.is_empty() {
         return Ok(if options.add_query_prefix {
@@ -16,9 +26,15 @@ pub fn stringify_with_options(
         });
     }
 
-    let mut pairs = Vec::with_capacity(map.len());
+    let mut entries: Vec<_> = map.iter().collect();
+    if let Some(cmp) = sorter {
+        entries.sort_by(|(left, _), (right, _)| cmp(left, right));
+    }
 
-    for (key, values) in map.iter() {
+    let expected = entries.iter().map(|(_, values)| values.len().max(1)).sum();
+    let mut pairs = Vec::with_capacity(expected);
+
+    for (key, values) in entries {
         ensure_no_control(key).map_err(|_| StringifyError::InvalidKey { key: key.clone() })?;
 
         let encoded_key = encode_component(key, options.space_as_plus);
