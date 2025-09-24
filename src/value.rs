@@ -14,6 +14,9 @@ pub enum QsValue {
     Date(SystemTime),
     Regex(String),
     Custom(String),
+    Symbol(String),
+    BigInt(String),
+    Undefined,
 }
 
 impl fmt::Debug for QsValue {
@@ -29,6 +32,9 @@ impl fmt::Debug for QsValue {
             QsValue::Date(dt) => write!(f, "Date({:?})", dt),
             QsValue::Regex(pattern) => write!(f, "Regex({pattern:?})"),
             QsValue::Custom(name) => write!(f, "Custom({name})"),
+            QsValue::Symbol(name) => write!(f, "Symbol({name})"),
+            QsValue::BigInt(value) => write!(f, "BigInt({value})"),
+            QsValue::Undefined => write!(f, "Undefined"),
         }
     }
 }

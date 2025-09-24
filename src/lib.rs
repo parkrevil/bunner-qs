@@ -2,7 +2,10 @@ mod value;
 
 pub use value::QsValue;
 
+use std::cmp::Ordering;
 use std::collections::HashMap;
+use std::sync::Arc;
+use std::time::SystemTime;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Charset {
@@ -81,6 +84,47 @@ pub type DecodeFn = std::sync::Arc<
 >;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ArrayFormat {
+    Indices,
+    Brackets,
+    Repeat,
+    Comma,
+}
+
+impl Default for ArrayFormat {
+    fn default() -> Self {
+        Self::Indices
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Format {
+    Rfc3986,
+    Rfc1738,
+}
+
+impl Default for Format {
+    fn default() -> Self {
+        Self::Rfc3986
+    }
+}
+
+pub type SerializeDateFn = Arc<dyn Fn(&SystemTime) -> String + Send + Sync>;
+pub type SortFn = Arc<dyn Fn(&str, &str) -> Ordering + Send + Sync>;
+pub type EncodeFn = Arc<
+    dyn Fn(&str, &dyn Fn(&str, Charset, ValueKind) -> String, Charset, ValueKind) -> String
+        + Send
+        + Sync,
+>;
+pub type FilterFunction = Arc<dyn Fn(&str, &QsValue) -> Option<QsValue> + Send + Sync>;
+
+#[derive(Clone)]
+pub enum Filter {
+    Keys(Vec<String>),
+    Function(FilterFunction),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ValueKind {
     Key,
     Value,
@@ -155,6 +199,67 @@ pub enum ParseError {
 
 pub type ParseResult<T> = Result<T, ParseError>;
 
+#[derive(Clone)]
+pub struct StringifyOptions {
+    pub add_query_prefix: bool,
+    pub array_format: ArrayFormat,
+    pub comma_round_trip: bool,
+    pub skip_nulls: bool,
+    pub strict_null_handling: bool,
+    pub encode: bool,
+    pub encode_values_only: bool,
+    pub encode_dot_in_keys: bool,
+    pub charset: Charset,
+    pub charset_sentinel: bool,
+    pub format: Format,
+    pub serialize_date: Option<SerializeDateFn>,
+    pub sort: Option<SortFn>,
+    pub filter: Option<Filter>,
+    pub delimiter: Option<char>,
+    pub encoder: Option<EncodeFn>,
+    pub allow_dots: bool,
+    pub allow_empty_arrays: bool,
+    pub indices: Option<bool>,
+    pub additional: HashMap<String, QsValue>,
+}
+
+impl Default for StringifyOptions {
+    fn default() -> Self {
+        Self {
+            add_query_prefix: false,
+            array_format: ArrayFormat::default(),
+            comma_round_trip: false,
+            skip_nulls: false,
+            strict_null_handling: false,
+            encode: true,
+            encode_values_only: false,
+            encode_dot_in_keys: false,
+            charset: Charset::default(),
+            charset_sentinel: false,
+            format: Format::default(),
+            serialize_date: None,
+            sort: None,
+            filter: None,
+            delimiter: None,
+            encoder: None,
+            allow_dots: false,
+            allow_empty_arrays: false,
+            indices: None,
+            additional: HashMap::new(),
+        }
+    }
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum StringifyError {
+    #[error("stringify() is not yet implemented")]
+    Unimplemented,
+    #[error("invalid option: {0}")]
+    InvalidOption(String),
+}
+
+pub type StringifyResult<T> = Result<T, StringifyError>;
+
 pub fn parse_with_options<S: AsRef<str>>(
     _input: S,
     _options: ParseOptions,
@@ -164,4 +269,16 @@ pub fn parse_with_options<S: AsRef<str>>(
 
 pub fn parse<S: AsRef<str>>(input: S) -> ParseResult<QsValue> {
     parse_with_options(input, ParseOptions::default())
+}
+
+pub fn stringify_with_options(
+    value: &QsValue,
+    _options: StringifyOptions,
+) -> StringifyResult<String> {
+    let _ = value;
+    Err(StringifyError::Unimplemented)
+}
+
+pub fn stringify(value: &QsValue) -> StringifyResult<String> {
+    stringify_with_options(value, StringifyOptions::default())
 }

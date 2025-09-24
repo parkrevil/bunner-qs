@@ -1,4 +1,7 @@
-use bunner_qs::{ParseOptions, ParseResult, QsValue, parse, parse_with_options};
+use bunner_qs::{
+    ParseOptions, ParseResult, QsValue, StringifyError, StringifyOptions, StringifyResult, parse,
+    parse_with_options, stringify, stringify_with_options,
+};
 use indexmap::IndexMap;
 use serde_json::Value;
 use std::time::SystemTime;
@@ -68,4 +71,26 @@ pub fn assert_parse(input: &str, options: Option<ParseOptions>, expected: QsValu
 
 pub fn assert_parse_default(input: &str, expected: QsValue) {
     assert_parse(input, None, expected)
+}
+
+pub fn stringify_default(value: &QsValue) -> StringifyResult<String> {
+    stringify(value)
+}
+
+pub fn stringify_with(value: &QsValue, options: StringifyOptions) -> StringifyResult<String> {
+    stringify_with_options(value, options)
+}
+
+pub fn build_stringify_options(configure: impl FnOnce(&mut StringifyOptions)) -> StringifyOptions {
+    let mut options = StringifyOptions::default();
+    configure(&mut options);
+    options
+}
+
+pub fn assert_stringify_unimplemented(result: StringifyResult<String>) {
+    match result {
+        Err(StringifyError::Unimplemented) => {}
+        Err(error) => panic!("expected stringify to be unimplemented, got error {error:?}"),
+        Ok(value) => panic!("expected stringify to be unimplemented, got result {value:?}"),
+    }
 }
