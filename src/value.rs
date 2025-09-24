@@ -12,9 +12,7 @@ pub enum QsValue {
     Object(IndexMap<String, QsValue>),
     Bytes(Vec<u8>),
     Date(SystemTime),
-    Regex(String),
     Custom(String),
-    Symbol(String),
     BigInt(String),
     Undefined,
 }
@@ -30,9 +28,7 @@ impl fmt::Debug for QsValue {
             QsValue::Object(map) => map.fmt(f),
             QsValue::Bytes(bytes) => write!(f, "Bytes({bytes:?})"),
             QsValue::Date(dt) => write!(f, "Date({:?})", dt),
-            QsValue::Regex(pattern) => write!(f, "Regex({pattern:?})"),
             QsValue::Custom(name) => write!(f, "Custom({name})"),
-            QsValue::Symbol(name) => write!(f, "Symbol({name})"),
             QsValue::BigInt(value) => write!(f, "BigInt({value})"),
             QsValue::Undefined => write!(f, "Undefined"),
         }
@@ -80,3 +76,5 @@ impl From<IndexMap<String, QsValue>> for QsValue {
         Self::Object(values)
     }
 }
+
+// Note: Symbol, Regex, and Function variants intentionally omitted in this Rust port.

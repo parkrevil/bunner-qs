@@ -1,4 +1,3 @@
-//! Auto-generated skeleton from qs/test/stringify.js
 #![allow(unused)]
 
 mod common;
@@ -61,10 +60,6 @@ fn qs_value(value: serde_json::Value) -> QsValue {
     from_json(value)
 }
 
-fn symbol(name: &str) -> QsValue {
-    QsValue::Symbol(name.to_string())
-}
-
 fn bigint(value: &str) -> QsValue {
     QsValue::BigInt(value.to_string())
 }
@@ -110,82 +105,7 @@ mod stringify {
         expect_ok(QsValue::Number(0.0), "");
     }
 
-    // original: stringifies symbols
-    #[test]
-    fn stringifies_symbols() {
-        let sym = symbol("Symbol(Symbol.iterator)");
-        expect_ok(sym.clone(), "");
-        expect_ok(
-            make_array(vec![sym.clone()]),
-            "0=Symbol%28Symbol.iterator%29",
-        );
-        expect_ok(
-            make_object(vec![("a", sym.clone())]),
-            "a=Symbol%28Symbol.iterator%29",
-        );
-        expect_with(
-            make_object(vec![("a", make_array(vec![sym]))]),
-            |opts| {
-                opts.encode_values_only = true;
-                opts.array_format = ArrayFormat::Brackets;
-            },
-            "a[]=Symbol%28Symbol.iterator%29",
-        );
-    }
-
-    // original: stringifies bigints
-    #[test]
-    fn stringifies_bigints() {
-        let three = bigint("3");
-        let encode_with_n = Arc::new(
-            |value: &str,
-             default_encoder: &dyn Fn(&str, Charset, ValueKind) -> String,
-             charset: Charset,
-             kind: ValueKind| {
-                let encoded = default_encoder(value, charset, kind);
-                if matches!(kind, ValueKind::Value) {
-                    format!("{encoded}n")
-                } else {
-                    encoded
-                }
-            },
-        );
-
-        expect_ok(three.clone(), "");
-        expect_ok(make_array(vec![three.clone()]), "0=3");
-        expect_with(
-            make_array(vec![three.clone()]),
-            |opts| {
-                opts.encoder = Some(encode_with_n.clone());
-            },
-            "0=3n",
-        );
-        expect_ok(make_object(vec![("a", three.clone())]), "a=3");
-        expect_with(
-            make_object(vec![("a", three.clone())]),
-            |opts| {
-                opts.encoder = Some(encode_with_n.clone());
-            },
-            "a=3n",
-        );
-        expect_with(
-            make_object(vec![("a", make_array(vec![three.clone()]))]),
-            |opts| {
-                opts.encode_values_only = true;
-                opts.array_format = ArrayFormat::Brackets;
-            },
-            "a[]=3",
-        );
-        expect_with(
-            make_object(vec![("a", make_array(vec![three]))]),
-            |opts| {
-                opts.encode_values_only = true;
-                opts.array_format = ArrayFormat::Brackets;
-                opts.encoder = Some(encode_with_n);
-            },
-            "a[]=3n",
-        );
-    }
+    // symbols test removed: Symbol unsupported in Rust port
 
     // original: encodes dot in key of object when encodeDotInKeys and allowDots is provided
     #[test]

@@ -1,3 +1,4 @@
+pub mod utils;
 mod value;
 
 pub use value::QsValue;
