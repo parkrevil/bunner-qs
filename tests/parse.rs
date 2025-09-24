@@ -1,11 +1,113 @@
 //! Auto-generated skeleton from qs/test/parse.js
 #![allow(unused)]
 
+mod common;
+
+use common::*;
+use serde_json::json;
+
 // original: parse()
 mod parse {
+    use super::{
+        assert_parse, assert_parse_default, build_options, bytes, from_json, json, make_array,
+        make_object, parse_default, parse_with,
+    };
+    use bunner_qs::{
+        Charset, Delimiter, DepthSetting, DuplicateStrategy, LimitSetting, ParseOptions, QsValue,
+    };
+
     // original: parses a simple string
     #[test]
-    fn parses_a_simple_string() {}
+    fn parses_a_simple_string() {
+        assert_parse_default(
+            "0=foo",
+            from_json(json!({
+                "0": "foo"
+            })),
+        );
+
+        assert_parse_default(
+            "foo=c++",
+            from_json(json!({
+                "foo": "c  "
+            })),
+        );
+
+        assert_parse_default(
+            "a[>=]=23",
+            from_json(json!({
+                "a": { ">=": "23" }
+            })),
+        );
+
+        assert_parse_default(
+            "a[<=>]==23",
+            from_json(json!({
+                "a": { "<=>": "=23" }
+            })),
+        );
+
+        assert_parse_default(
+            "a[==]=23",
+            from_json(json!({
+                "a": { "==": "23" }
+            })),
+        );
+
+        assert_parse(
+            "foo",
+            Some(build_options(|opts| {
+                opts.strict_null_handling = true;
+            })),
+            from_json(json!({ "foo": null })),
+        );
+
+        assert_parse_default("foo", from_json(json!({ "foo": "" })));
+        assert_parse_default("foo=", from_json(json!({ "foo": "" })));
+        assert_parse_default("foo=bar", from_json(json!({ "foo": "bar" })));
+        assert_parse_default(
+            " foo = bar = baz ",
+            from_json(json!({ " foo ": " bar = baz " })),
+        );
+        assert_parse_default("foo=bar=baz", from_json(json!({ "foo": "bar=baz" })));
+        assert_parse_default(
+            "foo=bar&bar=baz",
+            from_json(json!({ "foo": "bar", "bar": "baz" })),
+        );
+        assert_parse_default(
+            "foo2=bar2&baz2=",
+            from_json(json!({ "foo2": "bar2", "baz2": "" })),
+        );
+
+        assert_parse(
+            "foo=bar&baz",
+            Some(build_options(|opts| {
+                opts.strict_null_handling = true;
+            })),
+            from_json(json!({
+                "foo": "bar",
+                "baz": null
+            })),
+        );
+
+        assert_parse_default(
+            "foo=bar&baz",
+            from_json(json!({
+                "foo": "bar",
+                "baz": ""
+            })),
+        );
+
+        assert_parse_default(
+            "cht=p3&chd=t:60,40&chs=250x100&chl=Hello|World",
+            from_json(json!({
+                "cht": "p3",
+                "chd": "t:60,40",
+                "chs": "250x100",
+                "chl": "Hello|World"
+            })),
+        );
+    }
 
     // original: comma: false
     #[test]
