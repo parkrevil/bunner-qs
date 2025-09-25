@@ -1,7 +1,7 @@
 #![cfg(feature = "serde")]
 
-use bunner_qs::*;
 use bunner_qs::Value;
+use bunner_qs::*;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
