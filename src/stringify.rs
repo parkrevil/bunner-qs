@@ -1,7 +1,5 @@
 use crate::{QueryMap, StringifyError, StringifyOptions, StringifyResult, Value};
 
-pub type Sorter<'a> = &'a mut dyn FnMut(&str, &str) -> std::cmp::Ordering;
-
 pub fn stringify(map: &QueryMap) -> StringifyResult<String> {
     stringify_with_options(map, &StringifyOptions::default())
 }
@@ -9,14 +7,6 @@ pub fn stringify(map: &QueryMap) -> StringifyResult<String> {
 pub fn stringify_with_options(
     map: &QueryMap,
     options: &StringifyOptions,
-) -> StringifyResult<String> {
-    stringify_with_sorter(map, options, None)
-}
-
-pub fn stringify_with_sorter(
-    map: &QueryMap,
-    options: &StringifyOptions,
-    sorter: Option<Sorter<'_>>,
 ) -> StringifyResult<String> {
     if map.is_empty() {
         return Ok(if options.add_query_prefix {
@@ -26,14 +16,9 @@ pub fn stringify_with_sorter(
         });
     }
 
-    let mut entries: Vec<_> = map.iter().collect();
-    if let Some(cmp) = sorter {
-        entries.sort_by(|(left, _), (right, _)| cmp(left, right));
-    }
-
     let mut pairs = Vec::new();
 
-    for (key, value) in entries {
+    for (key, value) in map.iter() {
         ensure_no_control(key).map_err(|_| StringifyError::InvalidKey { key: key.clone() })?;
 
         flatten_value(key, value, &mut pairs, options.space_as_plus)?;

@@ -1,6 +1,5 @@
 use bunner_qs::{
     QueryMap, StringifyError, StringifyOptions, Value, stringify, stringify_with_options,
-    stringify_with_sorter,
 };
 
 fn map_simple(entries: &[(&str, &str)]) -> QueryMap {
@@ -62,16 +61,6 @@ fn rejects_control_characters_in_key() {
     map.insert("bad\x07key".to_string(), Value::String("value".to_string()));
     let error = stringify(&map).expect_err("control characters in key should be rejected");
     assert!(matches!(error, StringifyError::InvalidKey { .. }));
-}
-
-#[test]
-fn respects_custom_sorter() {
-    let map = map_simple(&[("b", "2"), ("a", "1"), ("c", "3")]);
-    let options = StringifyOptions::default();
-    let mut sorter = |left: &str, right: &str| right.cmp(left);
-    let encoded = stringify_with_sorter(&map, &options, Some(&mut sorter))
-        .expect("custom sorter should succeed");
-    assert_eq!(encoded, "c=3&b=2&a=1");
 }
 
 #[test]

@@ -14,7 +14,7 @@ pub use options::{ParseOptions, ParseOptionsBuilder, StringifyOptions, Stringify
 pub use parse::{parse, parse_with_options};
 #[cfg(feature = "serde")]
 pub use serde_support::{SerdeQueryError, from_query_map, to_query_map};
-pub use stringify::{Sorter, stringify, stringify_with_options, stringify_with_sorter};
+pub use stringify::{stringify, stringify_with_options};
 pub use value::{
     QueryMap, SingleValueError, SingleValueResult, Value, from_single_map, to_single_map,
 };
