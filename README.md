@@ -45,13 +45,14 @@ let query = stringify(&map, Some(stringify_opts))?;
 assert_eq!(query, "?q=rust%20qs");
 ```
 
-### Serde integration
+### Serde integration (enabled by default)
 
-Enable the `serde` feature to convert between `QueryMap` and your own structs:
+This crate ships with serde support out of the box. If you prefer to disable it, declare the
+dependency without default features:
 
 ```toml
 [dependencies]
-bunner_qs = { version = "0.1", features = ["serde"] }
+bunner_qs = { version = "0.1", default-features = false }
 ```
 
 ```rust
