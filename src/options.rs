@@ -13,10 +13,6 @@ pub struct ParseOptions {
 }
 
 impl ParseOptions {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
     pub fn builder() -> ParseOptionsBuilder {
         ParseOptionsBuilder::default()
     }
@@ -29,10 +25,6 @@ pub struct StringifyOptions {
 }
 
 impl StringifyOptions {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
     pub fn builder() -> StringifyOptionsBuilder {
         StringifyOptionsBuilder::default()
     }

@@ -68,10 +68,6 @@ impl QueryMap {
     pub fn new() -> Self {
         Self(IndexMap::new())
     }
-
-    pub fn with_capacity(capacity: usize) -> Self {
-        Self(IndexMap::with_capacity(capacity))
-    }
 }
 
 impl std::ops::Deref for QueryMap {
