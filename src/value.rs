@@ -1,6 +1,62 @@
-use crate::QueryMap;
+use indexmap::IndexMap;
 use std::collections::HashMap;
 use thiserror::Error;
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum Value {
+    String(String),
+    Array(Vec<Value>),
+    Object(IndexMap<String, Value>),
+}
+
+impl Value {
+    pub fn as_str(&self) -> Option<&str> {
+        match self {
+            Value::String(s) => Some(s),
+            _ => None,
+        }
+    }
+
+    pub fn as_array(&self) -> Option<&Vec<Value>> {
+        match self {
+            Value::Array(arr) => Some(arr),
+            _ => None,
+        }
+    }
+
+    pub fn as_object(&self) -> Option<&IndexMap<String, Value>> {
+        match self {
+            Value::Object(obj) => Some(obj),
+            _ => None,
+        }
+    }
+
+    pub fn is_string(&self) -> bool {
+        matches!(self, Value::String(_))
+    }
+
+    pub fn is_array(&self) -> bool {
+        matches!(self, Value::Array(_))
+    }
+
+    pub fn is_object(&self) -> bool {
+        matches!(self, Value::Object(_))
+    }
+}
+
+impl From<String> for Value {
+    fn from(s: String) -> Self {
+        Value::String(s)
+    }
+}
+
+impl From<&str> for Value {
+    fn from(s: &str) -> Self {
+        Value::String(s.to_string())
+    }
+}
+
+pub type QueryMap = IndexMap<String, Value>;
 
 #[derive(Debug, Error)]
 pub enum SingleValueError {
@@ -13,18 +69,34 @@ pub type SingleValueResult<T> = Result<T, SingleValueError>;
 pub fn to_single_map(map: &QueryMap) -> SingleValueResult<HashMap<String, String>> {
     let mut single = HashMap::with_capacity(map.len());
 
-    for (key, values) in map.iter() {
-        match values.as_slice() {
-            [] => {
+    for (key, value) in map.iter() {
+        match value {
+            Value::String(s) => {
+                single.insert(key.clone(), s.clone());
+            }
+            Value::Array(arr) if arr.is_empty() => {
                 single.insert(key.clone(), String::new());
             }
-            [value] => {
-                single.insert(key.clone(), value.clone());
+            Value::Array(arr) if arr.len() == 1 => {
+                if let Value::String(s) = &arr[0] {
+                    single.insert(key.clone(), s.clone());
+                } else {
+                    return Err(SingleValueError::MultipleValues {
+                        key: key.clone(),
+                        count: 1,
+                    });
+                }
             }
-            slice => {
+            Value::Array(arr) => {
                 return Err(SingleValueError::MultipleValues {
                     key: key.clone(),
-                    count: slice.len(),
+                    count: arr.len(),
+                });
+            }
+            Value::Object(_) => {
+                return Err(SingleValueError::MultipleValues {
+                    key: key.clone(),
+                    count: 1,
                 });
             }
         }
@@ -41,7 +113,7 @@ where
 {
     iter.into_iter()
         .fold(QueryMap::new(), |mut acc, (key, value)| {
-            acc.entry(key.into()).or_default().push(value.into());
+            acc.insert(key.into(), Value::String(value.into()));
             acc
         })
 }

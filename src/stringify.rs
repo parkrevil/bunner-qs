@@ -1,4 +1,4 @@
-use crate::{QueryMap, StringifyError, StringifyOptions, StringifyResult};
+use crate::{QueryMap, StringifyError, StringifyOptions, StringifyResult, Value};
 
 pub type Sorter<'a> = &'a mut dyn FnMut(&str, &str) -> std::cmp::Ordering;
 
@@ -31,25 +31,12 @@ pub fn stringify_with_sorter(
         entries.sort_by(|(left, _), (right, _)| cmp(left, right));
     }
 
-    let expected = entries.iter().map(|(_, values)| values.len().max(1)).sum();
-    let mut pairs = Vec::with_capacity(expected);
+    let mut pairs = Vec::new();
 
-    for (key, values) in entries {
+    for (key, value) in entries {
         ensure_no_control(key).map_err(|_| StringifyError::InvalidKey { key: key.clone() })?;
 
-        let encoded_key = encode_component(key, options.space_as_plus);
-
-        if values.is_empty() {
-            pairs.push(encoded_key.clone());
-            continue;
-        }
-
-        for value in values {
-            ensure_no_control(value)
-                .map_err(|_| StringifyError::InvalidValue { key: key.clone() })?;
-            let encoded_value = encode_component(value, options.space_as_plus);
-            pairs.push(format!("{}={}", encoded_key, encoded_value));
-        }
+        flatten_value(key, value, &mut pairs, options.space_as_plus)?;
     }
 
     let mut body = pairs.join("&");
@@ -59,6 +46,37 @@ pub fn stringify_with_sorter(
     }
 
     Ok(body)
+}
+
+fn flatten_value(
+    base_key: &str,
+    value: &Value,
+    pairs: &mut Vec<String>,
+    space_as_plus: bool,
+) -> StringifyResult<()> {
+    match value {
+        Value::String(s) => {
+            ensure_no_control(s).map_err(|_| StringifyError::InvalidValue {
+                key: base_key.to_string(),
+            })?;
+            let encoded_key = encode_component(base_key, space_as_plus);
+            let encoded_value = encode_component(s, space_as_plus);
+            pairs.push(format!("{}={}", encoded_key, encoded_value));
+        }
+        Value::Array(arr) => {
+            for (idx, item) in arr.iter().enumerate() {
+                let key = format!("{}[{}]", base_key, idx);
+                flatten_value(&key, item, pairs, space_as_plus)?;
+            }
+        }
+        Value::Object(obj) => {
+            for (sub_key, sub_value) in obj.iter() {
+                let key = format!("{}[{}]", base_key, sub_key);
+                flatten_value(&key, sub_value, pairs, space_as_plus)?;
+            }
+        }
+    }
+    Ok(())
 }
 
 fn ensure_no_control(value: &str) -> Result<(), ()> {

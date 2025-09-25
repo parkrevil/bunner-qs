@@ -1,3 +1,4 @@
+use crate::nested::{insert_nested_value, parse_key_path};
 use crate::{ParseError, ParseOptions, ParseResult, QueryMap};
 
 pub fn parse<S: AsRef<str>>(input: S) -> ParseResult<QueryMap> {
@@ -69,12 +70,8 @@ pub fn parse_with_options<S: AsRef<str>>(
             };
 
             let key_start = offset + start;
-            let mut key = decode_component(raw_key, options, key_start)?;
+            let key = decode_component(raw_key, options, key_start)?;
             validate_brackets(&key, options)?;
-
-            if !options.allow_duplicates && map.contains_key(&key) {
-                return Err(ParseError::DuplicateKey { key });
-            }
 
             let value_offset = match eq_index {
                 Some(idx) => offset + start + idx + 1,
@@ -82,7 +79,9 @@ pub fn parse_with_options<S: AsRef<str>>(
             };
             let value = decode_component(raw_value, options, value_offset)?;
 
-            map.entry(std::mem::take(&mut key)).or_default().push(value);
+            // Parse the key path and insert nested value
+            let key_segments = parse_key_path(&key);
+            insert_nested_value(&mut map, &key_segments, value, options.allow_duplicates)?;
         }
 
         if end == len {

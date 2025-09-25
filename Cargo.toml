@@ -7,6 +7,12 @@ license = "MIT"
 [dependencies]
 indexmap = "2.2"
 thiserror = "1.0"
+serde = { version = "1.0", features = ["derive"], optional = true }
+serde_urlencoded = { version = "0.7", optional = true }
+
+[features]
+default = []
+serde = ["dep:serde", "dep:serde_urlencoded"]
 
 [dev-dependencies.cargo-husky]
 version = "1"

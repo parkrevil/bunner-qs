@@ -1,28 +1,26 @@
 use bunner_qs::{
-    QueryMap, StringifyError, StringifyOptions, stringify, stringify_with_options,
+    QueryMap, StringifyError, StringifyOptions, Value, stringify, stringify_with_options,
     stringify_with_sorter,
 };
-fn map(entries: &[(&str, &[&str])]) -> QueryMap {
+
+fn map_simple(entries: &[(&str, &str)]) -> QueryMap {
     let mut result = QueryMap::new();
-    for (key, values) in entries {
-        result.insert(
-            (*key).to_string(),
-            values.iter().map(|v| (*v).to_string()).collect(),
-        );
+    for (key, value) in entries {
+        result.insert((*key).to_string(), Value::String((*value).to_string()));
     }
     result
 }
 
 #[test]
 fn stringifies_basic_pairs() {
-    let map = map(&[("a", &["1"]), ("b", &["two"])]);
+    let map = map_simple(&[("a", "1"), ("b", "two")]);
     let encoded = stringify(&map).expect("should stringify");
     assert_eq!(encoded, "a=1&b=two");
 }
 
 #[test]
 fn uses_plus_for_spaces_when_requested() {
-    let map = map(&[("note", &["hello world"])]);
+    let map = map_simple(&[("note", "hello world")]);
     let options = StringifyOptions {
         space_as_plus: true,
         ..StringifyOptions::default()
@@ -36,7 +34,7 @@ fn uses_plus_for_spaces_when_requested() {
 
 #[test]
 fn can_add_query_prefix() {
-    let map = map(&[("a", &["1"])]);
+    let map = map_simple(&[("a", "1")]);
     let options = StringifyOptions {
         add_query_prefix: true,
         ..StringifyOptions::default()
@@ -53,7 +51,7 @@ fn can_add_query_prefix() {
 #[test]
 fn rejects_control_characters_in_value() {
     let mut map = QueryMap::new();
-    map.insert("a".to_string(), vec!["line\nbreak".to_string()]);
+    map.insert("a".to_string(), Value::String("line\nbreak".to_string()));
     let error = stringify(&map).expect_err("control characters should be rejected");
     assert!(matches!(error, StringifyError::InvalidValue { .. }));
 }
@@ -61,14 +59,14 @@ fn rejects_control_characters_in_value() {
 #[test]
 fn rejects_control_characters_in_key() {
     let mut map = QueryMap::new();
-    map.insert("bad\x07key".to_string(), vec!["value".to_string()]);
+    map.insert("bad\x07key".to_string(), Value::String("value".to_string()));
     let error = stringify(&map).expect_err("control characters in key should be rejected");
     assert!(matches!(error, StringifyError::InvalidKey { .. }));
 }
 
 #[test]
 fn respects_custom_sorter() {
-    let map = map(&[("b", &["2"]), ("a", &["1"]), ("c", &["3"])]);
+    let map = map_simple(&[("b", "2"), ("a", "1"), ("c", "3")]);
     let options = StringifyOptions::default();
     let mut sorter = |left: &str, right: &str| right.cmp(left);
     let encoded = stringify_with_sorter(&map, &options, Some(&mut sorter))

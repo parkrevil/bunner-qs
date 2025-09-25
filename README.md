@@ -7,7 +7,7 @@ Rust utilities for parsing and serializing URL query strings that follow RFC 3
 - **Standards first**: rejects malformed `%` sequences, stray `?`, unmatched brackets, and other non‑compliant tokens.
 - **Configurable limits**: cap maximum length, number of parameters, and bracket depth when parsing.
 - **Form mode toggle**: treat `+` as space only when explicitly enabled (`space_as_plus`).
-- **Predictable output**: percent‑encodes using uppercase hex and optional `?` prefixing during serialization.
+- **Optional Serde bridge**: enable the `serde` feature to round‑trip structs with `Serialize`/`Deserialize`.
 
 ## Quick start
 
@@ -29,6 +29,33 @@ stringify_opts.add_query_prefix = true;
 
 let query = stringify_with_options(&map, &stringify_opts)?;
 assert_eq!(query, "?q=rust%20qs");
+```
+
+### Serde integration
+
+Enable the `serde` feature to convert between `QueryMap` and your own structs:
+
+```toml
+[dependencies]
+bunner_qs = { version = "0.1", features = ["serde"] }
+```
+
+```rust
+use bunner_qs::{from_query_map, to_query_map, parse};
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
+struct Form {
+	title: String,
+	tags: Vec<String>,
+}
+
+let parsed = parse("title=Post&tags=rust&tags=web")?;
+let form: Form = from_query_map(&parsed)?;
+assert_eq!(form.tags, vec!["rust", "web"]);
+
+let rebuilt = to_query_map(&form)?;
+assert_eq!(rebuilt.get("title"), Some(&vec!["Post".into()]));
 ```
 
 ## License
