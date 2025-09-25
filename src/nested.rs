@@ -34,12 +34,15 @@ pub fn parse_key_path(key: &str) -> Vec<String> {
     segments
 }
 
+fn is_placeholder(value: &Value) -> bool {
+    matches!(value, Value::String(s) if s.is_empty())
+}
+
 /// Insert a value into nested structure based on path segments
 pub fn insert_nested_value(
     map: &mut QueryMap,
     segments: &[String],
     value: String,
-    allow_duplicates: bool,
 ) -> ParseResult<()> {
     if segments.is_empty() {
         return Ok(());
@@ -50,29 +53,10 @@ pub fn insert_nested_value(
     if segments.len() == 1 {
         // Simple key without nesting
         match map.get_mut(root_key) {
-            Some(existing) => {
-                if allow_duplicates {
-                    // Convert to array if not already
-                    match existing {
-                        Value::String(s) => {
-                            let old_value = std::mem::take(s);
-                            *existing =
-                                Value::Array(vec![Value::String(old_value), Value::String(value)]);
-                        }
-                        Value::Array(arr) => {
-                            arr.push(Value::String(value));
-                        }
-                        Value::Object(_) => {
-                            return Err(ParseError::DuplicateKey {
-                                key: root_key.clone(),
-                            });
-                        }
-                    }
-                } else {
-                    return Err(ParseError::DuplicateKey {
-                        key: root_key.clone(),
-                    });
-                }
+            Some(_) => {
+                return Err(ParseError::DuplicateKey {
+                    key: root_key.clone(),
+                });
             }
             None => {
                 map.insert(root_key.clone(), Value::String(value));
@@ -111,12 +95,21 @@ fn set_nested_value(current: &mut Value, path: &[String], final_value: String) -
         let segment = &path[0];
         match current {
             Value::Object(obj) => {
+                if obj.contains_key(segment) {
+                    return Err(ParseError::DuplicateKey {
+                        key: segment.clone(),
+                    });
+                }
                 obj.insert(segment.clone(), Value::String(final_value));
             }
             Value::Array(arr) => {
                 if let Ok(idx) = segment.parse::<usize>() {
                     if arr.len() <= idx {
                         arr.resize(idx + 1, Value::String(String::new()));
+                    } else if !is_placeholder(&arr[idx]) {
+                        return Err(ParseError::DuplicateKey {
+                            key: segment.clone(),
+                        });
                     }
                     arr[idx] = Value::String(final_value);
                 }
@@ -195,7 +188,7 @@ mod tests {
     #[test]
     fn test_insert_nested_simple() {
         let mut map = QueryMap::new();
-        insert_nested_value(&mut map, &["foo".to_string()], "bar".to_string(), false).unwrap();
+        insert_nested_value(&mut map, &["foo".to_string()], "bar".to_string()).unwrap();
 
         assert_eq!(map.get("foo").unwrap().as_str().unwrap(), "bar");
     }
@@ -207,7 +200,6 @@ mod tests {
             &mut map,
             &["foo".to_string(), "bar".to_string()],
             "baz".to_string(),
-            false,
         )
         .unwrap();
 
@@ -222,7 +214,6 @@ mod tests {
             &mut map,
             &["foo".to_string(), "0".to_string()],
             "bar".to_string(),
-            false,
         )
         .unwrap();
 

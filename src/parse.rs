@@ -81,7 +81,7 @@ pub fn parse_with_options<S: AsRef<str>>(
 
             // Parse the key path and insert nested value
             let key_segments = parse_key_path(&key);
-            insert_nested_value(&mut map, &key_segments, value, options.allow_duplicates)?;
+            insert_nested_value(&mut map, &key_segments, value)?;
         }
 
         if end == len {

@@ -7,22 +7,30 @@ Rust utilities for parsing and serializing URL query strings that follow RFC 3
 - **Standards first**: rejects malformed `%` sequences, stray `?`, unmatched brackets, and other non‑compliant tokens.
 - **Configurable limits**: cap maximum length, number of parameters, and bracket depth when parsing.
 - **Form mode toggle**: treat `+` as space only when explicitly enabled (`space_as_plus`).
+- **Security by default**: duplicate keys are rejected to prevent HTTP parameter pollution (HPP).
 - **Optional Serde bridge**: enable the `serde` feature to round‑trip structs with `Serialize`/`Deserialize`.
 
 ## Quick start
 
 ```rust
-use bunner_qs::{parse_with_options, stringify_with_options, ParseOptions, StringifyOptions};
+use bunner_qs::{
+	parse_with_options, stringify_with_options, ParseOptions, StringifyOptions, QueryMap, Value,
+};
 
 let mut parse_opts = ParseOptions::default();
 parse_opts.space_as_plus = true; // HTML form mode
 parse_opts.max_params = Some(32);
 
-let params = parse_with_options("name=Jill+Doe&name=J.D.", &parse_opts)?;
-assert_eq!(params.get("name"), Some(&vec!["Jill Doe".into(), "J.D.".into()]));
+let params = parse_with_options("name=Jill+Doe&city=Seoul", &parse_opts)?;
+assert_eq!(
+	params
+		.get("name")
+		.and_then(|value| value.as_str()),
+	Some("Jill Doe"),
+);
 
-let mut map = bunner_qs::QueryMap::new();
-map.insert("q".into(), vec!["rust qs".into()]);
+let mut map = QueryMap::new();
+map.insert("q".into(), Value::String("rust qs".into()));
 
 let mut stringify_opts = StringifyOptions::default();
 stringify_opts.add_query_prefix = true;
@@ -41,7 +49,7 @@ bunner_qs = { version = "0.1", features = ["serde"] }
 ```
 
 ```rust
-use bunner_qs::{from_query_map, to_query_map, parse};
+use bunner_qs::{from_query_map, to_query_map, parse, Value};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
@@ -50,12 +58,24 @@ struct Form {
 	tags: Vec<String>,
 }
 
-let parsed = parse("title=Post&tags=rust&tags=web")?;
+let parsed = parse("title=Post&tags[0]=rust&tags[1]=web")?;
 let form: Form = from_query_map(&parsed)?;
 assert_eq!(form.tags, vec!["rust", "web"]);
 
 let rebuilt = to_query_map(&form)?;
-assert_eq!(rebuilt.get("title"), Some(&vec!["Post".into()]));
+assert_eq!(
+	rebuilt
+		.get("title")
+		.and_then(|value| value.as_str()),
+	Some("Post"),
+);
+assert_eq!(
+	rebuilt
+		.get("tags")
+		.and_then(|value| value.as_array())
+		.map(|items| items.iter().map(|v| v.as_str().unwrap()).collect::<Vec<_>>()),
+	Some(vec!["rust", "web"]),
+);
 ```
 
 ## License

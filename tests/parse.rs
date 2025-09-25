@@ -51,11 +51,7 @@ fn plus_handling_respects_option() {
 
 #[test]
 fn duplicate_keys_can_be_restricted() {
-    let options = ParseOptions {
-        allow_duplicates: false,
-        ..ParseOptions::default()
-    };
-    let error = parse_with_options("a=1&a=2", &options).expect_err("duplicate keys should fail");
+    let error = parse("a=1&a=2").expect_err("duplicate keys should fail");
     assert!(matches!(error, ParseError::DuplicateKey { .. }));
 }
 
@@ -93,14 +89,12 @@ fn builder_constructs_parse_options() {
         .max_params(Some(8))
         .max_length(Some(128))
         .max_depth(Some(2))
-        .allow_duplicates(false)
         .build();
 
     assert!(options.space_as_plus);
     assert_eq!(options.max_params, Some(8));
     assert_eq!(options.max_length, Some(128));
     assert_eq!(options.max_depth, Some(2));
-    assert!(!options.allow_duplicates);
 }
 
 #[test]
@@ -149,12 +143,12 @@ fn parses_complex_nesting() {
 }
 
 #[test]
-fn handles_duplicate_keys_as_arrays() {
-    let parsed = parse("color=red&color=blue").expect("should handle duplicates as arrays");
-
-    let colors = parsed.get("color").unwrap().as_array().unwrap();
-    assert_eq!(colors[0].as_str().unwrap(), "red");
-    assert_eq!(colors[1].as_str().unwrap(), "blue");
+fn rejects_duplicate_keys_in_default_mode() {
+    let error = parse("color=red&color=blue").expect_err("duplicate keys should be rejected");
+    match error {
+        ParseError::DuplicateKey { key } => assert_eq!(key, "color"),
+        other => panic!("unexpected error: {:?}", other),
+    }
 }
 
 #[test]

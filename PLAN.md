@@ -58,7 +58,7 @@ tests/
 
 ## 5. 로드맵
 ### Phase 1 – 핵심 표준 준수
-1. `ParseOptions` / `StringifyOptions` 정의: `space_as_plus`, `max_params`, `max_length`, `max_depth`, `allow_duplicates`, `add_query_prefix`.
+1. `ParseOptions` / `StringifyOptions` 정의: `space_as_plus`, `max_params`, `max_length`, `max_depth`, `add_query_prefix`.
 2. UTF-8 유효성을 검사하는 퍼센트 디코더 구현.
 3. 입력을 `IndexMap<String, Vec<String>>`으로 파싱.
 4. 동일 구조에서 문자열화.
