@@ -1,0 +1,7 @@
+## Proptest regression seeds
+#
+# This file stores minimal failing inputs found during fuzz testing,
+# so that the same cases can be re-verified in future runs.
+# Currently, there are no regression seeds to share, so it is left empty.
+
+
