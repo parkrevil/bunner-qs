@@ -1,6 +1,4 @@
-use bunner_qs::{
-    QueryMap, StringifyError, StringifyOptions, Value, stringify, stringify_with_options,
-};
+use bunner_qs::{QueryMap, StringifyError, StringifyOptions, Value, stringify};
 
 fn map_simple(entries: &[(&str, &str)]) -> QueryMap {
     let mut result = QueryMap::new();
@@ -13,7 +11,7 @@ fn map_simple(entries: &[(&str, &str)]) -> QueryMap {
 #[test]
 fn stringifies_basic_pairs() {
     let map = map_simple(&[("a", "1"), ("b", "two")]);
-    let encoded = stringify(&map).expect("should stringify");
+    let encoded = stringify(&map, None).expect("should stringify");
     assert_eq!(encoded, "a=1&b=two");
 }
 
@@ -24,10 +22,10 @@ fn uses_plus_for_spaces_when_requested() {
         space_as_plus: true,
         ..StringifyOptions::default()
     };
-    let encoded = stringify_with_options(&map, &options).expect("should encode with plus");
+    let encoded = stringify(&map, Some(options.clone())).expect("should encode with plus");
     assert_eq!(encoded, "note=hello+world");
 
-    let default_encoded = stringify(&map).expect("default percent encodes");
+    let default_encoded = stringify(&map, None).expect("default percent encodes");
     assert_eq!(default_encoded, "note=hello%20world");
 }
 
@@ -38,12 +36,11 @@ fn can_add_query_prefix() {
         add_query_prefix: true,
         ..StringifyOptions::default()
     };
-    let encoded = stringify_with_options(&map, &options).expect("should prefix with question mark");
+    let encoded = stringify(&map, Some(options.clone())).expect("should prefix with question mark");
     assert_eq!(encoded, "?a=1");
 
     let empty = QueryMap::new();
-    let prefixed_empty =
-        stringify_with_options(&empty, &options).expect("empty map still prefixes");
+    let prefixed_empty = stringify(&empty, Some(options)).expect("empty map still prefixes");
     assert_eq!(prefixed_empty, "?");
 }
 
@@ -51,7 +48,7 @@ fn can_add_query_prefix() {
 fn rejects_control_characters_in_value() {
     let mut map = QueryMap::new();
     map.insert("a".to_string(), Value::String("line\nbreak".to_string()));
-    let error = stringify(&map).expect_err("control characters should be rejected");
+    let error = stringify(&map, None).expect_err("control characters should be rejected");
     assert!(matches!(error, StringifyError::InvalidValue { .. }));
 }
 
@@ -59,7 +56,7 @@ fn rejects_control_characters_in_value() {
 fn rejects_control_characters_in_key() {
     let mut map = QueryMap::new();
     map.insert("bad\x07key".to_string(), Value::String("value".to_string()));
-    let error = stringify(&map).expect_err("control characters in key should be rejected");
+    let error = stringify(&map, None).expect_err("control characters in key should be rejected");
     assert!(matches!(error, StringifyError::InvalidKey { .. }));
 }
 

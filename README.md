@@ -20,14 +20,14 @@ Rust utilities for parsing and serializing URL query strings that follow RFC 3
 
 ```rust
 use bunner_qs::{
-	parse_with_options, stringify_with_options, ParseOptions, StringifyOptions, QueryMap, Value,
+	parse, stringify, ParseOptions, StringifyOptions, QueryMap, Value,
 };
 
 let mut parse_opts = ParseOptions::default();
 parse_opts.space_as_plus = true; // HTML form mode
 parse_opts.max_params = Some(32);
 
-let params = parse_with_options("name=Jill+Doe&city=Seoul", &parse_opts)?;
+let params = parse("name=Jill+Doe&city=Seoul", Some(parse_opts.clone()))?;
 assert_eq!(
 	params
 		.get("name")
@@ -41,7 +41,7 @@ map.insert("q".into(), Value::String("rust qs".into()));
 let mut stringify_opts = StringifyOptions::default();
 stringify_opts.add_query_prefix = true;
 
-let query = stringify_with_options(&map, &stringify_opts)?;
+let query = stringify(&map, Some(stringify_opts))?;
 assert_eq!(query, "?q=rust%20qs");
 ```
 
@@ -64,7 +64,7 @@ struct Form {
 	tags: Vec<String>,
 }
 
-let parsed = parse("title=Post&tags[0]=rust&tags[1]=web")?;
+let parsed = parse("title=Post&tags[0]=rust&tags[1]=web", None)?;
 let form: Form = from_query_map(&parsed)?;
 assert_eq!(form.tags, vec!["rust", "web"]);
 
