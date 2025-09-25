@@ -1,5 +1,9 @@
-use bunner_qs::{ParseError, ParseOptions, QueryMap, parse, parse_with};
+use bunner_qs::{
+    ParseError, ParseOptions, QueryMap, StringifyOptions, Value, parse, parse_with, stringify_with,
+};
+use indexmap::IndexMap;
 use proptest::prelude::*;
+use proptest::test_runner::{Config as ProptestConfig, FileFailurePersistence};
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
@@ -24,6 +28,24 @@ struct SeedOptions {
 }
 
 #[derive(Debug, Deserialize)]
+struct SeedStringifyOptions {
+    #[serde(default)]
+    space_as_plus: Option<bool>,
+}
+
+#[derive(Debug, Deserialize)]
+struct RoundTripSeed {
+    name: String,
+    query: String,
+    #[serde(default)]
+    parse_options: Option<SeedOptions>,
+    #[serde(default)]
+    stringify_options: Option<SeedStringifyOptions>,
+    #[serde(default)]
+    normalized: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
 #[serde(rename_all = "snake_case")]
 enum SeedExpect {
     Ok,
@@ -40,27 +62,59 @@ enum SeedExpect {
 
 impl SeedCase {
     fn parse_options(&self) -> ParseOptions {
-        let mut opts = ParseOptions::default();
-        if let Some(cfg) = &self.options {
-            if let Some(space) = cfg.space_as_plus {
-                opts.space_as_plus = space;
-            }
-            if let Some(max_params) = cfg.max_params {
-                opts.max_params = Some(max_params);
-            }
-            if let Some(max_length) = cfg.max_length {
-                opts.max_length = Some(max_length);
-            }
-            if let Some(max_depth) = cfg.max_depth {
-                opts.max_depth = Some(max_depth);
-            }
-        }
-        opts
+        build_parse_options(self.options.as_ref())
     }
+}
+
+impl RoundTripSeed {
+    fn parse_options(&self) -> ParseOptions {
+        build_parse_options(self.parse_options.as_ref())
+    }
+
+    fn stringify_options(&self) -> StringifyOptions {
+        build_stringify_options(self.stringify_options.as_ref())
+    }
+
+    fn normalized_query(&self) -> Option<&str> {
+        self.normalized.as_deref()
+    }
+}
+
+fn build_parse_options(config: Option<&SeedOptions>) -> ParseOptions {
+    let mut opts = ParseOptions::default();
+    if let Some(cfg) = config {
+        if let Some(space) = cfg.space_as_plus {
+            opts.space_as_plus = space;
+        }
+        if let Some(max_params) = cfg.max_params {
+            opts.max_params = Some(max_params);
+        }
+        if let Some(max_length) = cfg.max_length {
+            opts.max_length = Some(max_length);
+        }
+        if let Some(max_depth) = cfg.max_depth {
+            opts.max_depth = Some(max_depth);
+        }
+    }
+    opts
+}
+
+fn build_stringify_options(config: Option<&SeedStringifyOptions>) -> StringifyOptions {
+    let mut opts = StringifyOptions::default();
+    if let Some(cfg) = config {
+        if let Some(space) = cfg.space_as_plus {
+            opts.space_as_plus = space;
+        }
+    }
+    opts
 }
 
 fn load_cases(data: &str) -> Vec<SeedCase> {
     serde_json::from_str(data).expect("seed JSON should parse")
+}
+
+fn load_roundtrip_cases(data: &str) -> Vec<RoundTripSeed> {
+    serde_json::from_str(data).expect("roundtrip seed JSON should parse")
 }
 
 fn expect_result(case: &SeedCase, result: Result<QueryMap, ParseError>) {
@@ -153,6 +207,34 @@ fn seed_reject_cases() {
     }
 }
 
+#[test]
+fn seed_roundtrip_cases() {
+    const DATA: &str = include_str!("data/query_roundtrip.json");
+    for case in load_roundtrip_cases(DATA) {
+        let name = &case.name;
+        let parse_opts = case.parse_options();
+        let stringify_opts = case.stringify_options();
+        let parsed = parse_with(&case.query, &parse_opts).unwrap_or_else(|err| {
+            panic!("case `{name}` expected parse success but failed: {err:?}")
+        });
+        let normalized = stringify_with(&parsed, &stringify_opts)
+            .unwrap_or_else(|err| panic!("case `{name}` failed to stringify: {err:?}"));
+        if let Some(expected) = case.normalized_query() {
+            assert_eq!(
+                normalized, expected,
+                "case `{name}` normalized output mismatch"
+            );
+        }
+        let reparsed = parse_with(&normalized, &parse_opts).unwrap_or_else(|err| {
+            panic!("case `{name}` failed to parse normalized output: {err:?}")
+        });
+        assert_eq!(
+            reparsed, parsed,
+            "case `{name}` round-trip altered structure"
+        );
+    }
+}
+
 fn allowed_char() -> impl Strategy<Value = char> {
     prop::char::range('\u{0020}', '\u{10FFFF}').prop_filter("exclude DEL", |c| *c != '\u{007F}')
 }
@@ -197,7 +279,122 @@ fn root_key_string() -> impl Strategy<Value = String> {
         .prop_map(|chars| chars.into_iter().collect())
 }
 
+fn object_key_string() -> impl Strategy<Value = String> {
+    const FIRST: &str = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    const REST: &str = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_";
+    let first_choices: Vec<char> = FIRST.chars().collect();
+    let rest_choices: Vec<char> = REST.chars().collect();
+    (
+        prop::sample::select(first_choices),
+        prop::collection::vec(prop::sample::select(rest_choices), 0..4),
+    )
+        .prop_map(|(first, rest)| {
+            let mut s = String::new();
+            s.push(first);
+            for ch in rest {
+                s.push(ch);
+            }
+            s
+        })
+}
+
+fn value_depth(value: &Value) -> usize {
+    match value {
+        Value::String(_) => 0,
+        Value::Array(items) => items.iter().map(value_depth).max().unwrap_or(0) + 1,
+        Value::Object(map) => map.values().map(value_depth).max().unwrap_or(0) + 1,
+    }
+}
+
+fn query_map_depth(map: &QueryMap) -> usize {
+    map.values().map(value_depth).max().unwrap_or(0)
+}
+
+fn estimate_params_value(value: &Value) -> usize {
+    match value {
+        Value::String(_) => 1,
+        Value::Array(items) => items.iter().map(estimate_params_value).sum(),
+        Value::Object(map) => map.values().map(estimate_params_value).sum(),
+    }
+}
+
+fn estimate_params(map: &QueryMap) -> usize {
+    map.values().map(estimate_params_value).sum()
+}
+
+fn arb_query_value() -> impl Strategy<Value = Value> {
+    let leaf = unicode_value_string().prop_map(Value::String);
+    leaf.prop_recursive(3, 32, 4, |inner| {
+        prop_oneof![
+            prop::collection::vec(inner.clone(), 1..3).prop_map(Value::Array),
+            prop::collection::vec((object_key_string(), inner), 1..3).prop_map(|pairs| {
+                let mut map = IndexMap::new();
+                for (key, value) in pairs {
+                    map.entry(key).or_insert(value);
+                }
+                Value::Object(map)
+            })
+        ]
+    })
+}
+
+fn arb_query_map() -> impl Strategy<Value = QueryMap> {
+    prop::collection::vec((root_key_string(), arb_query_value()), 0..4).prop_map(|pairs| {
+        let mut map = QueryMap::new();
+        for (key, value) in pairs {
+            if map.contains_key(&key) {
+                continue;
+            }
+            map.insert(key, value);
+        }
+        map
+    })
+}
+
+#[derive(Debug, Clone)]
+struct RoundTripConfig {
+    space_as_plus: bool,
+    max_params: Option<usize>,
+    max_length: Option<usize>,
+    max_depth: Option<usize>,
+}
+
+fn arb_roundtrip_input() -> impl Strategy<Value = (QueryMap, RoundTripConfig)> {
+    arb_query_map().prop_flat_map(|map| {
+        let depth = query_map_depth(&map);
+        let params = estimate_params(&map);
+        let map_clone = map.clone();
+        (
+            any::<bool>(),
+            prop::option::of(0usize..3),
+            any::<bool>(),
+            any::<bool>(),
+        )
+            .prop_map(
+                move |(space_as_plus, extra_params, use_length, use_depth)| {
+                    let max_params = extra_params.map(|extra| params + extra);
+                    let max_length = if use_length { Some(4096) } else { None };
+                    let max_depth = if use_depth { Some(depth + 2) } else { None };
+                    (
+                        map_clone.clone(),
+                        RoundTripConfig {
+                            space_as_plus,
+                            max_params,
+                            max_length,
+                            max_depth,
+                        },
+                    )
+                },
+            )
+    })
+}
+
 proptest! {
+    #![proptest_config(ProptestConfig {
+        cases: 256,
+        failure_persistence: Some(Box::new(FileFailurePersistence::Direct("tests/fuzzish.proptest-regressions"))),
+        ..ProptestConfig::default()
+    })]
     #[test]
     fn percent_encoded_unicode_round_trip(pairs in prop::collection::vec((unicode_key_string(), unicode_value_string()), 0..4)) {
         use std::collections::HashSet;
@@ -420,5 +617,36 @@ proptest! {
             prop_assert_eq!(first, format!("enabled-{idx}"));
             prop_assert_eq!(second, format!("beta-{idx}"));
         }
+    }
+
+    #[test]
+    fn stringify_parse_roundtrip_survives_random_structures((map, config) in arb_roundtrip_input()) {
+        let params_required = estimate_params(&map);
+        let depth_required = query_map_depth(&map);
+
+        let parse_options = ParseOptions {
+            space_as_plus: config.space_as_plus,
+            max_params: config.max_params,
+            max_length: config.max_length,
+            max_depth: config.max_depth,
+        };
+        let stringify_options = StringifyOptions {
+            space_as_plus: config.space_as_plus,
+        };
+
+        if let Some(limit) = parse_options.max_params {
+            prop_assume!(params_required <= limit);
+        }
+        if let Some(limit) = parse_options.max_depth {
+            prop_assume!(depth_required <= limit);
+        }
+
+        let encoded = stringify_with(&map, &stringify_options).expect("stringify should succeed");
+        if let Some(limit) = parse_options.max_length {
+            prop_assume!(encoded.len() <= limit);
+        }
+
+        let reparsed = parse_with(&encoded, &parse_options).expect("round trip parse should succeed");
+        prop_assert_eq!(reparsed, map);
     }
 }

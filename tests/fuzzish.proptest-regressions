@@ -5,3 +5,5 @@
 # Currently, there are no regression seeds to share, so it is left empty.
 
 
+cc 95c8d3eb78e7497a1af70d984cf894b4190ec3d68955b4bd64927e5a55c5590d # shrinks to (map, config) = (QueryMap({"aaa": Array([])}), RoundTripConfig { space_as_plus: false, max_params: None, max_length: None, max_depth: None })
+cc 730f82a4ac0c6e7ea012e9164a89a5fc40f9ce41f0f37800a5724fcda8054b56 # shrinks to (map, config) = (QueryMap({"aaa": Object({"983": String("#<Ѩ&")})}), RoundTripConfig { space_as_plus: false, max_params: None, max_length: None, max_depth: None })

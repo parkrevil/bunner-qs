@@ -1,0 +1,39 @@
+[
+  {
+    "name": "space_plus_roundtrip",
+  "query": "message=hello+world&encoded=A%2BB&note=space%20separated",
+    "parse_options": {
+      "space_as_plus": true,
+      "max_params": 4,
+      "max_length": 128
+    },
+    "stringify_options": {
+      "space_as_plus": true
+    },
+  "normalized": "message=hello+world&encoded=A%2BB&note=space+separated"
+  },
+  {
+    "name": "deep_nested_mix",
+    "query": "user[name]=Alice&user[address][city]=Seoul&user[address][zip]=04524&user[roles][]=admin&user[roles][]=dev&user[flags][beta]=true",
+    "parse_options": {
+      "space_as_plus": false,
+      "max_params": 8,
+      "max_depth": 4
+    },
+    "stringify_options": {
+      "space_as_plus": false
+    },
+  "normalized": "user%5Bname%5D=Alice&user%5Baddress%5D%5Bcity%5D=Seoul&user%5Baddress%5D%5Bzip%5D=04524&user%5Broles%5D%5B0%5D=admin&user%5Broles%5D%5B1%5D=dev&user%5Bflags%5D%5Bbeta%5D=true"
+  },
+  {
+    "name": "unicode_roundtrip",
+  "query": "emoji=%F0%9F%98%8A&message=%E3%85%87%E3%85%87&notes=Line%20Break",
+    "parse_options": {
+      "max_length": 96,
+      "space_as_plus": false
+    },
+    "stringify_options": {
+      "space_as_plus": false
+    }
+  }
+]
