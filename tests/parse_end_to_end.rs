@@ -25,6 +25,25 @@ fn allows_empty_input() {
 }
 
 #[test]
+fn parses_lone_question_mark_as_empty() {
+    let parsed = parse("?").expect("lone question mark should be treated as empty");
+    assert!(parsed.is_empty(), "leading '?' should not create entries");
+}
+
+#[test]
+fn strips_leading_question_mark_before_pairs() {
+    let parsed = parse("?foo=bar&baz=qux").expect("leading question mark should be ignored");
+    let expected = map_from_pairs(&[("foo", "bar"), ("baz", "qux")]);
+    assert_eq!(parsed, expected);
+}
+
+#[test]
+fn treats_flag_without_value_as_empty_string() {
+    let parsed = parse("flag").expect("keys without '=' should map to empty strings");
+    assert_str_entry(&parsed, "flag", "");
+}
+
+#[test]
 fn space_as_plus_option_controls_plus_handling() {
     let relaxed = ParseOptions {
         space_as_plus: true,
@@ -50,6 +69,13 @@ fn rejects_invalid_percent_encoding_sequences() {
         ParseError::InvalidPercentEncoding { index } => assert_eq!(index, 4),
         other => panic!("unexpected error variant: {other:?}"),
     }
+}
+
+#[test]
+fn ignores_trailing_ampersands_without_pairs() {
+    let parsed = parse("alpha=beta&&").expect("trailing '&' should be ignored");
+    let expected = map_from_pairs(&[("alpha", "beta")]);
+    assert_eq!(parsed, expected);
 }
 
 #[test]
@@ -123,6 +149,16 @@ fn rejects_duplicate_keys() {
     let error = parse("color=red&color=blue").expect_err("duplicate keys should be rejected");
     match error {
         ParseError::DuplicateKey { key } => assert_eq!(key, "color"),
+        other => panic!("unexpected error variant: {other:?}"),
+    }
+}
+
+#[test]
+fn rejects_sparse_array_indices() {
+    let error = parse("items[0]=apple&items[2]=cherry")
+        .expect_err("non-contiguous array indices should fail");
+    match error {
+        ParseError::DuplicateKey { key } => assert_eq!(key, "items"),
         other => panic!("unexpected error variant: {other:?}"),
     }
 }
