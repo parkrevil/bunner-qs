@@ -1,4 +1,4 @@
-use crate::nested::{insert_nested_value, parse_key_path};
+use crate::nested::{PatternState, insert_nested_value, parse_key_path};
 use crate::{ParseError, ParseOptions, ParseResult, QueryMap};
 
 pub fn parse<S: AsRef<str>>(input: S) -> ParseResult<QueryMap> {
@@ -41,6 +41,7 @@ pub fn parse_with_options<S: AsRef<str>>(
     }
 
     let mut map = QueryMap::new();
+    let mut pattern_state = PatternState::default();
     let mut pairs = 0usize;
     let mut start = 0;
     let len = trimmed.len();
@@ -81,7 +82,7 @@ pub fn parse_with_options<S: AsRef<str>>(
 
             // Parse the key path and insert nested value
             let key_segments = parse_key_path(&key);
-            insert_nested_value(&mut map, &key_segments, value)?;
+            insert_nested_value(&mut map, &key_segments, value, &mut pattern_state)?;
         }
 
         if end == len {

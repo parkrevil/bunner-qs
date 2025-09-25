@@ -1,5 +1,6 @@
 use crate::{ParseError, ParseResult, QueryMap, Value};
 use indexmap::IndexMap;
+use std::collections::HashMap;
 
 /// Parse a key with bracket notation into path segments
 /// e.g., "foo[bar][0]" -> ["foo", "bar", "0"]
@@ -39,10 +40,11 @@ fn is_placeholder(value: &Value) -> bool {
 }
 
 /// Insert a value into nested structure based on path segments
-pub fn insert_nested_value(
+pub(crate) fn insert_nested_value(
     map: &mut QueryMap,
     segments: &[String],
     value: String,
+    state: &mut PatternState,
 ) -> ParseResult<()> {
     if segments.is_empty() {
         return Ok(());
@@ -65,8 +67,11 @@ pub fn insert_nested_value(
         return Ok(());
     }
 
+    // Resolve segments to enforce array patterns and detect mixing
+    let resolved_segments = resolve_segments(state, segments)?;
+
     // Build nested path iteratively
-    build_nested_path(map, segments, value)
+    build_nested_path(map, &resolved_segments, value)
 }
 
 fn build_nested_path(
@@ -77,15 +82,32 @@ fn build_nested_path(
     let root_key = &segments[0];
 
     // Create the root entry if it doesn't exist
-    if !map.contains_key(root_key) {
+    if map.contains_key(root_key) {
+        let root_value = map.get(root_key).unwrap();
+        if !matches!(root_value, Value::Object(_) | Value::Array(_)) {
+            return Err(ParseError::DuplicateKey {
+                key: root_key.clone(),
+            });
+        }
+    } else {
         map.insert(root_key.clone(), Value::Object(IndexMap::new()));
     }
 
     // Build path recursively
-    set_nested_value(map.get_mut(root_key).unwrap(), &segments[1..], final_value)
+    set_nested_value(
+        map.get_mut(root_key).unwrap(),
+        &segments[1..],
+        final_value,
+        root_key,
+    )
 }
 
-fn set_nested_value(current: &mut Value, path: &[String], final_value: String) -> ParseResult<()> {
+fn set_nested_value(
+    current: &mut Value,
+    path: &[String],
+    final_value: String,
+    root_key: &str,
+) -> ParseResult<()> {
     if path.is_empty() {
         return Ok(());
     }
@@ -112,6 +134,10 @@ fn set_nested_value(current: &mut Value, path: &[String], final_value: String) -
                         });
                     }
                     arr[idx] = Value::String(final_value);
+                } else {
+                    return Err(ParseError::DuplicateKey {
+                        key: root_key.to_string(),
+                    });
                 }
             }
             Value::String(_) => {
@@ -143,7 +169,7 @@ fn set_nested_value(current: &mut Value, path: &[String], final_value: String) -
                     Value::Object(IndexMap::new())
                 }
             });
-            set_nested_value(entry, remaining_path, final_value)
+            set_nested_value(entry, remaining_path, final_value, root_key)
         }
         Value::Array(arr) => {
             if let Ok(idx) = segment.parse::<usize>() {
@@ -157,17 +183,105 @@ fn set_nested_value(current: &mut Value, path: &[String], final_value: String) -
                         },
                     );
                 }
-                set_nested_value(&mut arr[idx], remaining_path, final_value)
+                set_nested_value(&mut arr[idx], remaining_path, final_value, root_key)
             } else {
-                Ok(()) // Invalid array index, skip
+                Err(ParseError::DuplicateKey {
+                    key: root_key.to_string(),
+                })
             }
         }
         Value::String(_) => {
             // Convert to object and try again
             *current = Value::Object(IndexMap::new());
-            set_nested_value(current, path, final_value)
+            set_nested_value(current, path, final_value, root_key)
         }
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum SegmentKind {
+    Empty,
+    Numeric,
+    Other,
+}
+
+impl SegmentKind {
+    fn classify(segment: &str) -> Self {
+        if segment.is_empty() {
+            SegmentKind::Empty
+        } else if segment.chars().all(|c| c.is_ascii_digit()) {
+            SegmentKind::Numeric
+        } else {
+            SegmentKind::Other
+        }
+    }
+}
+
+#[derive(Debug, Default)]
+pub(crate) struct PatternState {
+    containers: HashMap<Vec<String>, ContainerState>,
+}
+
+impl PatternState {
+    fn resolve(
+        &mut self,
+        container_path: &[String],
+        segment: &str,
+        root_key: &str,
+    ) -> ParseResult<String> {
+        let kind = SegmentKind::classify(segment);
+        let entry = self
+            .containers
+            .entry(container_path.to_vec())
+            .or_insert_with(|| ContainerState::new(kind));
+
+        if entry.kind != kind {
+            return Err(ParseError::DuplicateKey {
+                key: root_key.to_string(),
+            });
+        }
+
+        Ok(match kind {
+            SegmentKind::Empty => {
+                let current = entry.next_index;
+                entry.next_index += 1;
+                current.to_string()
+            }
+            _ => segment.to_string(),
+        })
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+struct ContainerState {
+    kind: SegmentKind,
+    next_index: usize,
+}
+
+impl ContainerState {
+    fn new(kind: SegmentKind) -> Self {
+        Self {
+            kind,
+            next_index: 0,
+        }
+    }
+}
+
+fn resolve_segments(state: &mut PatternState, original: &[String]) -> ParseResult<Vec<String>> {
+    if original.len() <= 1 {
+        return Ok(original.to_vec());
+    }
+
+    let mut resolved = Vec::with_capacity(original.len());
+    resolved.push(original[0].clone());
+
+    for idx in 1..original.len() {
+        let container_path = &resolved[..idx];
+        let segment = state.resolve(container_path, &original[idx], &original[0])?;
+        resolved.push(segment);
+    }
+
+    Ok(resolved)
 }
 
 #[cfg(test)]
@@ -188,7 +302,14 @@ mod tests {
     #[test]
     fn test_insert_nested_simple() {
         let mut map = QueryMap::new();
-        insert_nested_value(&mut map, &["foo".to_string()], "bar".to_string()).unwrap();
+        let mut state = PatternState::default();
+        insert_nested_value(
+            &mut map,
+            &["foo".to_string()],
+            "bar".to_string(),
+            &mut state,
+        )
+        .unwrap();
 
         assert_eq!(map.get("foo").unwrap().as_str().unwrap(), "bar");
     }
@@ -196,10 +317,12 @@ mod tests {
     #[test]
     fn test_insert_nested_object() {
         let mut map = QueryMap::new();
+        let mut state = PatternState::default();
         insert_nested_value(
             &mut map,
             &["foo".to_string(), "bar".to_string()],
             "baz".to_string(),
+            &mut state,
         )
         .unwrap();
 
@@ -210,10 +333,12 @@ mod tests {
     #[test]
     fn test_insert_nested_array() {
         let mut map = QueryMap::new();
+        let mut state = PatternState::default();
         insert_nested_value(
             &mut map,
             &["foo".to_string(), "0".to_string()],
             "bar".to_string(),
+            &mut state,
         )
         .unwrap();
 
