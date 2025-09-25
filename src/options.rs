@@ -1,81 +1,39 @@
-#[derive(Debug, Clone, Default)]
+use derive_builder::Builder;
+
+#[derive(Debug, Clone, Default, Builder)]
+#[builder(pattern = "owned", default)]
 pub struct ParseOptions {
     pub space_as_plus: bool,
+    #[builder(setter(strip_option))]
     pub max_params: Option<usize>,
+    #[builder(setter(strip_option))]
     pub max_length: Option<usize>,
+    #[builder(setter(strip_option))]
     pub max_depth: Option<usize>,
 }
 
-#[derive(Debug, Clone)]
-pub struct ParseOptionsBuilder {
-    inner: ParseOptions,
-}
-
 impl ParseOptions {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
     pub fn builder() -> ParseOptionsBuilder {
-        ParseOptionsBuilder {
-            inner: ParseOptions::default(),
-        }
+        ParseOptionsBuilder::default()
     }
 }
 
-impl ParseOptionsBuilder {
-    pub fn space_as_plus(mut self, enabled: bool) -> Self {
-        self.inner.space_as_plus = enabled;
-        self
-    }
-
-    pub fn max_params(mut self, limit: Option<usize>) -> Self {
-        self.inner.max_params = limit;
-        self
-    }
-
-    pub fn max_length(mut self, limit: Option<usize>) -> Self {
-        self.inner.max_length = limit;
-        self
-    }
-
-    pub fn max_depth(mut self, limit: Option<usize>) -> Self {
-        self.inner.max_depth = limit;
-        self
-    }
-
-    pub fn build(self) -> ParseOptions {
-        self.inner
-    }
-}
-
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Builder)]
+#[builder(pattern = "owned", default)]
 pub struct StringifyOptions {
     pub space_as_plus: bool,
-    pub add_query_prefix: bool,
-}
-
-#[derive(Debug, Clone)]
-pub struct StringifyOptionsBuilder {
-    inner: StringifyOptions,
 }
 
 impl StringifyOptions {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
     pub fn builder() -> StringifyOptionsBuilder {
-        StringifyOptionsBuilder {
-            inner: StringifyOptions::default(),
-        }
-    }
-}
-
-impl StringifyOptionsBuilder {
-    pub fn space_as_plus(mut self, enabled: bool) -> Self {
-        self.inner.space_as_plus = enabled;
-        self
-    }
-
-    pub fn add_query_prefix(mut self, enabled: bool) -> Self {
-        self.inner.add_query_prefix = enabled;
-        self
-    }
-
-    pub fn build(self) -> StringifyOptions {
-        self.inner
+        StringifyOptionsBuilder::default()
     }
 }

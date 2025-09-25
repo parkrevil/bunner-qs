@@ -208,7 +208,7 @@ impl QueryMap {
         crate::stringify::stringify(self)
     }
 
-    pub fn to_string_with(&self, options: StringifyOptions) -> StringifyResult<String> {
+    pub fn to_string_with(&self, options: &StringifyOptions) -> StringifyResult<String> {
         crate::stringify::stringify_with(self, options)
     }
 

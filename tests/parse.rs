@@ -42,7 +42,7 @@ fn plus_handling_respects_option() {
         space_as_plus: true,
         ..ParseOptions::default()
     };
-    let parsed = parse_with("a=one+two", options).expect("plus should become space");
+    let parsed = parse_with("a=one+two", &options).expect("plus should become space");
     assert_eq!(parsed.get("a"), Some(&Value::String("one two".to_string())));
 
     let strict = parse("a=one+two").expect("default keeps plus literal");
@@ -61,7 +61,7 @@ fn enforces_max_params() {
         max_params: Some(1),
         ..ParseOptions::default()
     };
-    let error = parse_with("a=1&b=2", options).expect_err("parameter limit should trigger");
+    let error = parse_with("a=1&b=2", &options).expect_err("parameter limit should trigger");
     assert!(matches!(error, ParseError::TooManyParameters { .. }));
 }
 
@@ -71,7 +71,7 @@ fn enforces_max_depth() {
         max_depth: Some(1),
         ..ParseOptions::default()
     };
-    let error = parse_with("a[b][c]=1", options).expect_err("depth limit should trigger");
+    let error = parse_with("a[b][c]=1", &options).expect_err("depth limit should trigger");
     assert!(matches!(error, ParseError::DepthExceeded { .. }));
 }
 
@@ -85,10 +85,11 @@ fn allows_empty_input() {
 fn builder_constructs_parse_options() {
     let options = ParseOptions::builder()
         .space_as_plus(true)
-        .max_params(Some(8))
-        .max_length(Some(128))
-        .max_depth(Some(2))
-        .build();
+        .max_params(8)
+        .max_length(128)
+        .max_depth(2)
+        .build()
+        .expect("builder should produce options");
 
     assert!(options.space_as_plus);
     assert_eq!(options.max_params, Some(8));

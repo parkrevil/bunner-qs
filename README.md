@@ -7,6 +7,7 @@ Rust utilities for parsing and serializing URL query strings that follow RFC 3
 - **Standards first**: rejects malformed `%` sequences, stray `?`, unmatched brackets, and other non‑compliant tokens.
 - **Configurable limits**: cap maximum length, number of parameters, and bracket depth when parsing.
 - **Form mode toggle**: treat `+` as space only when explicitly enabled (`space_as_plus`).
+- **Builder ergonomics**: `ParseOptions::builder()` and `StringifyOptions::builder()` expose fluent configuration with safe defaults.
 - **Security by default**: duplicate keys are rejected to prevent HTTP parameter pollution (HPP).
 - **Optional Serde bridge**: enable the `serde` feature to round‑trip structs with `Serialize`/`Deserialize`.
 
@@ -23,11 +24,12 @@ use bunner_qs::{
 	parse, parse_with, stringify, stringify_with, ParseOptions, StringifyOptions, QueryMap, Value,
 };
 
-let mut parse_opts = ParseOptions::default();
-parse_opts.space_as_plus = true; // HTML form mode
-parse_opts.max_params = Some(32);
+let parse_opts = ParseOptions::builder()
+	.space_as_plus(true) // HTML form mode
+	.max_params(32)
+	.build()?;
 
-let params = parse_with("name=Jill+Doe&city=Seoul", parse_opts.clone())?;
+let params = parse_with("name=Jill+Doe&city=Seoul", &parse_opts)?;
 assert_eq!(
 	params
 		.get("name")
@@ -38,12 +40,24 @@ assert_eq!(
 let mut map = QueryMap::new();
 map.insert("q".into(), Value::String("rust qs".into()));
 
-let mut stringify_opts = StringifyOptions::default();
-stringify_opts.add_query_prefix = true;
+let stringify_opts = StringifyOptions::builder()
+	.space_as_plus(true)
+	.build()?;
 
-let query = stringify_with(&map, stringify_opts)?;
-assert_eq!(query, "?q=rust%20qs");
+let query = stringify_with(&map, &stringify_opts)?;
+assert_eq!(query, "q=rust+qs");
 ```
+
+### Option defaults at a glance
+
+- `ParseOptions::default()`
+	- `space_as_plus = false` (no HTML form conversion unless you opt in)
+	- `max_params = None` (no parameter-count limit)
+	- `max_length = None` (no cumulative length limit)
+	- `max_depth = None` (no bracket nesting limit)
+- `StringifyOptions::default()`
+	- `space_as_plus = false`
+	- outputs never receive an automatic `?` prefix; prepend one yourself if you need it for URLs
 
 ### Serde integration (enabled by default)
 

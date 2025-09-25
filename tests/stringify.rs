@@ -30,28 +30,12 @@ fn uses_plus_for_spaces_when_requested() {
     let map = map_simple(&[("note", "hello world")]);
     let options = StringifyOptions {
         space_as_plus: true,
-        ..StringifyOptions::default()
     };
-    let encoded = stringify_with(&map, options.clone()).expect("should encode with plus");
+    let encoded = stringify_with(&map, &options).expect("should encode with plus");
     assert_eq!(encoded, "note=hello+world");
 
     let default_encoded = stringify(&map).expect("default percent encodes");
     assert_eq!(default_encoded, "note=hello%20world");
-}
-
-#[test]
-fn can_add_query_prefix() {
-    let map = map_simple(&[("a", "1")]);
-    let options = StringifyOptions {
-        add_query_prefix: true,
-        ..StringifyOptions::default()
-    };
-    let encoded = stringify_with(&map, options.clone()).expect("should prefix with question mark");
-    assert_eq!(encoded, "?a=1");
-
-    let empty = QueryMap::new();
-    let prefixed_empty = stringify_with(&empty, options).expect("empty map still prefixes");
-    assert_eq!(prefixed_empty, "?");
 }
 
 #[test]
@@ -94,12 +78,10 @@ fn query_map_to_struct_method_converts_struct() {
 }
 
 #[test]
-fn builder_constructs_stringify_options() {
-    let options = StringifyOptions::builder()
-        .space_as_plus(true)
-        .add_query_prefix(true)
-        .build();
+fn constructs_stringify_options_with_struct_literal() {
+    let options = StringifyOptions {
+        space_as_plus: true,
+    };
 
     assert!(options.space_as_plus);
-    assert!(options.add_query_prefix);
 }

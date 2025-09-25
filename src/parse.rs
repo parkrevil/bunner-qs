@@ -2,10 +2,10 @@ use crate::nested::{PatternState, insert_nested_value, parse_key_path};
 use crate::{ParseError, ParseOptions, ParseResult, QueryMap};
 
 pub fn parse<S: AsRef<str>>(input: S) -> ParseResult<QueryMap> {
-    parse_with(input, ParseOptions::default())
+    parse_with(input, &ParseOptions::default())
 }
 
-pub fn parse_with<S: AsRef<str>>(input: S, options: ParseOptions) -> ParseResult<QueryMap> {
+pub fn parse_with<S: AsRef<str>>(input: S, options: &ParseOptions) -> ParseResult<QueryMap> {
     let raw = input.as_ref();
 
     if let Some(limit) = options.max_length
@@ -68,14 +68,14 @@ pub fn parse_with<S: AsRef<str>>(input: S, options: ParseOptions) -> ParseResult
             };
 
             let key_start = offset + start;
-            let key = decode_component(raw_key, &options, key_start)?;
-            validate_brackets(&key, &options)?;
+            let key = decode_component(raw_key, options, key_start)?;
+            validate_brackets(&key, options)?;
 
             let value_offset = match eq_index {
                 Some(idx) => offset + start + idx + 1,
                 None => offset + start + raw_key.len(),
             };
-            let value = decode_component(raw_value, &options, value_offset)?;
+            let value = decode_component(raw_value, options, value_offset)?;
 
             // Parse the key path and insert nested value
             let key_segments = parse_key_path(&key);

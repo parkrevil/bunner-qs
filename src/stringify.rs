@@ -1,16 +1,12 @@
 use crate::{QueryMap, StringifyError, StringifyOptions, StringifyResult, Value};
 
 pub fn stringify(map: &QueryMap) -> StringifyResult<String> {
-    stringify_with(map, StringifyOptions::default())
+    stringify_with(map, &StringifyOptions::default())
 }
 
-pub fn stringify_with(map: &QueryMap, options: StringifyOptions) -> StringifyResult<String> {
+pub fn stringify_with(map: &QueryMap, options: &StringifyOptions) -> StringifyResult<String> {
     if map.is_empty() {
-        return Ok(if options.add_query_prefix {
-            String::from("?")
-        } else {
-            String::new()
-        });
+        return Ok(String::new());
     }
 
     let mut pairs = Vec::new();
@@ -21,13 +17,7 @@ pub fn stringify_with(map: &QueryMap, options: StringifyOptions) -> StringifyRes
         flatten_value(key, value, &mut pairs, options.space_as_plus)?;
     }
 
-    let mut body = pairs.join("&");
-
-    if options.add_query_prefix {
-        body.insert(0, '?');
-    }
-
-    Ok(body)
+    Ok(pairs.join("&"))
 }
 
 fn flatten_value(

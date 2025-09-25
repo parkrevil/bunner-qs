@@ -138,7 +138,7 @@ fn seed_allow_cases() {
     const DATA: &str = include_str!("data/query_allow.json");
     for case in load_cases(DATA) {
         let opts = case.parse_options();
-        let result = parse_with(&case.input, opts);
+        let result = parse_with(&case.input, &opts);
         expect_result(&case, result);
     }
 }
@@ -148,7 +148,7 @@ fn seed_reject_cases() {
     const DATA: &str = include_str!("data/query_reject.json");
     for case in load_cases(DATA) {
         let opts = case.parse_options();
-        let result = parse_with(&case.input, opts);
+        let result = parse_with(&case.input, &opts);
         expect_result(&case, result);
     }
 }
@@ -231,7 +231,7 @@ proptest! {
             space_as_plus: true,
             ..Default::default()
         };
-        let parsed = parse_with(&query, opts).expect("should decode plus as space");
+    let parsed = parse_with(&query, &opts).expect("should decode plus as space");
         let stored = parsed.get("note").unwrap().as_str().unwrap();
         prop_assert_eq!(stored, value);
     }
@@ -248,7 +248,7 @@ proptest! {
             max_params: Some(limit),
             ..Default::default()
         };
-        let result = parse_with(&query, opts);
+    let result = parse_with(&query, &opts);
         match result {
             Err(ParseError::TooManyParameters { limit: lim, actual: act }) => {
                 prop_assert_eq!(lim, limit);
@@ -267,7 +267,7 @@ proptest! {
             max_length: Some(limit),
             ..Default::default()
         };
-        let result = parse_with(&query, opts);
+    let result = parse_with(&query, &opts);
         match result {
             Err(ParseError::InputTooLong { limit: lim }) => {
                 prop_assert_eq!(lim, limit);
@@ -288,7 +288,7 @@ proptest! {
             max_depth: Some(limit),
             ..Default::default()
         };
-        let result = parse_with(&query, opts);
+    let result = parse_with(&query, &opts);
         match result {
             Err(ParseError::DepthExceeded { limit: lim, .. }) => {
                 prop_assert_eq!(lim, limit);
@@ -313,7 +313,7 @@ proptest! {
             max_depth: Some(limit),
             ..Default::default()
         };
-        let result = parse_with(&query, opts);
+    let result = parse_with(&query, &opts);
         prop_assert!(result.is_ok());
     }
 
