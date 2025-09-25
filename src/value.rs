@@ -1,6 +1,4 @@
 use indexmap::IndexMap;
-use std::collections::HashMap;
-use thiserror::Error;
 
 use crate::{StringifyOptions, StringifyResult};
 
@@ -141,66 +139,6 @@ impl<'a> IntoIterator for &'a mut QueryMap {
     fn into_iter(self) -> Self::IntoIter {
         self.0.iter_mut()
     }
-}
-
-#[derive(Debug, Error)]
-pub enum SingleValueError {
-    #[error("key '{key}' has {count} values; expected exactly one")]
-    MultipleValues { key: String, count: usize },
-}
-
-pub type SingleValueResult<T> = Result<T, SingleValueError>;
-
-pub fn to_single_map(map: &QueryMap) -> SingleValueResult<HashMap<String, String>> {
-    let mut single = HashMap::with_capacity(map.len());
-
-    for (key, value) in map.iter() {
-        match value {
-            Value::String(s) => {
-                single.insert(key.clone(), s.clone());
-            }
-            Value::Array(arr) if arr.is_empty() => {
-                single.insert(key.clone(), String::new());
-            }
-            Value::Array(arr) if arr.len() == 1 => {
-                if let Value::String(s) = &arr[0] {
-                    single.insert(key.clone(), s.clone());
-                } else {
-                    return Err(SingleValueError::MultipleValues {
-                        key: key.clone(),
-                        count: 1,
-                    });
-                }
-            }
-            Value::Array(arr) => {
-                return Err(SingleValueError::MultipleValues {
-                    key: key.clone(),
-                    count: arr.len(),
-                });
-            }
-            Value::Object(_) => {
-                return Err(SingleValueError::MultipleValues {
-                    key: key.clone(),
-                    count: 1,
-                });
-            }
-        }
-    }
-
-    Ok(single)
-}
-
-pub fn from_single_map<I, K, V>(iter: I) -> QueryMap
-where
-    I: IntoIterator<Item = (K, V)>,
-    K: Into<String>,
-    V: Into<String>,
-{
-    iter.into_iter()
-        .fold(QueryMap::new(), |mut acc, (key, value)| {
-            acc.insert(key.into(), Value::String(value.into()));
-            acc
-        })
 }
 
 impl QueryMap {

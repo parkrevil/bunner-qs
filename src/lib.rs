@@ -15,6 +15,4 @@ pub use parse::{parse, parse_with};
 #[cfg(feature = "serde")]
 pub use serde_bridge::SerdeQueryError;
 pub use stringify::{stringify, stringify_with};
-pub use value::{
-    QueryMap, SingleValueError, SingleValueResult, Value, from_single_map, to_single_map,
-};
+pub use value::{QueryMap, Value};
