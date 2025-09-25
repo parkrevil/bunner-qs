@@ -101,10 +101,11 @@ fn build_parse_options(config: Option<&SeedOptions>) -> ParseOptions {
 
 fn build_stringify_options(config: Option<&SeedStringifyOptions>) -> StringifyOptions {
     let mut opts = StringifyOptions::default();
-    if let Some(cfg) = config {
-        if let Some(space) = cfg.space_as_plus {
-            opts.space_as_plus = space;
-        }
+    if let Some(SeedStringifyOptions {
+        space_as_plus: Some(space),
+    }) = config
+    {
+        opts.space_as_plus = *space;
     }
     opts
 }
