@@ -1,4 +1,4 @@
-use bunner_qs::{ParseError, ParseOptions, QueryMap, parse};
+use bunner_qs::{ParseError, ParseOptions, QueryMap, parse, parse_with};
 use proptest::prelude::*;
 use serde::Deserialize;
 
@@ -138,7 +138,7 @@ fn seed_allow_cases() {
     const DATA: &str = include_str!("data/query_allow.json");
     for case in load_cases(DATA) {
         let opts = case.parse_options();
-        let result = parse(&case.input, Some(opts));
+        let result = parse_with(&case.input, opts);
         expect_result(&case, result);
     }
 }
@@ -148,7 +148,7 @@ fn seed_reject_cases() {
     const DATA: &str = include_str!("data/query_reject.json");
     for case in load_cases(DATA) {
         let opts = case.parse_options();
-        let result = parse(&case.input, Some(opts));
+        let result = parse_with(&case.input, opts);
         expect_result(&case, result);
     }
 }
@@ -214,8 +214,8 @@ proptest! {
             let encoded_value = percent_encode(value);
             query_segments.push(format!("{}={}", encoded_key, encoded_value));
         }
-    let query = query_segments.join("&");
-    let parsed = parse(&query, None).expect("percent-encoded unicode should parse");
+        let query = query_segments.join("&");
+        let parsed = parse(&query).expect("percent-encoded unicode should parse");
         for (idx, (key, value)) in pairs.iter().enumerate() {
             let stored = parsed.get(key).unwrap_or_else(|| panic!("missing key at index {idx}"));
             let s = stored.as_str().unwrap_or_else(|| panic!("expected string for value `{key}`"));
@@ -231,7 +231,7 @@ proptest! {
             space_as_plus: true,
             ..Default::default()
         };
-        let parsed = parse(&query, Some(opts)).expect("should decode plus as space");
+        let parsed = parse_with(&query, opts).expect("should decode plus as space");
         let stored = parsed.get("note").unwrap().as_str().unwrap();
         prop_assert_eq!(stored, value);
     }
@@ -248,7 +248,7 @@ proptest! {
             max_params: Some(limit),
             ..Default::default()
         };
-        let result = parse(&query, Some(opts));
+        let result = parse_with(&query, opts);
         match result {
             Err(ParseError::TooManyParameters { limit: lim, actual: act }) => {
                 prop_assert_eq!(lim, limit);
@@ -267,7 +267,7 @@ proptest! {
             max_length: Some(limit),
             ..Default::default()
         };
-        let result = parse(&query, Some(opts));
+        let result = parse_with(&query, opts);
         match result {
             Err(ParseError::InputTooLong { limit: lim }) => {
                 prop_assert_eq!(lim, limit);
@@ -288,7 +288,7 @@ proptest! {
             max_depth: Some(limit),
             ..Default::default()
         };
-        let result = parse(&query, Some(opts));
+        let result = parse_with(&query, opts);
         match result {
             Err(ParseError::DepthExceeded { limit: lim, .. }) => {
                 prop_assert_eq!(lim, limit);
@@ -313,7 +313,7 @@ proptest! {
             max_depth: Some(limit),
             ..Default::default()
         };
-        let result = parse(&query, Some(opts));
+        let result = parse_with(&query, opts);
         prop_assert!(result.is_ok());
     }
 
@@ -339,8 +339,8 @@ proptest! {
             segments.push(format!("{root}[items][{idx}][flags][]={flag_beta}"));
         }
 
-    let query = segments.join("&");
-    let parsed = parse(&query, None).expect("nested structures should parse");
+            let query = segments.join("&");
+            let parsed = parse(&query).expect("nested structures should parse");
         let root_value = parsed.get(&root).expect("missing root value");
         let root_obj = root_value.as_object().expect("root should be an object");
 

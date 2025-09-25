@@ -17,11 +17,11 @@ pub enum SerdeQueryError {
 /// Convert a serde-serializable struct to a QueryMap
 pub fn to_query_map<T: Serialize>(data: &T) -> Result<QueryMap, SerdeQueryError> {
     let query_string = serde_urlencoded::to_string(data)?;
-    Ok(parse(&query_string, None)?)
+    Ok(parse(&query_string)?)
 }
 
 /// Convert a QueryMap to a serde-deserializable struct  
 pub fn from_query_map<T: DeserializeOwned>(query_map: &QueryMap) -> Result<T, SerdeQueryError> {
-    let query_string = stringify(query_map, None)?;
+    let query_string = stringify(query_map)?;
     Ok(serde_urlencoded::from_str(&query_string)?)
 }

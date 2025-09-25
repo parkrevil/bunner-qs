@@ -1,8 +1,11 @@
 use crate::nested::{PatternState, insert_nested_value, parse_key_path};
 use crate::{ParseError, ParseOptions, ParseResult, QueryMap};
 
-pub fn parse<S: AsRef<str>>(input: S, options: Option<ParseOptions>) -> ParseResult<QueryMap> {
-    let options = options.unwrap_or_default();
+pub fn parse<S: AsRef<str>>(input: S) -> ParseResult<QueryMap> {
+    parse_with(input, ParseOptions::default())
+}
+
+pub fn parse_with<S: AsRef<str>>(input: S, options: ParseOptions) -> ParseResult<QueryMap> {
     let raw = input.as_ref();
 
     if let Some(limit) = options.max_length

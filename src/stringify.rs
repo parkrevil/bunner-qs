@@ -1,7 +1,10 @@
 use crate::{QueryMap, StringifyError, StringifyOptions, StringifyResult, Value};
 
-pub fn stringify(map: &QueryMap, options: Option<StringifyOptions>) -> StringifyResult<String> {
-    let options = options.unwrap_or_default();
+pub fn stringify(map: &QueryMap) -> StringifyResult<String> {
+    stringify_with(map, StringifyOptions::default())
+}
+
+pub fn stringify_with(map: &QueryMap, options: StringifyOptions) -> StringifyResult<String> {
     if map.is_empty() {
         return Ok(if options.add_query_prefix {
             String::from("?")

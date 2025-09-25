@@ -1,4 +1,4 @@
-use bunner_qs::{ParseError, ParseOptions, QueryMap, Value, parse};
+use bunner_qs::{ParseError, ParseOptions, QueryMap, Value, parse, parse_with};
 
 fn map_simple(entries: &[(&str, &str)]) -> QueryMap {
     let mut result = QueryMap::new();
@@ -10,14 +10,14 @@ fn map_simple(entries: &[(&str, &str)]) -> QueryMap {
 
 #[test]
 fn parses_basic_pairs() {
-    let parsed = parse("a=1&b=two", None).expect("should parse basic pairs");
+    let parsed = parse("a=1&b=two").expect("should parse basic pairs");
     let expected = map_simple(&[("a", "1"), ("b", "two")]);
     assert_eq!(parsed, expected);
 }
 
 #[test]
 fn decodes_percent_sequences() {
-    let parsed = parse("name=John%20Doe", None).expect("should decode percent sequences");
+    let parsed = parse("name=John%20Doe").expect("should decode percent sequences");
     assert_eq!(
         parsed.get("name"),
         Some(&Value::String("John Doe".to_string()))
@@ -26,13 +26,13 @@ fn decodes_percent_sequences() {
 
 #[test]
 fn rejects_invalid_percent_sequences() {
-    let error = parse("a=%2", None).expect_err("invalid percent encoding should fail");
+    let error = parse("a=%2").expect_err("invalid percent encoding should fail");
     assert!(matches!(error, ParseError::InvalidPercentEncoding { .. }));
 }
 
 #[test]
 fn rejects_unmatched_brackets() {
-    let error = parse("a[1=0", None).expect_err("unmatched bracket should fail");
+    let error = parse("a[1=0").expect_err("unmatched bracket should fail");
     assert!(matches!(error, ParseError::UnmatchedBracket { .. }));
 }
 
@@ -42,16 +42,16 @@ fn plus_handling_respects_option() {
         space_as_plus: true,
         ..ParseOptions::default()
     };
-    let parsed = parse("a=one+two", Some(options)).expect("plus should become space");
+    let parsed = parse_with("a=one+two", options).expect("plus should become space");
     assert_eq!(parsed.get("a"), Some(&Value::String("one two".to_string())));
 
-    let strict = parse("a=one+two", None).expect("default keeps plus literal");
+    let strict = parse("a=one+two").expect("default keeps plus literal");
     assert_eq!(strict.get("a"), Some(&Value::String("one+two".to_string())));
 }
 
 #[test]
 fn duplicate_keys_can_be_restricted() {
-    let error = parse("a=1&a=2", None).expect_err("duplicate keys should fail");
+    let error = parse("a=1&a=2").expect_err("duplicate keys should fail");
     assert!(matches!(error, ParseError::DuplicateKey { .. }));
 }
 
@@ -61,7 +61,7 @@ fn enforces_max_params() {
         max_params: Some(1),
         ..ParseOptions::default()
     };
-    let error = parse("a=1&b=2", Some(options)).expect_err("parameter limit should trigger");
+    let error = parse_with("a=1&b=2", options).expect_err("parameter limit should trigger");
     assert!(matches!(error, ParseError::TooManyParameters { .. }));
 }
 
@@ -71,13 +71,13 @@ fn enforces_max_depth() {
         max_depth: Some(1),
         ..ParseOptions::default()
     };
-    let error = parse("a[b][c]=1", Some(options)).expect_err("depth limit should trigger");
+    let error = parse_with("a[b][c]=1", options).expect_err("depth limit should trigger");
     assert!(matches!(error, ParseError::DepthExceeded { .. }));
 }
 
 #[test]
 fn allows_empty_input() {
-    let parsed = parse("", None).expect("empty input should succeed");
+    let parsed = parse("").expect("empty input should succeed");
     assert!(parsed.is_empty());
 }
 
@@ -98,7 +98,7 @@ fn builder_constructs_parse_options() {
 
 #[test]
 fn parses_nested_objects() {
-    let parsed = parse("user[name]=John&user[age]=30", None).expect("should parse nested objects");
+    let parsed = parse("user[name]=John&user[age]=30").expect("should parse nested objects");
 
     let user_obj = parsed.get("user").unwrap().as_object().unwrap();
     assert_eq!(user_obj.get("name").unwrap().as_str().unwrap(), "John");
@@ -107,7 +107,7 @@ fn parses_nested_objects() {
 
 #[test]
 fn parses_nested_arrays() {
-    let parsed = parse("items[0]=apple&items[1]=banana", None).expect("should parse nested arrays");
+    let parsed = parse("items[0]=apple&items[1]=banana").expect("should parse nested arrays");
 
     let items_value = parsed.get("items").unwrap().as_array().unwrap();
     assert_eq!(items_value[0].as_str().unwrap(), "apple");
@@ -116,7 +116,7 @@ fn parses_nested_arrays() {
 
 #[test]
 fn parses_complex_nesting() {
-    let parsed = parse("data[users][0][name]=Alice&data[users][1][name]=Bob", None)
+    let parsed = parse("data[users][0][name]=Alice&data[users][1][name]=Bob")
         .expect("should parse complex nested structure");
 
     let data_obj = parsed.get("data").unwrap().as_object().unwrap();
@@ -130,7 +130,7 @@ fn parses_complex_nesting() {
 
 #[test]
 fn rejects_duplicate_keys_in_default_mode() {
-    let error = parse("color=red&color=blue", None).expect_err("duplicate keys should be rejected");
+    let error = parse("color=red&color=blue").expect_err("duplicate keys should be rejected");
     match error {
         ParseError::DuplicateKey { key } => assert_eq!(key, "color"),
         other => panic!("unexpected error: {:?}", other),
@@ -142,10 +142,10 @@ fn round_trip_nested_structure() {
     // Test that we can parse and stringify nested structures
     let input =
         "user[name]=Alice&user[details][age]=25&user[hobbies][0]=reading&user[hobbies][1]=coding";
-    let parsed = parse(input, None).expect("should parse complex nested structure");
+    let parsed = parse(input).expect("should parse complex nested structure");
     let stringified = parsed.to_string().expect("should stringify back");
 
     // Parse again to ensure consistency
-    let reparsed = parse(&stringified, None).expect("should parse stringified result");
+    let reparsed = parse(&stringified).expect("should parse stringified result");
     assert_eq!(parsed, reparsed);
 }
