@@ -74,6 +74,27 @@ fn percent_encodes_reserved_and_unicode() {
 }
 
 #[test]
+fn percent_encodes_long_nested_unicode_values() {
+    let long_value = "🚀".repeat(64);
+
+    let mut profile = IndexMap::new();
+    profile.insert("bio".to_string(), Value::String(long_value.clone()));
+
+    let mut root = QueryMap::new();
+    root.insert("profile".to_string(), Value::Object(profile));
+
+    let encoded = stringify(&root).expect("should stringify long unicode value");
+    assert!(encoded.contains("%F0%9F%9A%80"));
+
+    let parsed = parse(&encoded).expect("percent encoded payload should parse");
+    let profile = parsed
+        .get("profile")
+        .and_then(Value::as_object)
+        .expect("missing profile");
+    assert_str_entry(profile, "bio", &long_value);
+}
+
+#[test]
 fn nested_structures_use_bracket_notation() {
     let map = build_nested_user_map();
     let encoded = stringify(&map).expect("should stringify nested structures");
@@ -136,6 +157,51 @@ fn rejects_control_characters_in_value() {
         StringifyError::InvalidValue { key } => assert_eq!(key, "normal"),
         other => panic!("unexpected error variant: {other:?}"),
     }
+}
+
+#[test]
+fn rejects_control_characters_in_nested_value() {
+    let mut address = IndexMap::new();
+    address.insert(
+        "line1".to_string(),
+        Value::String("First\nLine".to_string()),
+    );
+
+    let mut profile = IndexMap::new();
+    profile.insert("address".to_string(), Value::Object(address));
+
+    let mut map = QueryMap::new();
+    map.insert("profile".to_string(), Value::Object(profile));
+
+    let error = stringify(&map).expect_err("control characters inside nested value should fail");
+    match error {
+        StringifyError::InvalidValue { key } => assert_eq!(key, "profile[address][line1]"),
+        other => panic!("unexpected error variant: {other:?}"),
+    }
+}
+
+#[test]
+fn array_of_objects_stringifies_cleanly() {
+    let mut phone_one = IndexMap::new();
+    phone_one.insert("kind".to_string(), Value::String("mobile".to_string()));
+    phone_one.insert("number".to_string(), Value::String("+44 123".to_string()));
+
+    let mut phone_two = IndexMap::new();
+    phone_two.insert("kind".to_string(), Value::String("office".to_string()));
+    phone_two.insert("number".to_string(), Value::String("+44 987".to_string()));
+
+    let mut contact = IndexMap::new();
+    contact.insert(
+        "phones".to_string(),
+        Value::Array(vec![Value::Object(phone_one), Value::Object(phone_two)]),
+    );
+
+    let mut map = QueryMap::new();
+    map.insert("contact".to_string(), Value::Object(contact));
+
+    let encoded = stringify(&map).expect("array of objects should stringify");
+    let reparsed = parse(&encoded).expect("stringified payload should parse");
+    assert_eq!(reparsed, map);
 }
 
 #[test]
