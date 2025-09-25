@@ -1,4 +1,6 @@
 use bunner_qs::{QueryMap, StringifyError, StringifyOptions, Value, stringify};
+#[cfg(feature = "serde")]
+use serde::Deserialize;
 
 fn map_simple(entries: &[(&str, &str)]) -> QueryMap {
     let mut result = QueryMap::new();
@@ -13,6 +15,14 @@ fn stringifies_basic_pairs() {
     let map = map_simple(&[("a", "1"), ("b", "two")]);
     let encoded = stringify(&map, None).expect("should stringify");
     assert_eq!(encoded, "a=1&b=two");
+}
+
+#[test]
+fn query_map_to_string_method_matches_function() {
+    let map = map_simple(&[("x", "1"), ("y", "two")]);
+    let via_fn = stringify(&map, None).expect("function stringify should succeed");
+    let via_method = map.to_string().expect("method stringify should succeed");
+    assert_eq!(via_fn, via_method);
 }
 
 #[test]
@@ -58,6 +68,29 @@ fn rejects_control_characters_in_key() {
     map.insert("bad\x07key".to_string(), Value::String("value".to_string()));
     let error = stringify(&map, None).expect_err("control characters in key should be rejected");
     assert!(matches!(error, StringifyError::InvalidKey { .. }));
+}
+
+#[cfg(feature = "serde")]
+#[test]
+fn query_map_to_struct_method_converts_struct() {
+    #[derive(Debug, Deserialize, PartialEq)]
+    struct Info {
+        name: String,
+        age: u8,
+    }
+
+    let mut map = QueryMap::new();
+    map.insert("name".into(), Value::String("Jane".into()));
+    map.insert("age".into(), Value::String("30".into()));
+
+    let info = map.to_struct::<Info>().expect("should decode to struct");
+    assert_eq!(
+        info,
+        Info {
+            name: "Jane".into(),
+            age: 30
+        }
+    );
 }
 
 #[test]

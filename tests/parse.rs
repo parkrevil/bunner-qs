@@ -1,4 +1,4 @@
-use bunner_qs::{ParseError, ParseOptions, QueryMap, Value, parse, stringify};
+use bunner_qs::{ParseError, ParseOptions, QueryMap, Value, parse};
 
 fn map_simple(entries: &[(&str, &str)]) -> QueryMap {
     let mut result = QueryMap::new();
@@ -143,7 +143,7 @@ fn round_trip_nested_structure() {
     let input =
         "user[name]=Alice&user[details][age]=25&user[hobbies][0]=reading&user[hobbies][1]=coding";
     let parsed = parse(input, None).expect("should parse complex nested structure");
-    let stringified = stringify(&parsed, None).expect("should stringify back");
+    let stringified = parsed.to_string().expect("should stringify back");
 
     // Parse again to ensure consistency
     let reparsed = parse(&stringified, None).expect("should parse stringified result");

@@ -2,7 +2,14 @@ use indexmap::IndexMap;
 use std::collections::HashMap;
 use thiserror::Error;
 
-#[derive(Debug, Clone, PartialEq)]
+use crate::{StringifyOptions, StringifyResult};
+
+#[cfg(feature = "serde")]
+use crate::serde_support::{SerdeQueryError, from_query_map};
+#[cfg(feature = "serde")]
+use serde::de::DeserializeOwned;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Value {
     String(String),
     Array(Vec<Value>),
@@ -56,7 +63,85 @@ impl From<&str> for Value {
     }
 }
 
-pub type QueryMap = IndexMap<String, Value>;
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct QueryMap(IndexMap<String, Value>);
+
+impl QueryMap {
+    pub fn new() -> Self {
+        Self(IndexMap::new())
+    }
+
+    pub fn with_capacity(capacity: usize) -> Self {
+        Self(IndexMap::with_capacity(capacity))
+    }
+}
+
+impl std::ops::Deref for QueryMap {
+    type Target = IndexMap<String, Value>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl std::ops::DerefMut for QueryMap {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl From<IndexMap<String, Value>> for QueryMap {
+    fn from(map: IndexMap<String, Value>) -> Self {
+        Self(map)
+    }
+}
+
+impl From<QueryMap> for IndexMap<String, Value> {
+    fn from(map: QueryMap) -> Self {
+        map.0
+    }
+}
+
+impl<K, V> FromIterator<(K, V)> for QueryMap
+where
+    K: Into<String>,
+    V: Into<Value>,
+{
+    fn from_iter<T: IntoIterator<Item = (K, V)>>(iter: T) -> Self {
+        let mut map = QueryMap::new();
+        for (key, value) in iter {
+            map.insert(key.into(), value.into());
+        }
+        map
+    }
+}
+
+impl IntoIterator for QueryMap {
+    type Item = (String, Value);
+    type IntoIter = indexmap::map::IntoIter<String, Value>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
+}
+
+impl<'a> IntoIterator for &'a QueryMap {
+    type Item = (&'a String, &'a Value);
+    type IntoIter = indexmap::map::Iter<'a, String, Value>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.iter()
+    }
+}
+
+impl<'a> IntoIterator for &'a mut QueryMap {
+    type Item = (&'a String, &'a mut Value);
+    type IntoIter = indexmap::map::IterMut<'a, String, Value>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.iter_mut()
+    }
+}
 
 #[derive(Debug, Error)]
 pub enum SingleValueError {
@@ -116,4 +201,22 @@ where
             acc.insert(key.into(), Value::String(value.into()));
             acc
         })
+}
+
+impl QueryMap {
+    pub fn to_string(&self) -> StringifyResult<String> {
+        self.to_string_with(None)
+    }
+
+    pub fn to_string_with(&self, options: Option<StringifyOptions>) -> StringifyResult<String> {
+        crate::stringify::stringify(self, options)
+    }
+
+    #[cfg(feature = "serde")]
+    pub fn to_struct<T>(&self) -> Result<T, SerdeQueryError>
+    where
+        T: DeserializeOwned,
+    {
+        from_query_map(self)
+    }
 }
