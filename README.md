@@ -10,6 +10,12 @@ Rust utilities for parsing and serializing URL query strings that follow RFC 3
 - **Security by default**: duplicate keys are rejected to prevent HTTP parameter pollution (HPP).
 - **Optional Serde bridge**: enable the `serde` feature to round‑trip structs with `Serialize`/`Deserialize`.
 
+### Key naming policy
+
+- Query keys and their nested bracket segments accept any UTF‑8 string, matching RFC 3986/3987 expectations.
+- Percent‑encoded characters are decoded as Unicode; only control characters (`U+0000`–`U+001F`, `U+007F`) are rejected.
+- No additional identifier rules (such as ASCII-only or first-character restrictions) are applied, so existing integrations continue to work unchanged.
+
 ## Quick start
 
 ```rust
