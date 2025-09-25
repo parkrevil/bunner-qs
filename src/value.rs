@@ -205,11 +205,11 @@ where
 
 impl QueryMap {
     pub fn to_string(&self) -> StringifyResult<String> {
-        self.to_string_with(None)
+        crate::stringify::stringify(self, None)
     }
 
-    pub fn to_string_with(&self, options: Option<StringifyOptions>) -> StringifyResult<String> {
-        crate::stringify::stringify(self, options)
+    pub fn to_string_with(&self, options: StringifyOptions) -> StringifyResult<String> {
+        crate::stringify::stringify(self, Some(options))
     }
 
     #[cfg(feature = "serde")]
