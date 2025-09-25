@@ -110,22 +110,9 @@ fn parses_nested_objects() {
 fn parses_nested_arrays() {
     let parsed = parse("items[0]=apple&items[1]=banana").expect("should parse nested arrays");
 
-    println!("Parsed result: {:#?}", parsed);
-    let items_value = parsed.get("items").unwrap();
-    println!("Items value: {:#?}", items_value);
-
-    match items_value {
-        Value::Array(arr) => {
-            assert_eq!(arr[0].as_str().unwrap(), "apple");
-            assert_eq!(arr[1].as_str().unwrap(), "banana");
-        }
-        Value::Object(obj) => {
-            // If it's an object with numeric keys, that's also valid
-            assert_eq!(obj.get("0").unwrap().as_str().unwrap(), "apple");
-            assert_eq!(obj.get("1").unwrap().as_str().unwrap(), "banana");
-        }
-        _ => panic!("Expected array or object with numeric keys"),
-    }
+    let items_value = parsed.get("items").unwrap().as_array().unwrap();
+    assert_eq!(items_value[0].as_str().unwrap(), "apple");
+    assert_eq!(items_value[1].as_str().unwrap(), "banana");
 }
 
 #[test]
