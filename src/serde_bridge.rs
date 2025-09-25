@@ -1,4 +1,4 @@
-use crate::{QueryMap, parse, stringify};
+use crate::{ParseOptions, QueryMap, parse_with, stringify};
 use serde::{Serialize, de::DeserializeOwned};
 use thiserror::Error;
 
@@ -17,7 +17,11 @@ pub enum SerdeQueryError {
 /// Convert a serde-serializable struct to a QueryMap
 pub(crate) fn to_query_map<T: Serialize>(data: &T) -> Result<QueryMap, SerdeQueryError> {
     let query_string = serde_urlencoded::to_string(data)?;
-    Ok(parse(&query_string)?)
+    let options = ParseOptions {
+        space_as_plus: true,
+        ..ParseOptions::default()
+    };
+    Ok(parse_with(&query_string, &options)?)
 }
 
 /// Convert a QueryMap to a serde-deserializable struct
