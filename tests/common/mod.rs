@@ -3,6 +3,7 @@ use indexmap::IndexMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+#[allow(dead_code)]
 /// Build a `QueryMap` from key/value string pairs.
 pub fn map_from_pairs(pairs: &[(&str, &str)]) -> QueryMap {
     let mut map = QueryMap::new();
