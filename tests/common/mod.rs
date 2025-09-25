@@ -22,6 +22,7 @@ pub fn assert_str_entry(map: &IndexMap<String, Value>, key: &str, expected: &str
     }
 }
 
+#[allow(dead_code)]
 pub fn assert_string_array(value: &Value, expected: &[&str]) {
     match value {
         Value::Array(items) => {
@@ -40,6 +41,7 @@ pub fn assert_string_array(value: &Value, expected: &[&str]) {
     }
 }
 
+#[allow(dead_code)]
 pub fn expect_object(value: &Value) -> &IndexMap<String, Value> {
     value
         .as_object()
