@@ -1,6 +1,6 @@
 mod common;
 
-use bunner_qs::{ParseError, QueryMap, Value, parse, stringify};
+use bunner_qs::{ParseError, ParseOptions, QueryMap, Value, parse, parse_with, stringify};
 use common::{assert_str_entry, assert_string_array, expect_object};
 
 #[test]
@@ -65,6 +65,26 @@ fn stringify_preserves_array_order_for_numeric_indices() {
 }
 
 #[test]
+fn rejects_array_scalar_then_object_conflict() {
+    let error = parse("items[0]=apple&items[0][kind]=fruit")
+        .expect_err("array entries should not change from scalar to object");
+    match error {
+        ParseError::DuplicateKey { key } => assert_eq!(key, "items"),
+        other => panic!("unexpected error variant: {other:?}"),
+    }
+}
+
+#[test]
+fn rejects_array_object_then_scalar_conflict() {
+    let error = parse("items[0][kind]=fruit&items[0]=apple")
+        .expect_err("array entries should not change from object to scalar");
+    match error {
+        ParseError::DuplicateKey { key } => assert!(key == "items" || key == "0"),
+        other => panic!("unexpected error variant: {other:?}"),
+    }
+}
+
+#[test]
 fn rejects_mixed_append_and_numeric_patterns() {
     let error = parse("key[]=1&key[0]=1").expect_err("mixed append/numeric should fail");
     match error {
@@ -97,6 +117,31 @@ fn rejects_non_contiguous_numeric_indexes() {
         .expect_err("non contiguous numeric indexes should fail");
     match error {
         ParseError::DuplicateKey { key } => assert_eq!(key, "items"),
+        other => panic!("unexpected error variant: {other:?}"),
+    }
+}
+
+#[test]
+fn respects_depth_limit_for_mixed_nested_structure() {
+    let query = "profile[contacts][phones][0][number]=+44%20123";
+
+    let permissive = ParseOptions {
+        max_depth: Some(4),
+        ..ParseOptions::default()
+    };
+    parse_with(query, &permissive).expect("depth of four should succeed");
+
+    let strict = ParseOptions {
+        max_depth: Some(2),
+        ..ParseOptions::default()
+    };
+    let error =
+        parse_with(query, &strict).expect_err("depth limit should reject deeply nested structure");
+    match error {
+        ParseError::DepthExceeded { key, limit } => {
+            assert_eq!(key, "profile[contacts][phones][0][number]");
+            assert_eq!(limit, 2);
+        }
         other => panic!("unexpected error variant: {other:?}"),
     }
 }
