@@ -1,7 +1,7 @@
 use derive_builder::Builder;
 
 #[derive(Debug, Clone, Default, Builder)]
-#[builder(pattern = "owned", default)]
+#[builder(pattern = "owned", default, build_fn(validate = "Self::validate"))]
 pub struct ParseOptions {
     pub space_as_plus: bool,
     #[builder(setter(strip_option))]
@@ -15,6 +15,21 @@ pub struct ParseOptions {
 impl ParseOptions {
     pub fn builder() -> ParseOptionsBuilder {
         ParseOptionsBuilder::default()
+    }
+}
+
+impl ParseOptionsBuilder {
+    fn validate(&self) -> Result<(), String> {
+        if matches!(self.max_params, Some(Some(0))) {
+            return Err("max_params must be greater than 0 when using the builder".into());
+        }
+        if matches!(self.max_length, Some(Some(0))) {
+            return Err("max_length must be greater than 0 when using the builder".into());
+        }
+        if matches!(self.max_depth, Some(Some(0))) {
+            return Err("max_depth must be greater than 0 when using the builder".into());
+        }
+        Ok(())
     }
 }
 

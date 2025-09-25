@@ -99,6 +99,107 @@ fn parse_options_builder_configures_all_fields() {
 }
 
 #[test]
+fn parse_options_builder_rejects_zero_limits() {
+    let params_err = ParseOptions::builder()
+        .max_params(0)
+        .build()
+        .expect_err("zero param limit should be rejected by builder");
+    let params_msg = params_err.to_string();
+    assert!(
+        params_msg.contains("max_params"),
+        "expected `{params_msg}` to contain `max_params`"
+    );
+
+    let length_err = ParseOptions::builder()
+        .max_length(0)
+        .build()
+        .expect_err("zero length limit should be rejected by builder");
+    let length_msg = length_err.to_string();
+    assert!(
+        length_msg.contains("max_length"),
+        "expected `{length_msg}` to contain `max_length`"
+    );
+
+    let depth_err = ParseOptions::builder()
+        .max_depth(0)
+        .build()
+        .expect_err("zero depth limit should be rejected by builder");
+    let depth_msg = depth_err.to_string();
+    assert!(
+        depth_msg.contains("max_depth"),
+        "expected `{depth_msg}` to contain `max_depth`"
+    );
+}
+
+#[test]
+fn parse_combined_limits_prioritize_length_check() {
+    let options = ParseOptions {
+        max_params: Some(5),
+        max_length: Some(5),
+        ..ParseOptions::default()
+    };
+
+    let error = parse_with("toolong=value", &options)
+        .expect_err("length limit should surface before param counting");
+    match error {
+        ParseError::InputTooLong { limit } => assert_eq!(limit, 5),
+        other => panic!("unexpected error variant: {other:?}"),
+    }
+}
+
+#[test]
+fn parse_combined_limits_still_enforce_params() {
+    let options = ParseOptions {
+        max_params: Some(1),
+        max_length: Some(64),
+        ..ParseOptions::default()
+    };
+
+    let error =
+        parse_with("a=1&b=2", &options).expect_err("second parameter should breach param limit");
+    match error {
+        ParseError::TooManyParameters { limit, actual } => {
+            assert_eq!(limit, 1);
+            assert_eq!(actual, 2);
+        }
+        other => panic!("unexpected error variant: {other:?}"),
+    }
+}
+
+#[test]
+fn parse_combined_limits_respect_depth_even_with_param_budget() {
+    let options = ParseOptions {
+        max_params: Some(10),
+        max_depth: Some(1),
+        ..ParseOptions::default()
+    };
+
+    let error = parse_with("a[b][c]=1", &options)
+        .expect_err("depth limit should trigger ahead of parameter budget");
+    match error {
+        ParseError::DepthExceeded { key, limit } => {
+            assert_eq!(key, "a[b][c]");
+            assert_eq!(limit, 1);
+        }
+        other => panic!("unexpected error variant: {other:?}"),
+    }
+}
+
+#[test]
+fn parse_handles_extremely_large_limits_without_overflow() {
+    let options = ParseOptions {
+        max_params: Some(usize::MAX),
+        max_length: Some(usize::MAX),
+        max_depth: Some(usize::MAX),
+        ..ParseOptions::default()
+    };
+
+    let parsed = parse_with("a=1&b=2", &options).expect("extreme limits should still parse");
+    assert_str_entry(&parsed, "a", "1");
+    assert_str_entry(&parsed, "b", "2");
+}
+
+#[test]
 fn parse_options_builder_defaults_match_default() {
     let built = ParseOptions::builder()
         .build()
