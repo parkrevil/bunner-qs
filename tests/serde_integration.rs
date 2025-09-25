@@ -18,8 +18,8 @@ mod serde_tests {
         };
 
         // Struct -> QueryMap -> Struct
-        let query_map = to_query_map(&original).unwrap();
-        let restored: SimpleStruct = from_query_map(&query_map).unwrap();
+        let query_map = QueryMap::from_struct(&original).unwrap();
+        let restored: SimpleStruct = query_map.to_struct().unwrap();
 
         assert_eq!(original, restored);
     }
@@ -30,8 +30,8 @@ mod serde_tests {
         original.insert("name".to_string(), "Alice".to_string());
         original.insert("city".to_string(), "Seoul".to_string());
 
-        let query_map = to_query_map(&original).unwrap();
-        let restored: HashMap<String, String> = from_query_map(&query_map).unwrap();
+        let query_map = QueryMap::from_struct(&original).unwrap();
+        let restored: HashMap<String, String> = query_map.to_struct().unwrap();
 
         assert_eq!(restored, original);
     }
@@ -42,7 +42,7 @@ mod serde_tests {
         query_map.insert("name".to_string(), Value::String("Bob".to_string()));
         query_map.insert("age".to_string(), Value::String("25".to_string()));
 
-        let result: SimpleStruct = from_query_map(&query_map).unwrap();
+        let result: SimpleStruct = query_map.to_struct().unwrap();
 
         assert_eq!(result.name, "Bob");
         assert_eq!(result.age, 25);

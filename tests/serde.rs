@@ -18,8 +18,8 @@ fn round_trips_struct() -> Result<(), SerdeQueryError> {
         active: true,
     };
 
-    let map = to_query_map(&account)?;
-    let decoded: Account = from_query_map(&map)?;
+    let map = QueryMap::from_struct(&account)?;
+    let decoded: Account = map.to_struct()?;
 
     assert_eq!(decoded, account);
     Ok(())
@@ -35,8 +35,8 @@ fn handles_sequences() -> Result<(), SerdeQueryError> {
     data.insert("name".to_string(), "john".to_string());
     data.insert("age".to_string(), "30".to_string());
 
-    let query_map = to_query_map(&data)?;
-    let reconstructed: HashMap<String, String> = from_query_map(&query_map)?;
+    let query_map = QueryMap::from_struct(&data)?;
+    let reconstructed: HashMap<String, String> = query_map.to_struct()?;
 
     assert_eq!(reconstructed, data);
     Ok(())

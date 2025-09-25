@@ -5,9 +5,9 @@ use thiserror::Error;
 use crate::{StringifyOptions, StringifyResult};
 
 #[cfg(feature = "serde")]
-use crate::serde_support::{SerdeQueryError, from_query_map};
+use crate::serde_bridge::{SerdeQueryError, from_query_map, to_query_map};
 #[cfg(feature = "serde")]
-use serde::de::DeserializeOwned;
+use serde::{Serialize, de::DeserializeOwned};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Value {
@@ -210,6 +210,14 @@ impl QueryMap {
 
     pub fn to_string_with(&self, options: &StringifyOptions) -> StringifyResult<String> {
         crate::stringify::stringify_with(self, options)
+    }
+
+    #[cfg(feature = "serde")]
+    pub fn from_struct<T>(data: &T) -> Result<Self, SerdeQueryError>
+    where
+        T: Serialize,
+    {
+        to_query_map(data)
     }
 
     #[cfg(feature = "serde")]

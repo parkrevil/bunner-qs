@@ -70,7 +70,7 @@ bunner_qs = { version = "0.1", default-features = false }
 ```
 
 ```rust
-use bunner_qs::{from_query_map, to_query_map, parse, Value};
+use bunner_qs::{parse, QueryMap, Value};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
@@ -80,10 +80,10 @@ struct Form {
 }
 
 let parsed = parse("title=Post&tags[0]=rust&tags[1]=web")?;
-let form: Form = from_query_map(&parsed)?;
+let form: Form = parsed.to_struct()?;
 assert_eq!(form.tags, vec!["rust", "web"]);
 
-let rebuilt = to_query_map(&form)?;
+let rebuilt = QueryMap::from_struct(&form)?;
 assert_eq!(
 	rebuilt
 		.get("title")
