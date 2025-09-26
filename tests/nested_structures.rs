@@ -1,10 +1,7 @@
-#[path = "common/arrays.rs"]
-mod arrays;
 #[path = "common/asserts.rs"]
 mod asserts;
 
-use arrays::assert_string_array;
-use asserts::{assert_str_entry, expect_object, expect_path};
+use asserts::{assert_str_path, assert_string_array_path};
 use bunner_qs::{ParseError, ParseOptions, parse, parse_with, stringify};
 use serde_json::{Value, json};
 #[test]
@@ -12,17 +9,18 @@ fn parses_deeply_nested_structure_and_round_trips() {
     let query = "profile[name]=Ada&profile[contacts][email]=ada@example.com&profile[contacts][phones][0]=+44%20123&profile[contacts][phones][1]=+44%20987&profile[meta][created]=2024";
     let parsed: Value = parse(query).expect("nested structure should parse");
 
-    let profile = expect_object(expect_path(&parsed, &["profile"]));
-    assert_str_entry(profile, "name", "Ada");
-
-    let contacts = expect_object(expect_path(&parsed, &["profile", "contacts"]));
-    assert_str_entry(contacts, "email", "ada@example.com");
-
-    let phones = expect_path(&parsed, &["profile", "contacts", "phones"]);
-    assert_string_array(phones, &["+44 123", "+44 987"]);
-
-    let meta = expect_object(expect_path(&parsed, &["profile", "meta"]));
-    assert_str_entry(meta, "created", "2024");
+    assert_str_path(&parsed, &["profile", "name"], "Ada");
+    assert_str_path(
+        &parsed,
+        &["profile", "contacts", "email"],
+        "ada@example.com",
+    );
+    assert_string_array_path(
+        &parsed,
+        &["profile", "contacts", "phones"],
+        &["+44 123", "+44 987"],
+    );
+    assert_str_path(&parsed, &["profile", "meta", "created"], "2024");
 
     let stringified = stringify(&parsed).expect("stringify should succeed");
     let reparsed: Value = parse(&stringified).expect("reparsed string should match");
@@ -32,16 +30,14 @@ fn parses_deeply_nested_structure_and_round_trips() {
 #[test]
 fn allows_uniform_append_pattern() {
     let parsed: Value = parse("tags[]=rust&tags[]=serde").expect("append pattern should parse");
-    let tags = expect_path(&parsed, &["tags"]);
-    assert_string_array(tags, &["rust", "serde"]);
+    assert_string_array_path(&parsed, &["tags"], &["rust", "serde"]);
 }
 
 #[test]
 fn allows_uniform_numeric_pattern() {
     let parsed: Value =
         parse("items[0]=apple&items[1]=banana").expect("numeric pattern should parse");
-    let items = expect_path(&parsed, &["items"]);
-    assert_string_array(items, &["apple", "banana"]);
+    assert_string_array_path(&parsed, &["items"], &["apple", "banana"]);
 }
 
 #[test]
@@ -52,8 +48,7 @@ fn stringify_preserves_array_order_for_numeric_indices() {
 
     let encoded = stringify(&map).expect("stringify should succeed");
     let reparsed: Value = parse(&encoded).expect("encoded string should parse");
-    let items = expect_path(&reparsed, &["items"]);
-    assert_string_array(items, &["alpha", "beta", "gamma"]);
+    assert_string_array_path(&reparsed, &["items"], &["alpha", "beta", "gamma"]);
 }
 
 #[test]

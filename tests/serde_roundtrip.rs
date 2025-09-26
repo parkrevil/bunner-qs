@@ -1,12 +1,9 @@
-#[path = "common/arrays.rs"]
-mod arrays;
 #[path = "common/asserts.rs"]
 mod asserts;
 #[path = "common/json.rs"]
 mod json;
 
-use arrays::assert_string_array;
-use asserts::{assert_str_entry, expect_object, expect_path};
+use asserts::{assert_str_path, assert_string_array_path, expect_path};
 use bunner_qs::{
     ParseError, ParseOptions, SerdeQueryError, StringifyOptions, parse, parse_with, stringify,
     stringify_with,
@@ -257,24 +254,17 @@ fn stringify_shapes_nested_data_for_inspection() -> Result<(), Box<dyn Error>> {
 
     let encoded = stringify(&profile).expect("stringify should succeed");
     let parsed: Value = parse(&encoded)?;
-    let root = expect_object(&parsed);
-
-    assert_str_entry(root, "profile✨name", "ada");
-    assert_str_entry(root, "age✨", "36");
-
-    let contact = expect_object(expect_path(&parsed, &["contact"]));
-    assert_str_entry(contact, "email📮", "ada@example.com");
-
-    let phones = expect_path(&parsed, &["contact", "phones📱"]);
-    assert_string_array(phones, &["+44 123", "+44 987"]);
+    assert_str_path(&parsed, &["profile✨name"], "ada");
+    assert_str_path(&parsed, &["age✨"], "36");
+    assert_str_path(&parsed, &["contact", "email📮"], "ada@example.com");
+    assert_string_array_path(&parsed, &["contact", "phones📱"], &["+44 123", "+44 987"]);
 
     let numbers = expect_path(&parsed, &["contact", "numbers📇"])
         .as_array()
         .expect("numbers should be array");
     assert_eq!(numbers.len(), 2);
-    let first = expect_object(&numbers[0]);
-    assert_str_entry(first, "kind🥇", "mobile");
-    assert_str_entry(first, "preferred✔", "true");
+    assert_str_path(&numbers[0], &["kind🥇"], "mobile");
+    assert_str_path(&numbers[0], &["preferred✔"], "true");
 
     Ok(())
 }
@@ -462,7 +452,6 @@ fn to_json_style_value_roundtrip() -> Result<(), SerdeQueryError> {
 
     let encoded = stringify(&profile).expect("stringify should succeed");
     let value: Value = parse(&encoded).expect("parse should succeed");
-    let contact = expect_object(value.get("contact📞").expect("missing contact"));
-    assert_str_entry(contact, "email📧", "json@example.com");
+    assert_str_path(&value, &["contact📞", "email📧"], "json@example.com");
     Ok(())
 }

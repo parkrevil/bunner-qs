@@ -3,7 +3,7 @@ mod asserts;
 #[path = "common/json.rs"]
 mod json;
 
-use asserts::{assert_str_entry, expect_object, expect_path};
+use asserts::assert_str_path;
 use bunner_qs::{ParseError, ParseOptions, StringifyOptions, parse_with, stringify_with};
 use json::json_from_pairs;
 use serde_json::Value;
@@ -16,9 +16,8 @@ fn parse_respects_max_params_limit() {
     };
 
     let ok: Value = parse_with("a=1&b=2", &options).expect("limit should allow two params");
-    let ok_obj = expect_object(&ok);
-    assert_str_entry(ok_obj, "a", "1");
-    assert_str_entry(ok_obj, "b", "2");
+    assert_str_path(&ok, &["a"], "1");
+    assert_str_path(&ok, &["b"], "2");
 
     asserts::assert_err_matches!(
         parse_with::<Value>("a=1&b=2&c=3", &options),
@@ -72,12 +71,7 @@ fn parse_respects_max_depth_boundary() {
         ..ParseOptions::default()
     };
     let nested: Value = parse_with("a[b][c]=ok", &within).expect("depth 2 should succeed");
-    assert_eq!(
-        expect_path(&nested, &["a", "b", "c"])
-            .as_str()
-            .expect("nested value should be string"),
-        "ok"
-    );
+    assert_str_path(&nested, &["a", "b", "c"], "ok");
 
     let over = ParseOptions {
         max_depth: Some(2),
@@ -201,9 +195,8 @@ fn parse_handles_extremely_large_limits_without_overflow() {
     };
 
     let parsed: Value = parse_with("a=1&b=2", &options).expect("extreme limits should still parse");
-    let obj = expect_object(&parsed);
-    assert_str_entry(obj, "a", "1");
-    assert_str_entry(obj, "b", "2");
+    assert_str_path(&parsed, &["a"], "1");
+    assert_str_path(&parsed, &["b"], "2");
 }
 
 #[test]
@@ -226,8 +219,7 @@ fn parse_with_builder_space_as_plus_decodes_plus() {
 
     let parsed: Value =
         parse_with("msg=hello+world", &options).expect("plus should decode to space");
-    let obj = expect_object(&parsed);
-    assert_str_entry(obj, "msg", "hello world");
+    assert_str_path(&parsed, &["msg"], "hello world");
 }
 
 #[test]

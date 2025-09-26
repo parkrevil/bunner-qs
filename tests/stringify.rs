@@ -3,7 +3,7 @@ mod asserts;
 #[path = "common/json.rs"]
 mod json;
 
-use asserts::{assert_str_entry, expect_object, expect_path};
+use asserts::assert_str_path;
 use bunner_qs::{
     ParseOptions, SerdeStringifyError, StringifyError, StringifyOptions, parse, parse_with,
     stringify, stringify_with,
@@ -79,8 +79,7 @@ fn percent_encodes_fragments_and_equals() {
     assert_eq!(encoded, "frag%23ment=a%3Db%26c");
 
     let reparsed: Value = parse(&encoded).expect("encoded string should be parseable");
-    let object = expect_object(&reparsed);
-    assert_str_entry(object, "frag#ment", "a=b&c");
+    assert_str_path(&reparsed, &["frag#ment"], "a=b&c");
 }
 
 #[test]
@@ -93,8 +92,7 @@ fn plus_sign_is_percent_encoded_by_default() {
     assert_eq!(encoded, "symbol=1%2B1");
 
     let parsed: Value = parse(&encoded).expect("encoded plus should decode");
-    let object = expect_object(&parsed);
-    assert_str_entry(object, "symbol", "1+1");
+    assert_str_path(&parsed, &["symbol"], "1+1");
 }
 
 #[test]
@@ -111,8 +109,7 @@ fn percent_encodes_long_nested_unicode_values() {
     assert!(encoded.contains("%F0%9F%9A%80"));
 
     let parsed: Value = parse(&encoded).expect("percent encoded payload should parse");
-    let profile = expect_object(expect_path(&parsed, &["profile"]));
-    assert_str_entry(profile, "bio", &long_value);
+    assert_str_path(&parsed, &["profile", "bio"], &long_value);
 }
 
 #[test]
@@ -185,8 +182,7 @@ fn round_trip_with_space_plus_option() {
         ..ParseOptions::default()
     };
     let reparsed: Value = parse_with(&encoded, &parse_options).expect("parse should honor plus");
-    let object = expect_object(&reparsed);
-    assert_str_entry(object, "msg", "one two");
+    assert_str_path(&reparsed, &["msg"], "one two");
 }
 
 #[test]

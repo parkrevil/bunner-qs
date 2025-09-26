@@ -1,12 +1,9 @@
-#[path = "common/arrays.rs"]
-mod arrays;
 #[path = "common/asserts.rs"]
 mod asserts;
 #[path = "common/json.rs"]
 mod json;
 
-use arrays::assert_string_array;
-use asserts::{assert_str_entry, expect_object, expect_path};
+use asserts::{assert_str_path, assert_string_array_path};
 use bunner_qs::{ParseError, ParseOptions, SerdeQueryError, parse, parse_with, stringify};
 use json::json_from_pairs;
 use serde::Deserialize;
@@ -30,13 +27,12 @@ fn decodes_percent_encoded_ascii_and_unicode() {
         "&thai=%E0%B8%AA%E0%B8%A7%E0%B8%B1%E0%B8%AA%E0%B8%94%E0%B8%B5",
     ))
     .expect("percent encoding should decode");
-    let object = expect_object(&parsed);
-    assert_str_entry(object, "name", "Jürgen");
-    assert_str_entry(object, "emoji", "😀");
-    assert_str_entry(object, "cyrillic", "Привет");
-    assert_str_entry(object, "arabic", "مرحبا");
-    assert_str_entry(object, "combining", "Café");
-    assert_str_entry(object, "thai", "สวัสดี");
+    assert_str_path(&parsed, &["name"], "Jürgen");
+    assert_str_path(&parsed, &["emoji"], "😀");
+    assert_str_path(&parsed, &["cyrillic"], "Привет");
+    assert_str_path(&parsed, &["arabic"], "مرحبا");
+    assert_str_path(&parsed, &["combining"], "Café");
+    assert_str_path(&parsed, &["thai"], "สวัสดี");
 }
 
 #[test]
@@ -61,8 +57,7 @@ fn strips_leading_question_mark_before_pairs() {
 #[test]
 fn treats_flag_without_value_as_empty_string() {
     let parsed: Value = parse("flag").expect("keys without '=' should map to empty strings");
-    let object = expect_object(&parsed);
-    assert_str_entry(object, "flag", "");
+    assert_str_path(&parsed, &["flag"], "");
 }
 
 #[test]
@@ -72,12 +67,10 @@ fn space_as_plus_option_controls_plus_handling() {
         ..ParseOptions::default()
     };
     let relaxed: Value = parse_with("note=one+two", &relaxed).expect("plus should become space");
-    let relaxed_obj = expect_object(&relaxed);
-    assert_str_entry(relaxed_obj, "note", "one two");
+    assert_str_path(&relaxed, &["note"], "one two");
 
     let strict: Value = parse("note=one+two").expect("default should keep plus literal");
-    let strict_obj = expect_object(&strict);
-    assert_str_entry(strict_obj, "note", "one+two");
+    assert_str_path(&strict, &["note"], "one+two");
 }
 
 #[test]
@@ -249,14 +242,9 @@ fn parses_nested_objects_and_arrays() {
     )
     .expect("nested structures should parse");
 
-    let user = expect_object(expect_path(&parsed, &["user"]));
-    assert_str_entry(user, "name", "Alice");
-
-    let stats = expect_object(expect_path(&parsed, &["user", "stats"]));
-    assert_str_entry(stats, "age", "30");
-
-    let hobbies = expect_path(&parsed, &["user", "hobbies"]);
-    assert_string_array(hobbies, &["reading", "coding"]);
+    assert_str_path(&parsed, &["user", "name"], "Alice");
+    assert_str_path(&parsed, &["user", "stats", "age"], "30");
+    assert_string_array_path(&parsed, &["user", "hobbies"], &["reading", "coding"]);
 }
 
 #[test]
