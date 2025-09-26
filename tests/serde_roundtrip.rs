@@ -21,7 +21,7 @@ use json::json_from_pairs;
 use options::build_parse_options;
 use proptest::prelude::*;
 use proptest_profiles::{RandomProfileData, random_profile_strategy};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_data::{
     ContactForm, DesiredContact, DesiredPhone, DesiredProfile, FlattenedContact, FlattenedName,
     FlattenedProfile, NetworkPeer, NotificationPreference, ProfileForm, SimpleUser, TaggedRecord,
@@ -407,6 +407,119 @@ fn parse_reports_unexpected_type_for_unit_field() {
             );
         }
     );
+}
+
+#[test]
+fn parse_reports_custom_adapter_error() {
+    use serde::de::{self, Deserialize, Deserializer};
+
+    fn uppercase_only<'de, D>(deserializer: D) -> Result<String, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let raw = String::deserialize(deserializer)?;
+        if raw.chars().all(|ch| ch.is_ascii_uppercase()) {
+            Ok(raw)
+        } else {
+            Err(de::Error::custom("code must contain only uppercase letters"))
+        }
+    }
+
+    #[allow(dead_code)]
+    #[derive(Debug, Deserialize, Default)]
+    struct CustomAdapter {
+        #[serde(deserialize_with = "uppercase_only")]
+        code: String,
+    }
+
+    asserts::assert_err_matches!(
+        parse::<CustomAdapter>("code=abc123"),
+        ParseError::Serde(SerdeQueryError::Deserialize(_)) => |message| {
+            assert!(
+                message.contains("uppercase letters"),
+                "unexpected custom adapter error: {message}"
+            );
+        }
+    );
+}
+
+#[test]
+fn parse_allows_custom_adapter_transformation() -> Result<(), Box<dyn Error>> {
+    use serde::de::{Deserialize, Deserializer};
+
+    fn uppercase_adapter<'de, D>(deserializer: D) -> Result<String, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let raw = String::deserialize(deserializer)?;
+        Ok(raw.to_ascii_uppercase())
+    }
+
+    #[derive(Debug, Deserialize, Default)]
+    struct CustomAdapter {
+        #[serde(deserialize_with = "uppercase_adapter")]
+        code: String,
+    }
+
+    let parsed: CustomAdapter = parse("code=abc123")?;
+    assert_eq!(parsed.code, "ABC123");
+    Ok(())
+}
+
+#[test]
+fn parse_reports_flatten_structure_mismatch() {
+    #[allow(dead_code)]
+    #[derive(Debug, Deserialize, Default)]
+    struct FlattenInner {
+        suffix: String,
+    }
+
+    #[allow(dead_code)]
+    #[derive(Debug, Deserialize, Default)]
+    struct FlattenWrapper {
+        prefix: String,
+        #[serde(flatten)]
+        inner: FlattenInner,
+    }
+
+    asserts::assert_err_matches!(
+        parse::<FlattenWrapper>("prefix=hi&suffix[extra]=boom"),
+        ParseError::Serde(SerdeQueryError::Deserialize(_)) => |message| {
+            assert!(
+                message.contains("invalid type: map, expected a string"),
+                "unexpected flatten error message: {message}"
+            );
+        }
+    );
+}
+
+#[test]
+fn parse_ignores_value_via_custom_adapter() -> Result<(), Box<dyn Error>> {
+    use serde::de::{Deserialize, Deserializer, IgnoredAny};
+
+    fn default_token() -> String {
+        "SERVER-DEFAULT".into()
+    }
+
+    fn ignore_and_default<'de, D>(deserializer: D) -> Result<String, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let _ = IgnoredAny::deserialize(deserializer)?;
+        Ok(default_token())
+    }
+
+    #[derive(Debug, Deserialize, Default)]
+    struct SkipAdapter {
+        provided: String,
+        #[serde(default = "default_token", deserialize_with = "ignore_and_default")]
+        token: String,
+    }
+
+    let parsed: SkipAdapter = parse("provided=live&token=client-overrides")?;
+    assert_eq!(parsed.provided, "live");
+    assert_eq!(parsed.token, default_token());
+    Ok(())
 }
 
 proptest! {
