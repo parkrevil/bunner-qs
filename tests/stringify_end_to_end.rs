@@ -74,6 +74,30 @@ fn percent_encodes_reserved_and_unicode() {
 }
 
 #[test]
+fn percent_encodes_fragments_and_equals() {
+    let mut map = QueryMap::new();
+    map.insert("frag#ment".into(), Value::String("a=b&c".into()));
+
+    let encoded = stringify(&map).expect("reserved characters should be encoded");
+    assert_eq!(encoded, "frag%23ment=a%3Db%26c");
+
+    let reparsed = parse(&encoded).expect("encoded string should be parseable");
+    assert_str_entry(&reparsed, "frag#ment", "a=b&c");
+}
+
+#[test]
+fn plus_sign_is_percent_encoded_by_default() {
+    let mut map = QueryMap::new();
+    map.insert("symbol".into(), Value::String("1+1".into()));
+
+    let encoded = stringify(&map).expect("plus should be percent encoded");
+    assert_eq!(encoded, "symbol=1%2B1");
+
+    let parsed = parse(&encoded).expect("encoded plus should decode");
+    assert_str_entry(&parsed, "symbol", "1+1");
+}
+
+#[test]
 fn percent_encodes_long_nested_unicode_values() {
     let long_value = "🚀".repeat(64);
 

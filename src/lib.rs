@@ -1,5 +1,6 @@
 // Re-export the QueryMap type from value module
 
+mod encoding;
 mod error;
 mod nested;
 mod options;
