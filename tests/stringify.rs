@@ -2,14 +2,20 @@
 mod asserts;
 #[path = "common/json.rs"]
 mod json;
+#[path = "common/options.rs"]
+mod options;
+#[path = "common/stringify_options.rs"]
+mod stringify_options;
 
 use asserts::assert_str_path;
 use bunner_qs::{
-    ParseOptions, SerdeStringifyError, StringifyError, StringifyOptions, parse, parse_with,
-    stringify, stringify_with,
+    SerdeStringifyError, StringifyError, StringifyOptions, parse, parse_with, stringify,
+    stringify_with,
 };
 use json::json_from_pairs;
+use options::build_parse_options;
 use serde_json::{Map, Value, json};
+use stringify_options::build_stringify_options;
 
 fn build_nested_user_value() -> Value {
     json!({
@@ -171,16 +177,10 @@ fn round_trip_with_space_plus_option() {
         "msg": "one two"
     });
 
-    let options = StringifyOptions::builder()
-        .space_as_plus(true)
-        .build()
-        .expect("builder should succeed");
+    let options = build_stringify_options(|builder| builder.space_as_plus(true));
     let encoded = stringify_with(&map, &options).expect("stringify with plus should work");
 
-    let parse_options = ParseOptions {
-        space_as_plus: true,
-        ..ParseOptions::default()
-    };
+    let parse_options = build_parse_options(|builder| builder.space_as_plus(true));
     let reparsed: Value = parse_with(&encoded, &parse_options).expect("parse should honor plus");
     assert_str_path(&reparsed, &["msg"], "one two");
 }
@@ -247,9 +247,6 @@ fn array_of_objects_stringifies_cleanly() {
 
 #[test]
 fn stringify_options_builder_configures_flags() {
-    let options = StringifyOptions::builder()
-        .space_as_plus(true)
-        .build()
-        .expect("builder should construct options");
+    let options = build_stringify_options(|builder| builder.space_as_plus(true));
     assert!(options.space_as_plus);
 }

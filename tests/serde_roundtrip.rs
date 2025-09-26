@@ -2,17 +2,22 @@
 mod asserts;
 #[path = "common/json.rs"]
 mod json;
+#[path = "common/options.rs"]
+mod options;
+#[path = "common/stringify_options.rs"]
+mod stringify_options;
 
 use asserts::{assert_str_path, assert_string_array_path, expect_path};
 use bunner_qs::{
-    ParseError, ParseOptions, SerdeQueryError, StringifyOptions, parse, parse_with, stringify,
-    stringify_with,
+    ParseError, ParseOptions, SerdeQueryError, parse, parse_with, stringify, stringify_with,
 };
 use json::json_from_pairs;
+use options::build_parse_options;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::{Value, json};
 use std::collections::BTreeMap;
 use std::error::Error;
+use stringify_options::build_stringify_options;
 
 #[derive(Debug, Default, Serialize, Deserialize, PartialEq, Clone)]
 struct ContactForm {
@@ -283,10 +288,7 @@ fn tighten_parse_options_detects_violations() {
 #[test]
 fn stringify_options_control_space_encoding() -> Result<(), Box<dyn Error>> {
     let value = json_from_pairs(&[("note", "hello world")]);
-    let options = StringifyOptions::builder()
-        .space_as_plus(true)
-        .build()
-        .expect("builder should succeed");
+    let options = build_stringify_options(|builder| builder.space_as_plus(true));
     let encoded = stringify_with(&value, &options)?;
     assert_eq!(encoded, "note=hello+world");
     Ok(())
@@ -407,17 +409,14 @@ fn deep_roundtrip_with_custom_options() -> Result<(), Box<dyn Error>> {
         nickname: Some("Cipher".into()),
     };
 
-    let stringify_options = StringifyOptions::builder()
-        .space_as_plus(true)
-        .build()
-        .expect("builder should succeed");
-    let parse_options = ParseOptions::builder()
-        .space_as_plus(true)
-        .max_params(1024)
-        .max_length(16 * 1024)
-        .max_depth(64)
-        .build()
-        .expect("parse builder should succeed");
+    let stringify_options = build_stringify_options(|builder| builder.space_as_plus(true));
+    let parse_options = build_parse_options(|builder| {
+        builder
+            .space_as_plus(true)
+            .max_params(1024)
+            .max_length(16 * 1024)
+            .max_depth(64)
+    });
 
     let encoded = stringify_with(&profile, &stringify_options)?;
     let reparsed: ProfileForm = parse_with(&encoded, &parse_options)?;

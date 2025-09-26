@@ -2,10 +2,13 @@
 mod asserts;
 #[path = "common/json.rs"]
 mod json;
+#[path = "common/options.rs"]
+mod options;
 
 use asserts::{assert_str_path, assert_string_array_path};
 use bunner_qs::{ParseError, ParseOptions, SerdeQueryError, parse, parse_with, stringify};
 use json::json_from_pairs;
+use options::build_parse_options;
 use serde::Deserialize;
 use serde_json::{Value, json};
 
@@ -258,13 +261,13 @@ fn round_trips_complex_structure_with_stringify() {
 
 #[test]
 fn parse_options_builder_produces_expected_configuration() {
-    let options = ParseOptions::builder()
-        .space_as_plus(true)
-        .max_params(3)
-        .max_length(128)
-        .max_depth(2)
-        .build()
-        .expect("builder should generate options");
+    let options = build_parse_options(|builder| {
+        builder
+            .space_as_plus(true)
+            .max_params(3)
+            .max_length(128)
+            .max_depth(2)
+    });
 
     assert!(options.space_as_plus);
     assert_eq!(options.max_params, Some(3));

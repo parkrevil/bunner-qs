@@ -2,11 +2,17 @@
 mod asserts;
 #[path = "common/json.rs"]
 mod json;
+#[path = "common/options.rs"]
+mod options;
+#[path = "common/stringify_options.rs"]
+mod stringify_options;
 
 use asserts::assert_str_path;
-use bunner_qs::{ParseError, ParseOptions, StringifyOptions, parse_with, stringify_with};
+use bunner_qs::{ParseError, ParseOptions, parse_with, stringify_with};
 use json::json_from_pairs;
+use options::{build_parse_options, try_build_parse_options};
 use serde_json::Value;
+use stringify_options::build_stringify_options;
 
 #[test]
 fn parse_respects_max_params_limit() {
@@ -88,13 +94,13 @@ fn parse_respects_max_depth_boundary() {
 
 #[test]
 fn parse_options_builder_configures_all_fields() {
-    let options = ParseOptions::builder()
-        .space_as_plus(true)
-        .max_params(3)
-        .max_length(64)
-        .max_depth(4)
-        .build()
-        .expect("builder should succeed");
+    let options = build_parse_options(|builder| {
+        builder
+            .space_as_plus(true)
+            .max_params(3)
+            .max_length(64)
+            .max_depth(4)
+    });
 
     assert!(options.space_as_plus);
     assert_eq!(options.max_params, Some(3));
@@ -104,9 +110,7 @@ fn parse_options_builder_configures_all_fields() {
 
 #[test]
 fn parse_options_builder_rejects_zero_limits() {
-    let params_err = ParseOptions::builder()
-        .max_params(0)
-        .build()
+    let params_err = try_build_parse_options(|builder| builder.max_params(0))
         .expect_err("zero param limit should be rejected by builder");
     let params_msg = params_err.to_string();
     assert!(
@@ -114,9 +118,7 @@ fn parse_options_builder_rejects_zero_limits() {
         "expected `{params_msg}` to contain `max_params`"
     );
 
-    let length_err = ParseOptions::builder()
-        .max_length(0)
-        .build()
+    let length_err = try_build_parse_options(|builder| builder.max_length(0))
         .expect_err("zero length limit should be rejected by builder");
     let length_msg = length_err.to_string();
     assert!(
@@ -124,9 +126,7 @@ fn parse_options_builder_rejects_zero_limits() {
         "expected `{length_msg}` to contain `max_length`"
     );
 
-    let depth_err = ParseOptions::builder()
-        .max_depth(0)
-        .build()
+    let depth_err = try_build_parse_options(|builder| builder.max_depth(0))
         .expect_err("zero depth limit should be rejected by builder");
     let depth_msg = depth_err.to_string();
     assert!(
@@ -201,9 +201,7 @@ fn parse_handles_extremely_large_limits_without_overflow() {
 
 #[test]
 fn parse_options_builder_defaults_match_default() {
-    let built = ParseOptions::builder()
-        .build()
-        .expect("builder without overrides should succeed");
+    let built = build_parse_options(|builder| builder);
     assert_eq!(built.space_as_plus, ParseOptions::default().space_as_plus);
     assert_eq!(built.max_params, ParseOptions::default().max_params);
     assert_eq!(built.max_length, ParseOptions::default().max_length);
@@ -212,10 +210,7 @@ fn parse_options_builder_defaults_match_default() {
 
 #[test]
 fn parse_with_builder_space_as_plus_decodes_plus() {
-    let options = ParseOptions::builder()
-        .space_as_plus(true)
-        .build()
-        .expect("builder should succeed");
+    let options = build_parse_options(|builder| builder.space_as_plus(true));
 
     let parsed: Value =
         parse_with("msg=hello+world", &options).expect("plus should decode to space");
@@ -225,10 +220,7 @@ fn parse_with_builder_space_as_plus_decodes_plus() {
 #[test]
 fn stringify_options_builder_controls_space_encoding() {
     let map = json_from_pairs(&[("greeting", "hello world")]);
-    let options = StringifyOptions::builder()
-        .space_as_plus(true)
-        .build()
-        .expect("stringify builder should succeed");
+    let options = build_stringify_options(|builder| builder.space_as_plus(true));
 
     let encoded = stringify_with(&map, &options).expect("should encode with plus");
     assert_eq!(encoded, "greeting=hello+world");
