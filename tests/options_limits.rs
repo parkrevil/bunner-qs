@@ -1,7 +1,11 @@
-mod common;
+#[path = "common/asserts.rs"]
+mod asserts;
+#[path = "common/json.rs"]
+mod json_helpers;
 
+use asserts::{assert_str_entry, expect_object};
 use bunner_qs::{ParseError, ParseOptions, StringifyOptions, parse_with, stringify_with};
-use common::{assert_str_entry, expect_object, json_from_pairs};
+use json_helpers::json_from_pairs;
 use serde_json::Value;
 
 #[test]

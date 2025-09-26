@@ -1,10 +1,17 @@
-mod common;
+#[path = "common/asserts.rs"]
+mod asserts;
+#[path = "common/arrays.rs"]
+mod array_asserts;
+#[path = "common/json.rs"]
+mod json_helpers;
 
+use array_asserts::assert_string_array;
+use asserts::{assert_str_entry, expect_object};
 use bunner_qs::{
     ParseError, ParseOptions, SerdeQueryError, StringifyOptions, parse, parse_with, stringify,
     stringify_with,
 };
-use common::{assert_str_entry, assert_string_array, expect_object, json_from_pairs};
+use json_helpers::json_from_pairs;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::{Value, json};
 use std::collections::BTreeMap;
@@ -54,6 +61,13 @@ struct SimpleUser {
 struct TaggedRecord {
     name: String,
     tags: Vec<String>,
+}
+
+#[derive(Debug, Deserialize, PartialEq, Default)]
+struct NetworkPeer {
+    host: String,
+    port: u16,
+    secure: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Default, Clone)]
@@ -169,14 +183,6 @@ fn parse_into_struct_returns_default_for_empty_input() -> Result<(), Box<dyn Err
 
 #[test]
 fn parse_into_struct_with_scalars() -> Result<(), Box<dyn Error>> {
-    #[allow(dead_code)]
-    #[derive(Debug, Deserialize, PartialEq, Default)]
-    struct NetworkPeer {
-        host: String,
-        port: u16,
-        secure: bool,
-    }
-
     let peer: NetworkPeer = parse("host=edge.example&port=8080&secure=true")?;
     assert_eq!(peer.host, "edge.example");
     assert_eq!(peer.port, 8080);
@@ -200,14 +206,6 @@ fn parse_into_json_value_coerces_scalars() -> Result<(), Box<dyn Error>> {
 
 #[test]
 fn parse_into_struct_surfaces_deserialize_errors() {
-    #[allow(dead_code)]
-    #[derive(Debug, Deserialize, Default)]
-    struct NetworkPeer {
-        host: String,
-        port: u16,
-        secure: bool,
-    }
-
     let err = parse::<NetworkPeer>("host=delta&port=not-a-number&secure=maybe").unwrap_err();
     assert!(matches!(err, ParseError::Serde(_)));
 }

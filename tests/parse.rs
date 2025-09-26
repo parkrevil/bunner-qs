@@ -1,7 +1,14 @@
-mod common;
+#[path = "common/asserts.rs"]
+mod asserts;
+#[path = "common/arrays.rs"]
+mod array_asserts;
+#[path = "common/json.rs"]
+mod json_helpers;
 
+use array_asserts::assert_string_array;
+use asserts::{assert_str_entry, expect_object};
 use bunner_qs::{ParseError, ParseOptions, SerdeQueryError, parse, parse_with, stringify};
-use common::{assert_str_entry, assert_string_array, expect_object, json_from_pairs};
+use json_helpers::json_from_pairs;
 use serde::Deserialize;
 use serde_json::{Value, json};
 
@@ -234,10 +241,10 @@ fn rejects_invalid_utf8_in_percent_sequences() {
 
 #[test]
 fn serde_error_messages_are_human_readable() {
-    #[allow(dead_code)]
     #[derive(Debug, Deserialize, Default)]
     struct NumericTarget {
-        count: u32,
+        #[serde(rename = "count")]
+        _count: u32,
     }
 
     let error = parse::<NumericTarget>("count=abc")

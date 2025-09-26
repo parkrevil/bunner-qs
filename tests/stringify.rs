@@ -1,10 +1,14 @@
-mod common;
+#[path = "common/asserts.rs"]
+mod asserts;
+#[path = "common/json.rs"]
+mod json_helpers;
 
+use asserts::{assert_str_entry, expect_object};
 use bunner_qs::{
     ParseOptions, SerdeStringifyError, StringifyError, StringifyOptions, parse, parse_with,
     stringify, stringify_with,
 };
-use common::{assert_str_entry, expect_object, json_from_pairs};
+use json_helpers::json_from_pairs;
 use serde_json::{Map, Value, json};
 
 fn build_nested_user_value() -> Value {
