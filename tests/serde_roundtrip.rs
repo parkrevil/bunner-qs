@@ -5,7 +5,7 @@ use bunner_qs::{
     stringify_with,
 };
 use common::{assert_str_entry, assert_string_array, expect_object, json_from_pairs};
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::{Value, json};
 use std::collections::BTreeMap;
 use std::error::Error;
@@ -86,6 +86,78 @@ struct DesiredProfile {
     age: u8,
     contact: DesiredContact,
     bio: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, PartialEq, Default, Clone)]
+struct FlattenedName {
+    #[serde(rename = "first_name")]
+    first: String,
+    #[serde(rename = "last_name")]
+    last: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, PartialEq, Default, Clone)]
+struct FlattenedContact {
+    #[serde(rename = "contact_email")]
+    email: String,
+    #[serde(rename = "contact_phone")]
+    phone: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, PartialEq, Default, Clone)]
+struct FlattenedProfile {
+    #[serde(flatten)]
+    name: FlattenedName,
+    #[serde(flatten)]
+    contact: FlattenedContact,
+    active: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    note: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+#[serde(tag = "notification_kind", content = "notification")]
+enum NotificationPreference {
+    Email { address: String },
+    Sms { number: String },
+}
+
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+struct TaggedSettings {
+    #[serde(flatten)]
+    preference: NotificationPreference,
+    #[serde(
+        rename = "access_token",
+        serialize_with = "serialize_trimmed",
+        deserialize_with = "deserialize_trimmed"
+    )]
+    token: String,
+}
+
+impl Default for TaggedSettings {
+    fn default() -> Self {
+        Self {
+            preference: NotificationPreference::Email {
+                address: String::new(),
+            },
+            token: String::new(),
+        }
+    }
+}
+
+fn serialize_trimmed<S>(value: &String, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    serializer.serialize_str(value.trim())
+}
+
+fn deserialize_trimmed<'de, D>(deserializer: D) -> Result<String, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let raw = String::deserialize(deserializer)?;
+    Ok(raw.trim().to_string())
 }
 
 #[test]
@@ -256,6 +328,67 @@ fn sequence_field_roundtrip_preserves_values() -> Result<(), Box<dyn Error>> {
     let encoded = stringify(&record)?;
     let restored: TaggedRecord = parse(&encoded)?;
     assert_eq!(restored, record);
+    Ok(())
+}
+
+#[test]
+fn flattened_struct_roundtrip_preserves_fields() -> Result<(), Box<dyn Error>> {
+    let profile = FlattenedProfile {
+        name: FlattenedName {
+            first: "Ada".into(),
+            last: "Lovelace".into(),
+        },
+        contact: FlattenedContact {
+            email: "ada@example.com".into(),
+            phone: "+44 123".into(),
+        },
+        active: true,
+        note: Some("First programmer".into()),
+    };
+
+    let encoded = stringify(&profile)?;
+    assert!(encoded.contains("first_name=Ada"));
+    assert!(encoded.contains("contact_email=ada%40example.com"));
+    let reparsed: FlattenedProfile = parse(&encoded)?;
+    assert_eq!(reparsed, profile);
+    Ok(())
+}
+
+#[test]
+fn tagged_enum_roundtrip_preserves_variant_and_token() -> Result<(), Box<dyn Error>> {
+    let settings = TaggedSettings {
+        preference: NotificationPreference::Email {
+            address: "ada@example.com".into(),
+        },
+        token: "SECRET".into(),
+    };
+
+    let encoded = stringify(&settings)?;
+    assert!(encoded.contains("notification_kind=Email"));
+    assert!(encoded.contains("notification%5Baddress%5D=ada%40example.com"));
+    assert!(encoded.contains("access_token=SECRET"));
+
+    let reparsed: TaggedSettings = parse(&encoded)?;
+    assert_eq!(reparsed, settings);
+    Ok(())
+}
+
+#[test]
+fn custom_deserializer_trims_whitespace_from_token() -> Result<(), Box<dyn Error>> {
+    let raw = concat!(
+        "notification_kind=Sms&",
+        "notification%5Bnumber%5D=010-0000&",
+        "access_token=%20TRIM%20"
+    );
+
+    let parsed: TaggedSettings = parse(raw)?;
+    let expected = TaggedSettings {
+        preference: NotificationPreference::Sms {
+            number: "010-0000".into(),
+        },
+        token: "TRIM".into(),
+    };
+    assert_eq!(parsed, expected);
     Ok(())
 }
 
