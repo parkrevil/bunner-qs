@@ -9,7 +9,7 @@ pub fn assert_str_entry(map: &JsonMap<String, Value>, key: &str, expected: &str)
         None => panic!("value for `{key}` was not a string: {value:?}"),
     }
 }
- 
+
 pub fn expect_object(value: &Value) -> &JsonMap<String, Value> {
     value
         .as_object()

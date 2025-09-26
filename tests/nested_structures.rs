@@ -1,7 +1,7 @@
-#[path = "common/asserts.rs"]
-mod asserts;
 #[path = "common/arrays.rs"]
 mod array_asserts;
+#[path = "common/asserts.rs"]
+mod asserts;
 
 use array_asserts::assert_string_array;
 use asserts::{assert_str_entry, expect_object};

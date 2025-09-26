@@ -1,7 +1,7 @@
-#[path = "common/asserts.rs"]
-mod asserts;
 #[path = "common/arrays.rs"]
 mod array_asserts;
+#[path = "common/asserts.rs"]
+mod asserts;
 #[path = "common/json.rs"]
 mod json_helpers;
 
