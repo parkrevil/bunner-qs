@@ -480,7 +480,7 @@ impl<'de> MapAccess<'de> for StructDeserializer<'de> {
     {
         if let Some((key, value)) = self.iter.next() {
             let key_str = key.as_str();
-            if !self.allowed.iter().any(|allowed| *allowed == key_str) {
+            if !self.allowed.contains(&key_str) {
                 return Err(DeserializeError::UnknownField {
                     field: key_str.to_string(),
                     expected: format_expected(self.allowed),
