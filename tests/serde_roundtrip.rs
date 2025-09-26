@@ -21,11 +21,8 @@ use serde_data::{
     TaggedSettings,
 };
 use serde_helpers::{
-    assert_encoded_contains,
-    assert_parse_roundtrip,
-    assert_stringify_roundtrip,
-    assert_stringify_roundtrip_with_options,
-    roundtrip_via_public_api,
+    assert_encoded_contains, assert_parse_roundtrip, assert_stringify_roundtrip,
+    assert_stringify_roundtrip_with_options, roundtrip_via_public_api,
 };
 use serde_json::{Value, json};
 use std::collections::BTreeMap;
@@ -281,7 +278,8 @@ fn deep_roundtrip_with_custom_options() -> Result<(), Box<dyn Error>> {
     let encoded = stringify_with(&profile, &stringify_options)?;
     let reparsed: ProfileForm = parse_with(&encoded, &parse_options)?;
     let profile_value = serde_json::to_value(&profile).expect("profile should convert to Value");
-    let _ = assert_stringify_roundtrip_with_options(&profile_value, &stringify_options, &parse_options);
+    let _ =
+        assert_stringify_roundtrip_with_options(&profile_value, &stringify_options, &parse_options);
     assert_eq!(reparsed, profile);
     Ok(())
 }

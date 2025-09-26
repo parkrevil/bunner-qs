@@ -16,9 +16,7 @@ use bunner_qs::{
 use json::json_from_pairs;
 use options::build_parse_options;
 use serde_helpers::{
-    assert_encoded_contains,
-    assert_parse_roundtrip,
-    assert_stringify_roundtrip,
+    assert_encoded_contains, assert_parse_roundtrip, assert_stringify_roundtrip,
     assert_stringify_roundtrip_with_options,
 };
 use serde_json::{Map, Value, json};
