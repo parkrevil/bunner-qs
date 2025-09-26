@@ -2,26 +2,46 @@
 
 mod common;
 
-use bunner_qs::{QueryMap, SerdeQueryError, Value};
+use bunner_qs::{
+    ParseOptions, QueryMap, SerdeQueryError, StringifyOptions, Value, parse, parse_with, stringify,
+    stringify_with,
+};
 use common::{assert_str_entry, expect_array, expect_object};
+use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
+use std::error::Error;
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 struct ContactForm {
+    #[serde(rename = "email📧", alias = "email_address")]
     email: String,
+    #[serde(rename = "primary-phone")]
     primary_phone: String,
-    #[serde(default)]
+    #[serde(
+        default,
+        alias = "secondaryPhone",
+        skip_serializing_if = "Option::is_none"
+    )]
     secondary_phone: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 struct ProfileForm {
+    #[serde(rename = "user_name")]
     username: String,
+    #[serde(rename = "age-years", alias = "user_age")]
     age: u8,
+    #[serde(rename = "active?")]
     active: bool,
+    #[serde(rename = "contact📞")]
     contact: ContactForm,
-    #[serde(default)]
+    #[serde(
+        default,
+        rename = "nickname🎭",
+        alias = "alias🎭",
+        skip_serializing_if = "Option::is_none"
+    )]
     nickname: Option<String>,
 }
 
@@ -39,22 +59,31 @@ struct TaggedRecord {
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 struct DesiredPhone {
+    #[serde(rename = "kind🥇")]
     kind: String,
+    #[serde(rename = "number#")]
     number: String,
+    #[serde(rename = "preferred✔")]
     preferred: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 struct DesiredContact {
+    #[serde(rename = "email📮")]
     email: String,
+    #[serde(rename = "phones📱")]
     phones: Vec<String>,
+    #[serde(rename = "numbers📇")]
     numbers: Vec<DesiredPhone>,
+    #[serde(rename = "tags🔥", alias = "tag_list", default)]
     tags: Vec<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 struct DesiredProfile {
+    #[serde(rename = "profile✨name")]
     username: String,
+    #[serde(rename = "age✨", alias = "alt_age")]
     age: u8,
     contact: DesiredContact,
     bio: Option<String>,
@@ -277,22 +306,22 @@ fn query_map_contains_expected_nested_values() -> Result<(), SerdeQueryError> {
 
     let map = QueryMap::from_struct(&profile)?;
 
-    assert_str_entry(&map, "username", "grace");
-    assert_str_entry(&map, "age", "29");
-    assert_str_entry(&map, "active", "false");
+    assert_str_entry(&map, "user_name", "grace");
+    assert_str_entry(&map, "age-years", "29");
+    assert_str_entry(&map, "active?", "false");
 
-    let contact = map.get("contact").expect("missing contact value");
+    let contact = map.get("contact📞").expect("missing contact value");
     let contact_obj = expect_object(contact);
-    assert_str_entry(contact_obj, "email", "grace@example.com");
+    assert_str_entry(contact_obj, "email📧", "grace@example.com");
 
-    assert_str_entry(contact_obj, "primary_phone", "+1 555-0100");
+    assert_str_entry(contact_obj, "primary-phone", "+1 555-0100");
     assert!(
         !contact_obj.contains_key("secondary_phone"),
         "optional phone should be omitted"
     );
 
     assert!(
-        !map.contains_key("nickname"),
+        !map.contains_key("nickname🎭"),
         "unset option should be omitted"
     );
 
@@ -438,10 +467,10 @@ fn desired_nested_struct_shape_should_include_arrays() {
 
     let contact = map.get("contact").expect("contact key should exist");
     let contact_obj = expect_object(contact);
-    assert_str_entry(contact_obj, "email", "grace@example.com");
+    assert_str_entry(contact_obj, "email📮", "grace@example.com");
 
     let phones = contact_obj
-        .get("phones")
+        .get("phones📱")
         .expect("phones array should exist");
     let phones_array = expect_array(phones);
     assert_eq!(
@@ -451,7 +480,7 @@ fn desired_nested_struct_shape_should_include_arrays() {
     );
     assert_eq!(phones_array[0].as_str(), Some("+1 555-0100"));
 
-    let tags = contact_obj.get("tags").expect("tags array should exist");
+    let tags = contact_obj.get("tags🔥").expect("tags array should exist");
     let tags_array = expect_array(tags);
     assert_eq!(
         tags_array
@@ -494,20 +523,20 @@ fn desired_struct_should_support_array_of_objects() {
     let contact = map.get("contact").expect("contact key should exist");
     let contact_obj = expect_object(contact);
     let numbers = contact_obj
-        .get("numbers")
+        .get("numbers📇")
         .expect("numbers array should exist");
     let numbers_array = expect_array(numbers);
     assert_eq!(numbers_array.len(), 2, "should keep both phone entries");
 
     let first = expect_object(&numbers_array[0]);
-    assert_str_entry(first, "kind", "mobile");
-    assert_str_entry(first, "number", "+46 111");
-    assert_str_entry(first, "preferred", "true");
+    assert_str_entry(first, "kind🥇", "mobile");
+    assert_str_entry(first, "number#", "+46 111");
+    assert_str_entry(first, "preferred✔", "true");
 
     let second = expect_object(&numbers_array[1]);
-    assert_str_entry(second, "kind", "home");
-    assert_str_entry(second, "number", "+46 222");
-    assert_str_entry(second, "preferred", "false");
+    assert_str_entry(second, "kind🥇", "home");
+    assert_str_entry(second, "number#", "+46 222");
+    assert_str_entry(second, "preferred✔", "false");
 }
 
 #[test]
@@ -614,6 +643,187 @@ fn deep_struct_to_struct_detects_type_mismatch() -> Result<(), SerdeQueryError> 
         Err(SerdeQueryError::Deserialize(_)) => Ok(()),
         other => panic!("expected Deserialize error, got {other:?}"),
     }
+}
+
+#[test]
+fn profile_chain_roundtrip_handles_aliases_and_special_keys() -> Result<(), Box<dyn Error>> {
+    let stringify_options = StringifyOptions::builder()
+        .space_as_plus(true)
+        .build()
+        .expect("builder should succeed");
+    let parse_options = ParseOptions::builder()
+        .space_as_plus(true)
+        .max_params(1024)
+        .max_length(16 * 1024)
+        .max_depth(64)
+        .build()
+        .expect("parse builder should succeed");
+
+    let profile = ProfileForm {
+        username: "Complex User".into(),
+        age: 54,
+        active: true,
+        contact: ContactForm {
+            email: "complex@example.com".into(),
+            primary_phone: "+41 555 0000".into(),
+            secondary_phone: Some("+41 555 1111".into()),
+        },
+        nickname: Some("Cipher".into()),
+    };
+
+    let first_map = QueryMap::from_struct(&profile)?;
+    assert!(first_map.contains_key("user_name"));
+    let contact = expect_object(
+        first_map
+            .get("contact📞")
+            .expect("contact key should exist in first map"),
+    );
+    assert_str_entry(contact, "email📧", "complex@example.com");
+
+    let object_stage: IndexMap<String, Value> = first_map.clone().into();
+    let via_from = QueryMap::from(object_stage.clone());
+    let via_iter = QueryMap::from(object_stage.clone().into_iter().collect::<IndexMap<_, _>>());
+    assert_eq!(via_from, via_iter);
+
+    let encoded = stringify_with(&via_from, &stringify_options)?;
+    assert!(encoded.contains("user_name="));
+    assert!(encoded.contains("contact%F0%9F%93%9E"));
+
+    let reparsed = parse_with(&encoded, &parse_options)?;
+    let restored: ProfileForm = reparsed.to_struct()?;
+    assert_eq!(restored, profile);
+
+    let alias_query = "user_name=Alias%20User&user_age=77&active%3F=true&contact%F0%9F%93%9E[email%F0%9F%93%A7]=alias%40example.com&contact%F0%9F%93%9E[primary-phone]=%2B99%2099&contact%F0%9F%93%9E[secondaryPhone]=%2B00%2000&alias%F0%9F%8E%AD=Mask";
+    let alias_map = parse_with(alias_query, &parse_options)?;
+    let alias_profile: ProfileForm = alias_map.to_struct()?;
+    assert_eq!(alias_profile.age, 77);
+    assert_eq!(alias_profile.nickname.as_deref(), Some("Mask"));
+    assert_eq!(
+        alias_profile.contact.secondary_phone.as_deref(),
+        Some("+00 00")
+    );
+
+    let alias_roundtrip = QueryMap::from_struct(&alias_profile)?;
+    let alias_contact = expect_object(
+        alias_roundtrip
+            .get("contact📞")
+            .expect("alias contact key should exist"),
+    );
+    assert_str_entry(alias_contact, "primary-phone", "+99 99");
+
+    let alias_encoded = stringify_with(&alias_roundtrip, &stringify_options)?;
+    let alias_reparsed = parse_with(&alias_encoded, &parse_options)?;
+    let alias_restored: ProfileForm = alias_reparsed.to_struct()?;
+    assert_eq!(alias_restored, alias_profile);
+
+    Ok(())
+}
+
+#[test]
+fn desired_profile_alias_chain_survives_nested_roundtrip() -> Result<(), Box<dyn Error>> {
+    let parse_options = ParseOptions::builder()
+        .space_as_plus(true)
+        .max_params(2048)
+        .max_length(32 * 1024)
+        .max_depth(64)
+        .build()
+        .expect("parse builder should succeed");
+    let stringify_options = StringifyOptions::builder()
+        .space_as_plus(true)
+        .build()
+        .expect("builder should succeed");
+
+    let alias_query = concat!(
+        "profile%E2%9C%A8name=Alias%20User&",
+        "age%E2%9C%A8=41&",
+        "contact[email%F0%9F%93%AE]=alias%40example.com&",
+        "contact[phones%F0%9F%93%B1][]=+1%20555-0100&",
+        "contact[numbers%F0%9F%93%87][0][kind%F0%9F%A5%87]=mobile&",
+        "contact[numbers%F0%9F%93%87][0][number%23]=+1%20555-0100&",
+        "contact[numbers%F0%9F%93%87][0][preferred%E2%9C%94]=true&",
+        "contact[tag_list][]=science&",
+        "contact[tag_list][]=math&",
+        "bio=Alias%20Bio"
+    );
+
+    let stage_one = parse_with(alias_query, &parse_options)?;
+    let alias_struct: DesiredProfile = stage_one.to_struct()?;
+    assert_eq!(alias_struct.username, "Alias User");
+    assert_eq!(alias_struct.age, 41);
+    assert_eq!(
+        alias_struct.contact.tags,
+        vec![String::from("science"), String::from("math")]
+    );
+
+    let map_stage = QueryMap::from_struct(&alias_struct)?;
+    let object_stage: IndexMap<String, Value> = map_stage.clone().into();
+    let rebuilt = QueryMap::from(object_stage.clone());
+    assert_eq!(map_stage, rebuilt);
+
+    let encoded_once = stringify_with(&rebuilt, &stringify_options)?;
+    let parsed_once = parse_with(&encoded_once, &parse_options)?;
+    let struct_once: DesiredProfile = parsed_once.to_struct()?;
+    assert_eq!(struct_once, alias_struct);
+
+    let nested_map = {
+        let inner_parsed = parse_with(&encoded_once, &parse_options)?;
+        let inner_struct: DesiredProfile = inner_parsed.to_struct()?;
+        QueryMap::from_struct(&inner_struct)?
+    };
+    let nested_string = stringify(&nested_map)?;
+    let nested_reparsed = parse(&nested_string)?;
+    let nested_struct: DesiredProfile = nested_reparsed.to_struct()?;
+    assert_eq!(nested_struct, alias_struct);
+
+    let final_map = QueryMap::from(nested_map.into_iter().collect::<IndexMap<_, _>>());
+    let final_string = stringify_with(&final_map, &stringify_options)?;
+    let final_struct: DesiredProfile = parse_with(&final_string, &parse_options)?.to_struct()?;
+    assert_eq!(final_struct, alias_struct);
+
+    Ok(())
+}
+
+#[test]
+fn deep_envelope_multi_stage_chain_preserves_all_data() -> Result<(), Box<dyn Error>> {
+    let mut envelope = build_deep_envelope();
+    envelope.feature_flags.push(false);
+    envelope.metrics.trend.push(-std::f64::consts::PI);
+    envelope.tags.retain(|tag| !tag.contains('\n'));
+    if let Some(notes) = envelope.extra_notes.as_mut() {
+        notes.retain(|note| !note.contains('\n'));
+    }
+
+    let stringify_options = StringifyOptions::builder()
+        .space_as_plus(true)
+        .build()
+        .expect("builder should succeed");
+    let parse_options = ParseOptions::builder()
+        .space_as_plus(true)
+        .max_params(4096)
+        .max_length(128 * 1024)
+        .max_depth(128)
+        .build()
+        .expect("parse builder should succeed");
+
+    let stage_one = QueryMap::from_struct(&envelope)?;
+    let encoded_once = stringify_with(&stage_one, &stringify_options)?;
+    let parsed_once = parse_with(&encoded_once, &parse_options)?;
+    let struct_once: DeepEnvelope = parsed_once.to_struct()?;
+    assert_eq!(struct_once, envelope);
+
+    let raw_index: IndexMap<String, Value> = stage_one.clone().into();
+    let rebuilt_map = QueryMap::from(raw_index.clone());
+    let encoded_twice = stringify(&rebuilt_map)?;
+    let parsed_twice = parse(&encoded_twice)?;
+    let struct_twice: DeepEnvelope = parsed_twice.to_struct()?;
+    assert_eq!(struct_twice, envelope);
+
+    let final_map = QueryMap::from_struct(&struct_twice)?;
+    let final_string = stringify_with(&final_map, &stringify_options)?;
+    let final_struct: DeepEnvelope = parse_with(&final_string, &parse_options)?.to_struct()?;
+    assert_eq!(final_struct, envelope);
+
+    Ok(())
 }
 
 #[test]
