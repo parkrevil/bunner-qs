@@ -82,21 +82,20 @@ fn space_as_plus_option_controls_plus_handling() {
 
 #[test]
 fn rejects_invalid_percent_encoding_sequences() {
-    let error = parse::<Value>("bad=%2").expect_err("truncated percent escape should fail");
-    let message = error.to_string();
-    match error {
-        ParseError::InvalidPercentEncoding { index } => {
+    asserts::assert_err_matches!(
+        parse::<Value>("bad=%2"),
+        ParseError::InvalidPercentEncoding { index } => |error_message| {
             assert_eq!(index, 4);
-            assert_eq!(message, "invalid percent-encoding at byte offset 4");
+            assert_eq!(error_message, "invalid percent-encoding at byte offset 4");
         }
-        other => panic!("unexpected error variant: {other:?}"),
-    }
+    );
 
-    let error = parse::<Value>("bad=%ZZ").expect_err("non-hex percent escape should fail");
-    match error {
-        ParseError::InvalidPercentEncoding { index } => assert_eq!(index, 4),
-        other => panic!("unexpected error variant: {other:?}"),
-    }
+    asserts::assert_err_matches!(
+        parse::<Value>("bad=%ZZ"),
+        ParseError::InvalidPercentEncoding { index } => |_error_message| {
+            assert_eq!(index, 4);
+        }
+    );
 }
 
 #[test]
@@ -109,60 +108,52 @@ fn ignores_trailing_ampersands_without_pairs() {
 #[test]
 fn rejects_control_characters_and_unexpected_question_mark() {
     let input_with_control = format!("bad{}key=1", '\u{0007}');
-    let error =
-        parse::<Value>(&input_with_control).expect_err("control characters should be rejected");
-    let message = error.to_string();
-    match error {
-        ParseError::InvalidCharacter { character, index } => {
+    asserts::assert_err_matches!(
+        parse::<Value>(&input_with_control),
+        ParseError::InvalidCharacter { character, index } => |error_message| {
             assert_eq!(character, '\u{0007}');
             let expected =
                 format!("query contains invalid character `{character}` at byte offset {index}");
-            assert_eq!(message, expected);
+            assert_eq!(error_message, expected);
         }
-        other => panic!("unexpected error variant: {other:?}"),
-    }
+    );
 
-    let error = parse::<Value>("foo?bar=1").expect_err("embedded question mark should fail");
-    let message = error.to_string();
-    match error {
-        ParseError::UnexpectedQuestionMark { index } => {
+    asserts::assert_err_matches!(
+        parse::<Value>("foo?bar=1"),
+        ParseError::UnexpectedQuestionMark { index } => |error_message| {
             assert_eq!(index, 3);
-            let expected = format!("unexpected '?' character inside query at byte offset {index}");
-            assert_eq!(message, expected);
+            let expected = format!(
+                "unexpected '?' character inside query at byte offset {index}"
+            );
+            assert_eq!(error_message, expected);
         }
-        other => panic!("unexpected error variant: {other:?}"),
-    }
+    );
 }
 
 #[test]
 fn detects_unmatched_brackets_and_depth_overflow() {
-    let error = parse::<Value>("a[=1").expect_err("unmatched bracket should fail");
-    let message = error.to_string();
-    match error {
-        ParseError::UnmatchedBracket { key } => {
+    asserts::assert_err_matches!(
+        parse::<Value>("a[=1"),
+        ParseError::UnmatchedBracket { key } => |error_message| {
             assert_eq!(key, "a[");
             let expected = format!("unmatched bracket sequence in key '{key}'");
-            assert_eq!(message, expected);
+            assert_eq!(error_message, expected);
         }
-        other => panic!("unexpected error variant: {other:?}"),
-    }
+    );
 
     let options = ParseOptions {
         max_depth: Some(1),
         ..ParseOptions::default()
     };
-    let error =
-        parse_with::<Value>("a[b][c]=1", &options).expect_err("depth limit should be enforced");
-    let message = error.to_string();
-    match error {
-        ParseError::DepthExceeded { key, limit } => {
+    asserts::assert_err_matches!(
+        parse_with::<Value>("a[b][c]=1", &options),
+        ParseError::DepthExceeded { key, limit } => |error_message| {
             assert_eq!(key, "a[b][c]");
             assert_eq!(limit, 1);
             let expected = format!("maximum bracket depth exceeded in key '{key}' (limit {limit})");
-            assert_eq!(message, expected);
+            assert_eq!(error_message, expected);
         }
-        other => panic!("unexpected error variant: {other:?}"),
-    }
+    );
 }
 
 #[test]
@@ -171,72 +162,61 @@ fn enforces_parameter_and_length_limits() {
         max_params: Some(1),
         ..ParseOptions::default()
     };
-    let error = parse_with::<Value>("a=1&b=2", &param_limited)
-        .expect_err("parameter limit should trigger on second entry");
-    let message = error.to_string();
-    match error {
-        ParseError::TooManyParameters { limit, actual } => {
+    asserts::assert_err_matches!(
+        parse_with::<Value>("a=1&b=2", &param_limited),
+        ParseError::TooManyParameters { limit, actual } => |error_message| {
             assert_eq!(limit, 1);
             assert_eq!(actual, 2);
             assert_eq!(
-                message,
+                error_message,
                 format!("too many parameters: received {actual}, limit {limit}")
             );
         }
-        other => panic!("unexpected error variant: {other:?}"),
-    }
+    );
 
     let length_limited = ParseOptions {
         max_length: Some(5),
         ..ParseOptions::default()
     };
-    let error = parse_with::<Value>("toolong=1", &length_limited)
-        .expect_err("input exceeding max length should fail");
-    let message = error.to_string();
-    match error {
-        ParseError::InputTooLong { limit } => {
+    asserts::assert_err_matches!(
+        parse_with::<Value>("toolong=1", &length_limited),
+        ParseError::InputTooLong { limit } => |error_message| {
             assert_eq!(limit, 5);
-            assert_eq!(message, "input exceeds maximum length of 5 characters");
+            assert_eq!(error_message, "input exceeds maximum length of 5 characters");
         }
-        other => panic!("unexpected error variant: {other:?}"),
-    }
+    );
 }
 
 #[test]
 fn rejects_duplicate_keys() {
-    let error =
-        parse::<Value>("color=red&color=blue").expect_err("duplicate keys should be rejected");
-    let message = error.to_string();
-    match error {
-        ParseError::DuplicateKey { key } => {
+    asserts::assert_err_matches!(
+        parse::<Value>("color=red&color=blue"),
+        ParseError::DuplicateKey { key } => |error_message| {
             assert_eq!(key, "color");
             let expected = format!("duplicate key '{key}' not allowed");
-            assert_eq!(message, expected);
+            assert_eq!(error_message, expected);
         }
-        other => panic!("unexpected error variant: {other:?}"),
-    }
+    );
 }
 
 #[test]
 fn rejects_sparse_array_indices() {
-    let error = parse::<Value>("items[0]=apple&items[2]=cherry")
-        .expect_err("non-contiguous array indices should fail");
-    match error {
-        ParseError::DuplicateKey { key } => assert_eq!(key, "items"),
-        other => panic!("unexpected error variant: {other:?}"),
-    }
+    asserts::assert_err_matches!(
+        parse::<Value>("items[0]=apple&items[2]=cherry"),
+        ParseError::DuplicateKey { key } => |_error_message| {
+            assert_eq!(key, "items");
+        }
+    );
 }
 
 #[test]
 fn rejects_invalid_utf8_in_percent_sequences() {
-    let error = parse::<Value>("bad=%FF").expect_err("invalid UTF-8 should be surfaced");
-    let message = error.to_string();
-    match error {
-        ParseError::InvalidUtf8 => {
-            assert_eq!(message, "decoded component is not valid UTF-8");
+    asserts::assert_err_matches!(
+        parse::<Value>("bad=%FF"),
+        ParseError::InvalidUtf8 => |error_message| {
+            assert_eq!(error_message, "decoded component is not valid UTF-8");
         }
-        other => panic!("unexpected error variant: {other:?}"),
-    }
+    );
 }
 
 #[test]
@@ -247,13 +227,11 @@ fn serde_error_messages_are_human_readable() {
         _count: u32,
     }
 
-    let error = parse::<NumericTarget>("count=abc")
-        .expect_err("non-numeric value should fail to deserialize");
-    let message = error.to_string();
-    match error {
-        ParseError::Serde(source) => {
+    asserts::assert_err_matches!(
+        parse::<NumericTarget>("count=abc"),
+        ParseError::Serde(source) => |error_message| {
             let expected = "failed to deserialize parsed query into target type: failed to deserialize query map: invalid number literal `abc`";
-            assert_eq!(message, expected);
+            assert_eq!(error_message, expected);
             match source {
                 SerdeQueryError::Deserialize(inner) => {
                     assert_eq!(inner.to_string(), "invalid number literal `abc`");
@@ -261,8 +239,7 @@ fn serde_error_messages_are_human_readable() {
                 other => panic!("unexpected inner serde error: {other:?}"),
             }
         }
-        other => panic!("unexpected error variant: {other:?}"),
-    }
+    );
 }
 
 #[test]

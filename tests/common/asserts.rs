@@ -1,5 +1,49 @@
 use serde_json::{Map as JsonMap, Value};
 
+#[allow(unused_macros)]
+macro_rules! assert_err_matches {
+    ($expr:expr, $pattern:pat $(if $guard:expr)? => |$msg:ident| $body:block $(,)?) => {{
+        match $expr {
+            Ok(_) => panic!(
+                "expected {}, but operation succeeded",
+                stringify!($pattern $(if $guard)?)
+            ),
+            Err(err) => {
+                let __error_message = err.to_string();
+                match err {
+                    $pattern $(if $guard)? => {
+                        #[allow(unused)]
+                        let $msg: &str = &__error_message;
+                        $body
+                    }
+                    other => panic!(
+                        "expected {}, got {other:?}",
+                        stringify!($pattern $(if $guard)?)
+                    ),
+                }
+            }
+        }
+    }};
+    ($expr:expr, $pattern:pat $(if $guard:expr)? $(,)?) => {{
+        match $expr {
+            Ok(_) => panic!(
+                "expected {}, but operation succeeded",
+                stringify!($pattern $(if $guard)?)
+            ),
+            Err(err) => match err {
+                $pattern $(if $guard)? => (),
+                other => panic!(
+                    "expected {}, got {other:?}",
+                    stringify!($pattern $(if $guard)?)
+                ),
+            },
+        }
+    }};
+}
+
+#[allow(unused_imports)]
+pub(crate) use assert_err_matches;
+
 #[track_caller]
 pub fn assert_str_entry(map: &JsonMap<String, Value>, key: &str, expected: &str) {
     let value = map
