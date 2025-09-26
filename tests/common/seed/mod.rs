@@ -15,6 +15,29 @@ const QUERY_ROUNDTRIP_DATA: &str = include_str!(concat!(
     "/tests/data/query_roundtrip.json"
 ));
 
+/// Declarative entry-points for the shipped corpora that back our seed-based tests.
+pub fn allow_cases() -> Vec<SeedCase> {
+    load_cases_from_str(QUERY_ALLOW_DATA)
+}
+
+pub fn reject_cases() -> Vec<SeedCase> {
+    load_cases_from_str(QUERY_REJECT_DATA)
+}
+
+pub fn roundtrip_cases() -> Vec<RoundTripSeed> {
+    load_roundtrip_cases_from_str(QUERY_ROUNDTRIP_DATA)
+}
+
+/// Load a custom allow/reject corpus from a UTF-8 JSON blob.
+pub fn load_cases_from_str(data: &str) -> Vec<SeedCase> {
+    serde_json::from_str(data).expect("seed JSON should parse")
+}
+
+/// Load a custom roundtrip corpus from a UTF-8 JSON blob.
+pub fn load_roundtrip_cases_from_str(data: &str) -> Vec<RoundTripSeed> {
+    serde_json::from_str(data).expect("roundtrip seed JSON should parse")
+}
+
 #[derive(Debug, Deserialize)]
 pub struct SeedCase {
     pub name: String,
@@ -87,56 +110,6 @@ impl RoundTripSeed {
     pub fn normalized_query(&self) -> Option<&str> {
         self.normalized.as_deref()
     }
-}
-
-fn build_parse_options(config: Option<&SeedOptions>) -> ParseOptions {
-    let mut opts = ParseOptions::default();
-    if let Some(cfg) = config {
-        if let Some(space) = cfg.space_as_plus {
-            opts.space_as_plus = space;
-        }
-        if let Some(max_params) = cfg.max_params {
-            opts.max_params = Some(max_params);
-        }
-        if let Some(max_length) = cfg.max_length {
-            opts.max_length = Some(max_length);
-        }
-        if let Some(max_depth) = cfg.max_depth {
-            opts.max_depth = Some(max_depth);
-        }
-    }
-    opts
-}
-
-fn build_stringify_options(config: Option<&SeedStringifyOptions>) -> StringifyOptions {
-    let mut opts = StringifyOptions::default();
-    if let Some(SeedStringifyOptions {
-        space_as_plus: Some(space),
-    }) = config
-    {
-        opts.space_as_plus = *space;
-    }
-    opts
-}
-
-pub fn allow_cases() -> Vec<SeedCase> {
-    load_cases(QUERY_ALLOW_DATA)
-}
-
-pub fn reject_cases() -> Vec<SeedCase> {
-    load_cases(QUERY_REJECT_DATA)
-}
-
-pub fn roundtrip_cases() -> Vec<RoundTripSeed> {
-    load_roundtrip_cases(QUERY_ROUNDTRIP_DATA)
-}
-
-fn load_cases(data: &str) -> Vec<SeedCase> {
-    serde_json::from_str(data).expect("seed JSON should parse")
-}
-
-fn load_roundtrip_cases(data: &str) -> Vec<RoundTripSeed> {
-    serde_json::from_str(data).expect("roundtrip seed JSON should parse")
 }
 
 pub fn assert_case_outcome(case: &SeedCase, result: Result<Value, ParseError>) {
@@ -217,4 +190,34 @@ pub fn normalize_empty(value: Value) -> Value {
         Value::Null => Value::Object(JsonMap::new()),
         other => other,
     }
+}
+
+fn build_parse_options(config: Option<&SeedOptions>) -> ParseOptions {
+    let mut opts = ParseOptions::default();
+    if let Some(cfg) = config {
+        if let Some(space) = cfg.space_as_plus {
+            opts.space_as_plus = space;
+        }
+        if let Some(max_params) = cfg.max_params {
+            opts.max_params = Some(max_params);
+        }
+        if let Some(max_length) = cfg.max_length {
+            opts.max_length = Some(max_length);
+        }
+        if let Some(max_depth) = cfg.max_depth {
+            opts.max_depth = Some(max_depth);
+        }
+    }
+    opts
+}
+
+fn build_stringify_options(config: Option<&SeedStringifyOptions>) -> StringifyOptions {
+    let mut opts = StringifyOptions::default();
+    if let Some(SeedStringifyOptions {
+        space_as_plus: Some(space),
+    }) = config
+    {
+        opts.space_as_plus = *space;
+    }
+    opts
 }

@@ -1,15 +1,17 @@
 #[path = "common/fuzzish/mod.rs"]
 mod fuzzish;
+#[path = "common/seed/mod.rs"]
+mod seed;
 
 use bunner_qs::{ParseError, ParseOptions, StringifyOptions, parse, parse_with, stringify_with};
 use fuzzish::{
-    allow_cases, allowed_char, arb_roundtrip_input, assert_case_outcome, estimate_params,
-    form_encode, normalize_empty, percent_encode, reject_cases, root_depth, root_key_string,
-    roundtrip_cases, string_with_spaces, total_string_length, unicode_key_string,
+    allowed_char, arb_roundtrip_input, estimate_params, form_encode, percent_encode, root_depth,
+    root_key_string, string_with_spaces, total_string_length, unicode_key_string,
     unicode_value_string,
 };
 use proptest::prelude::*;
 use proptest::test_runner::{Config as ProptestConfig, FileFailurePersistence};
+use seed::{allow_cases, assert_case_outcome, normalize_empty, reject_cases, roundtrip_cases};
 use serde_json::{Value, json};
 
 #[test]
