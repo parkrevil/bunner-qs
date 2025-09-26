@@ -2,7 +2,7 @@ use bunner_qs::{ParseError, ParseOptions, StringifyOptions, parse, parse_with, s
 use proptest::prelude::*;
 use proptest::test_runner::{Config as ProptestConfig, FileFailurePersistence};
 use serde::Deserialize;
-use serde_json::{Map as JsonMap, Value};
+use serde_json::{Map as JsonMap, Value, json};
 
 #[derive(Debug, Deserialize)]
 struct SeedCase {
@@ -262,6 +262,16 @@ fn unicode_value_string() -> impl Strategy<Value = String> {
     .prop_map(|chars: Vec<char>| chars.into_iter().collect())
 }
 
+fn string_with_spaces() -> impl Strategy<Value = String> {
+    prop::collection::vec(prop::collection::vec(allowed_char(), 1..12), 2..6).prop_map(|segments| {
+        segments
+            .into_iter()
+            .map(|chars| chars.into_iter().collect::<String>())
+            .collect::<Vec<String>>()
+            .join(" ")
+    })
+}
+
 fn percent_encode(input: &str) -> String {
     input
         .as_bytes()
@@ -346,6 +356,15 @@ fn estimate_params(value: &Value) -> usize {
     match value {
         Value::Object(map) => map.values().map(estimate_params_value).sum(),
         other => estimate_params_value(other),
+    }
+}
+
+fn total_string_length(value: &Value) -> usize {
+    match value {
+        Value::String(s) => s.len(),
+        Value::Array(items) => items.iter().map(total_string_length).sum(),
+        Value::Object(map) => map.values().map(total_string_length).sum(),
+        _ => 0,
     }
 }
 
@@ -694,6 +713,47 @@ proptest! {
 
     let reparsed: Value = parse_with(&encoded, &parse_options).expect("round trip parse should succeed");
     prop_assert_eq!(normalize_empty(reparsed), normalize_empty(map.clone()));
+    }
+
+    #[test]
+    fn space_plus_encoding_counts_spaces(value in string_with_spaces()) {
+        let options = StringifyOptions {
+            space_as_plus: true,
+        };
+        let encoded = stringify_with(&json!({"msg": value.clone()}), &options)
+            .expect("stringify should succeed");
+        let plus_count = encoded.chars().filter(|c| *c == '+').count();
+        let space_count = value.chars().filter(|c| *c == ' ').count();
+        prop_assert_eq!(plus_count, space_count);
+
+        let parsed: Value = parse_with(&encoded, &ParseOptions {
+            space_as_plus: true,
+            ..Default::default()
+        })
+        .expect("parse should succeed");
+        let reparsed = parsed
+            .as_object()
+            .expect("parsed root should be object")
+            .get("msg")
+            .expect("message missing")
+            .as_str()
+            .expect("message should be string");
+        prop_assert_eq!(reparsed, value);
+    }
+
+    #[test]
+    fn encoding_never_shorter_than_string_data((map, config) in arb_roundtrip_input()) {
+        let stringify_options = StringifyOptions {
+            space_as_plus: config.space_as_plus,
+        };
+        let encoded = stringify_with(&map, &stringify_options).expect("stringify should succeed");
+        let total_len = total_string_length(&map);
+        prop_assert!(
+            encoded.len() >= total_len,
+            "encoded length {} shorter than total string bytes {}",
+            encoded.len(),
+            total_len
+        );
     }
 
     #[test]
