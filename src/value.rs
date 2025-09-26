@@ -157,8 +157,57 @@ impl QueryMap {
     #[cfg(feature = "serde")]
     pub fn to_struct<T>(&self) -> Result<T, SerdeQueryError>
     where
-        T: DeserializeOwned,
+        T: DeserializeOwned + Default,
     {
-        from_query_map(self)
+        if self.is_empty() {
+            Ok(T::default())
+        } else {
+            from_query_map(self)
+        }
+    }
+
+    #[cfg(all(feature = "serde", feature = "serde_json"))]
+    pub fn to_json(&self) -> Result<serde_json::Value, SerdeQueryError> {
+        fn convert_value(value: &Value) -> serde_json::Value {
+            match value {
+                Value::String(s) => string_to_json_value(s),
+                Value::Array(items) => {
+                    serde_json::Value::Array(items.iter().map(convert_value).collect())
+                }
+                Value::Object(map) => serde_json::Value::Object(convert_object(map)),
+            }
+        }
+
+        fn convert_object(
+            map: &IndexMap<String, Value>,
+        ) -> serde_json::Map<String, serde_json::Value> {
+            map.iter()
+                .map(|(key, value)| (key.clone(), convert_value(value)))
+                .collect()
+        }
+
+        fn string_to_json_value(s: &str) -> serde_json::Value {
+            match s {
+                "true" => serde_json::Value::Bool(true),
+                "false" => serde_json::Value::Bool(false),
+                "null" => serde_json::Value::Null,
+                _ => {
+                    if let Ok(int) = s.parse::<i64>() {
+                        serde_json::Value::Number(int.into())
+                    } else if let Ok(uint) = s.parse::<u64>() {
+                        serde_json::Value::Number(uint.into())
+                    } else if let Ok(float) = s.parse::<f64>() {
+                        match serde_json::Number::from_f64(float) {
+                            Some(number) => serde_json::Value::Number(number),
+                            None => serde_json::Value::String(s.to_string()),
+                        }
+                    } else {
+                        serde_json::Value::String(s.to_string())
+                    }
+                }
+            }
+        }
+
+        Ok(serde_json::Value::Object(convert_object(&self.0)))
     }
 }

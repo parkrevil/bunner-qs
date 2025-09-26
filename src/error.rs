@@ -1,5 +1,8 @@
 use thiserror::Error;
 
+#[cfg(feature = "serde")]
+use crate::serde_bridge::SerdeQueryError;
+
 #[derive(Debug, Error)]
 pub enum ParseError {
     #[error("input exceeds maximum length of {limit} characters")]
@@ -33,3 +36,17 @@ pub enum StringifyError {
 }
 
 pub type StringifyResult<T> = Result<T, StringifyError>;
+
+#[cfg(feature = "serde")]
+#[allow(dead_code)]
+#[derive(Debug, Error)]
+pub enum SerdeStringifyError {
+    #[error(transparent)]
+    Serialize(#[from] SerdeQueryError),
+    #[error(transparent)]
+    Stringify(#[from] StringifyError),
+}
+
+#[cfg(feature = "serde")]
+#[allow(dead_code)]
+pub type SerdeStringifyResult<T> = Result<T, SerdeStringifyError>;

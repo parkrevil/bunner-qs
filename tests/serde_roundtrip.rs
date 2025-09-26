@@ -9,10 +9,12 @@ use bunner_qs::{
 use common::{assert_str_entry, expect_array, expect_object};
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
+#[cfg(feature = "serde_json")]
+use serde_json::json;
 use std::collections::BTreeMap;
 use std::error::Error;
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Debug, Default, Serialize, Deserialize, PartialEq, Clone)]
 struct ContactForm {
     #[serde(rename = "email📧", alias = "email_address")]
     email: String,
@@ -26,7 +28,7 @@ struct ContactForm {
     secondary_phone: Option<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Debug, Default, Serialize, Deserialize, PartialEq, Clone)]
 struct ProfileForm {
     #[serde(rename = "user_name")]
     username: String,
@@ -45,19 +47,26 @@ struct ProfileForm {
     nickname: Option<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Debug, Default, Serialize, Deserialize, PartialEq, Clone)]
 struct SimpleUser {
     username: String,
     age: u8,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Debug, Default, Serialize, Deserialize, PartialEq, Clone)]
 struct TaggedRecord {
     name: String,
     tags: Vec<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Default, Clone)]
+struct DefaultProfile {
+    username: String,
+    age: u8,
+    active: bool,
+}
+
+#[derive(Debug, Default, Serialize, Deserialize, PartialEq, Clone)]
 struct DesiredPhone {
     #[serde(rename = "kind🥇")]
     kind: String,
@@ -67,7 +76,7 @@ struct DesiredPhone {
     preferred: bool,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Debug, Default, Serialize, Deserialize, PartialEq, Clone)]
 struct DesiredContact {
     #[serde(rename = "email📮")]
     email: String,
@@ -79,7 +88,7 @@ struct DesiredContact {
     tags: Vec<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Debug, Default, Serialize, Deserialize, PartialEq, Clone)]
 struct DesiredProfile {
     #[serde(rename = "profile✨name")]
     username: String,
@@ -89,58 +98,58 @@ struct DesiredProfile {
     bio: Option<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Debug, Default, Serialize, Deserialize, PartialEq, Clone)]
 struct NetworkPeer {
     host: String,
     port: u16,
     secure: bool,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Debug, Default, Serialize, Deserialize, PartialEq, Clone)]
 struct LocaleSettings {
     language: String,
     description: String,
     greetings: Vec<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Debug, Default, Serialize, Deserialize, PartialEq, Clone)]
 struct Metrics {
     load: f32,
     requests: u64,
     trend: Vec<f64>,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Debug, Default, Serialize, Deserialize, PartialEq, Clone)]
 struct LevelFive {
     message: String,
     ordinal: i32,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Debug, Default, Serialize, Deserialize, PartialEq, Clone)]
 struct LevelFour {
     code: String,
     depth: LevelFive,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Debug, Default, Serialize, Deserialize, PartialEq, Clone)]
 struct LevelThree {
     token: String,
     depth: LevelFour,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Debug, Default, Serialize, Deserialize, PartialEq, Clone)]
 struct LevelTwo {
     key: String,
     depth: LevelThree,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Debug, Default, Serialize, Deserialize, PartialEq, Clone)]
 struct LevelOneDeep {
     namespace: String,
     depth: LevelTwo,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Debug, Default, Serialize, Deserialize, PartialEq, Clone)]
 struct DeepEnvelope {
     id: u64,
     checksum: String,
@@ -849,4 +858,59 @@ fn serialize_rejects_unsupported_enum_newtype_variant() {
         Err(SerdeQueryError::Serialize(_)) => {} // Unsupported error
         other => panic!("expected Serialize error for unsupported enum, got {other:?}"),
     }
+}
+
+#[test]
+fn to_struct_returns_default_on_empty_map() -> Result<(), SerdeQueryError> {
+    let map = QueryMap::new();
+    let profile: DefaultProfile = map.to_struct()?;
+    assert_eq!(profile, DefaultProfile::default());
+    Ok(())
+}
+
+#[test]
+fn to_struct_populated_map_preserves_values() -> Result<(), SerdeQueryError> {
+    let mut map = QueryMap::new();
+    map.insert("username".into(), Value::String("ada".into()));
+    map.insert("age".into(), Value::String("36".into()));
+    map.insert("active".into(), Value::String("true".into()));
+
+    let profile: DefaultProfile = map.to_struct()?;
+
+    assert_eq!(profile.username, "ada");
+    assert_eq!(profile.age, 36);
+    assert!(profile.active);
+    Ok(())
+}
+
+#[cfg(feature = "serde_json")]
+#[test]
+fn to_json_converts_query_map_to_json_value() -> Result<(), SerdeQueryError> {
+    let profile = ProfileForm {
+        username: "json_user".into(),
+        age: 21,
+        active: true,
+        contact: ContactForm {
+            email: "json@example.com".into(),
+            primary_phone: "+1 555".into(),
+            secondary_phone: None,
+        },
+        nickname: None,
+    };
+
+    let map = QueryMap::from_struct(&profile)?;
+    let value = map.to_json()?;
+
+    let expected = json!({
+        "user_name": "json_user",
+        "age-years": 21,
+        "active?": true,
+        "contact📞": {
+            "email📧": "json@example.com",
+            "primary-phone": "+1 555"
+        }
+    });
+
+    assert_eq!(value, expected);
+    Ok(())
 }
