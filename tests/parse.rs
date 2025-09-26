@@ -128,8 +128,8 @@ fn rejects_unmatched_closing_bracket_in_key() {
 
 #[test]
 fn parses_numeric_segment_followed_by_field() {
-    let parsed: Value = parse("a[0]b=1")
-        .expect("numeric segment followed by field name should parse");
+    let parsed: Value =
+        parse("a[0]b=1").expect("numeric segment followed by field name should parse");
 
     let array = parsed
         .get("a")
@@ -145,8 +145,8 @@ fn parses_numeric_segment_followed_by_field() {
 
 #[test]
 fn parses_nested_empty_bracket_segment() {
-    let parsed: Value = parse("a[[]]=1")
-        .expect("nested empty bracket segment should parse as literal keys");
+    let parsed: Value =
+        parse("a[[]]=1").expect("nested empty bracket segment should parse as literal keys");
     assert_str_path(&parsed, &["a", "[", "]"], "1");
 }
 

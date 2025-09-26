@@ -15,11 +15,11 @@ use bunner_qs::{
 };
 use json::json_from_pairs;
 use options::build_parse_options;
+use serde::Serialize;
 use serde_helpers::{
     assert_encoded_contains, assert_parse_roundtrip, assert_stringify_roundtrip,
     assert_stringify_roundtrip_with_options,
 };
-use serde::Serialize;
 use serde_json::{Map, Value, json};
 use stringify_options::build_stringify_options;
 
