@@ -12,9 +12,7 @@ mod serde_helpers;
 mod stringify_options;
 
 use asserts::{assert_str_path, assert_string_array_path, expect_path};
-use bunner_qs::{
-    ParseError, ParseOptions, SerdeQueryError, parse, parse_with, stringify, stringify_with,
-};
+use bunner_qs::{ParseError, SerdeQueryError, parse, parse_with, stringify, stringify_with};
 use json::json_from_pairs;
 use options::build_parse_options;
 use serde_data::{
@@ -22,7 +20,13 @@ use serde_data::{
     FlattenedProfile, NetworkPeer, NotificationPreference, ProfileForm, SimpleUser, TaggedRecord,
     TaggedSettings,
 };
-use serde_helpers::{assert_encoded_contains, roundtrip_via_public_api};
+use serde_helpers::{
+    assert_encoded_contains,
+    assert_parse_roundtrip,
+    assert_stringify_roundtrip,
+    assert_stringify_roundtrip_with_options,
+    roundtrip_via_public_api,
+};
 use serde_json::{Value, json};
 use std::collections::BTreeMap;
 use std::error::Error;
@@ -109,7 +113,10 @@ fn stringify_shapes_nested_data_for_inspection() -> Result<(), Box<dyn Error>> {
     };
 
     let encoded = stringify(&profile).expect("stringify should succeed");
+    assert_parse_roundtrip(&encoded);
     let parsed: Value = parse(&encoded)?;
+    let profile_value = serde_json::to_value(&profile).expect("profile should convert to Value");
+    let _ = assert_stringify_roundtrip(&profile_value);
     assert_str_path(&parsed, &["profile✨name"], "ada");
     assert_str_path(&parsed, &["age✨"], "36");
     assert_str_path(&parsed, &["contact", "email📮"], "ada@example.com");
@@ -127,10 +134,7 @@ fn stringify_shapes_nested_data_for_inspection() -> Result<(), Box<dyn Error>> {
 
 #[test]
 fn tighten_parse_options_detects_violations() {
-    let options = ParseOptions {
-        max_params: Some(2),
-        ..ParseOptions::default()
-    };
+    let options = build_parse_options(|builder| builder.max_params(2));
 
     let err = parse_with::<SimpleUser>("username=ada&age=36&active=true", &options).unwrap_err();
     assert!(matches!(err, ParseError::TooManyParameters { .. }));
@@ -276,6 +280,8 @@ fn deep_roundtrip_with_custom_options() -> Result<(), Box<dyn Error>> {
 
     let encoded = stringify_with(&profile, &stringify_options)?;
     let reparsed: ProfileForm = parse_with(&encoded, &parse_options)?;
+    let profile_value = serde_json::to_value(&profile).expect("profile should convert to Value");
+    let _ = assert_stringify_roundtrip_with_options(&profile_value, &stringify_options, &parse_options);
     assert_eq!(reparsed, profile);
     Ok(())
 }

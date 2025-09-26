@@ -13,13 +13,11 @@ pub enum SerdeQueryError {
     Deserialize(#[from] DeserializeError),
 }
 
-/// Convert a serde-serializable struct to a QueryMap
 pub(crate) fn to_query_map<T: Serialize>(data: &T) -> Result<QueryMap, SerdeQueryError> {
     let map = serialize_to_query_map(data)?;
     Ok(QueryMap::from(map))
 }
 
-/// Convert a QueryMap to a serde-deserializable struct
 pub(crate) fn from_query_map<T: DeserializeOwned>(
     query_map: &QueryMap,
 ) -> Result<T, SerdeQueryError> {

@@ -4,16 +4,23 @@ mod asserts;
 mod json;
 #[path = "common/options.rs"]
 mod options;
+#[path = "common/serde_helpers.rs"]
+mod serde_helpers;
 #[path = "common/stringify_options.rs"]
 mod stringify_options;
 
 use asserts::assert_str_path;
 use bunner_qs::{
-    SerdeStringifyError, StringifyError, StringifyOptions, parse, parse_with, stringify,
-    stringify_with,
+    SerdeStringifyError, StringifyError, StringifyOptions, parse, stringify, stringify_with,
 };
 use json::json_from_pairs;
 use options::build_parse_options;
+use serde_helpers::{
+    assert_encoded_contains,
+    assert_parse_roundtrip,
+    assert_stringify_roundtrip,
+    assert_stringify_roundtrip_with_options,
+};
 use serde_json::{Map, Value, json};
 use stringify_options::build_stringify_options;
 
@@ -35,6 +42,7 @@ fn stringifies_basic_pairs() {
     let map = json_from_pairs(&[("a", "1"), ("b", "two")]);
     let encoded = stringify(&map).expect("should stringify basic pairs");
     assert_eq!(encoded, "a=1&b=two");
+    assert_parse_roundtrip(&encoded);
 }
 
 #[test]
@@ -56,9 +64,7 @@ fn method_matches_function_output() {
 #[test]
 fn space_encoding_respects_option() {
     let map = json_from_pairs(&[("note", "hello world")]);
-    let plus = StringifyOptions {
-        space_as_plus: true,
-    };
+    let plus = build_stringify_options(|builder| builder.space_as_plus(true));
     let encoded_plus = stringify_with(&map, &plus).expect("should encode spaces as plus");
     assert_eq!(encoded_plus, "note=hello+world");
 
@@ -112,7 +118,7 @@ fn percent_encodes_long_nested_unicode_values() {
     });
 
     let encoded = stringify(&root).expect("should stringify long unicode value");
-    assert!(encoded.contains("%F0%9F%9A%80"));
+    assert_encoded_contains(&encoded, &["%F0%9F%9A%80"]);
 
     let parsed: Value = parse(&encoded).expect("percent encoded payload should parse");
     assert_str_path(&parsed, &["profile", "bio"], &long_value);
@@ -130,45 +136,39 @@ fn percent_encodes_multilingual_values() {
     });
 
     let encoded = stringify(&map).expect("should percent encode multilingual values");
-    for expected in [
-        "name=J%C3%BCrgen",
-        "emoji=%F0%9F%98%80",
-        "cyrillic=%D0%9F%D1%80%D0%B8%D0%B2%D0%B5%D1%82",
-        "arabic=%D9%85%D8%B1%D8%AD%D8%A8%D8%A7",
-        "combining=Cafe%CC%81",
-        "thai=%E0%B8%AA%E0%B8%A7%E0%B8%B1%E0%B8%AA%E0%B8%94%E0%B8%B5",
-    ] {
-        assert!(
-            encoded.contains(expected),
-            "encoded string `{encoded}` should contain `{expected}`"
-        );
-    }
+    assert_encoded_contains(
+        &encoded,
+        &[
+            "name=J%C3%BCrgen",
+            "emoji=%F0%9F%98%80",
+            "cyrillic=%D0%9F%D1%80%D0%B8%D0%B2%D0%B5%D1%82",
+            "arabic=%D9%85%D8%B1%D8%AD%D8%A8%D8%A7",
+            "combining=Cafe%CC%81",
+            "thai=%E0%B8%AA%E0%B8%A7%E0%B8%B1%E0%B8%AA%E0%B8%94%E0%B8%B5",
+        ],
+    );
 }
 
 #[test]
 fn nested_structures_use_bracket_notation() {
     let map = build_nested_user_value();
     let encoded = stringify(&map).expect("should stringify nested structures");
-    for expected in [
-        "user%5Bname%5D=Jane",
-        "user%5Baddress%5D%5Bcity%5D=Seoul",
-        "user%5Baddress%5D%5Bpostal%5D=04524",
-        "user%5Bhobbies%5D%5B0%5D=tea",
-        "user%5Bhobbies%5D%5B1%5D=hiking",
-    ] {
-        assert!(
-            encoded.contains(expected),
-            "encoded string `{encoded}` should contain `{expected}`"
-        );
-    }
+    assert_encoded_contains(
+        &encoded,
+        &[
+            "user%5Bname%5D=Jane",
+            "user%5Baddress%5D%5Bcity%5D=Seoul",
+            "user%5Baddress%5D%5Bpostal%5D=04524",
+            "user%5Bhobbies%5D%5B0%5D=tea",
+            "user%5Bhobbies%5D%5B1%5D=hiking",
+        ],
+    );
 }
 
 #[test]
 fn round_trip_through_parse_preserves_structure() {
     let map = build_nested_user_value();
-    let encoded = stringify(&map).expect("should stringify nested map");
-    let parsed: Value = parse(&encoded).expect("stringified output should parse");
-    assert_eq!(parsed, map);
+    assert_stringify_roundtrip(&map);
 }
 
 #[test]
@@ -178,10 +178,8 @@ fn round_trip_with_space_plus_option() {
     });
 
     let options = build_stringify_options(|builder| builder.space_as_plus(true));
-    let encoded = stringify_with(&map, &options).expect("stringify with plus should work");
-
     let parse_options = build_parse_options(|builder| builder.space_as_plus(true));
-    let reparsed: Value = parse_with(&encoded, &parse_options).expect("parse should honor plus");
+    let reparsed = assert_stringify_roundtrip_with_options(&map, &options, &parse_options);
     assert_str_path(&reparsed, &["msg"], "one two");
 }
 
@@ -240,8 +238,7 @@ fn array_of_objects_stringifies_cleanly() {
         }
     });
 
-    let encoded = stringify(&map).expect("array of objects should stringify");
-    let reparsed: Value = parse(&encoded).expect("stringified payload should parse");
+    let reparsed = assert_stringify_roundtrip(&map);
     assert_eq!(reparsed, map);
 }
 

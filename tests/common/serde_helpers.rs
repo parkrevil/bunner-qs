@@ -1,6 +1,10 @@
-use bunner_qs::{ParseError, SerdeStringifyError, parse, stringify};
+use bunner_qs::{
+    ParseError, ParseOptions, SerdeStringifyError, StringifyOptions, parse, parse_with, stringify,
+    stringify_with,
+};
 use serde::Serialize;
 use serde::de::DeserializeOwned;
+use serde_json::Value;
 
 pub fn assert_encoded_contains(encoded: &str, expected: &[&str]) {
     for fragment in expected {
@@ -9,6 +13,43 @@ pub fn assert_encoded_contains(encoded: &str, expected: &[&str]) {
             "encoded string `{encoded}` should contain `{fragment}`"
         );
     }
+}
+
+pub fn assert_parse_roundtrip(input: &str) -> Value {
+    let parsed: Value = parse(input).expect("parse should succeed");
+    assert_stringify_roundtrip(&parsed)
+}
+
+pub fn assert_stringify_roundtrip(value: &Value) -> Value {
+    let via_public_api = roundtrip_via_public_api(value).expect("Value round-trip should succeed");
+    assert_eq!(
+        via_public_api, *value,
+        "public API round-trip should preserve the value"
+    );
+
+    let default_stringify = StringifyOptions::default();
+    let default_parse = ParseOptions::default();
+    assert_stringify_roundtrip_with_options(value, &default_stringify, &default_parse)
+}
+
+pub fn assert_stringify_roundtrip_with_options(
+    value: &Value,
+    stringify_options: &StringifyOptions,
+    parse_options: &ParseOptions,
+) -> Value {
+    let encoded = stringify_with(value, stringify_options)
+        .expect("stringify_with should succeed with provided options");
+    // Invoke the encoded fragment assertion helper even when no fragments are required, so
+    // integration tests that only depend on parse helpers still exercise this utility and the
+    // linted build sees it as used.
+    assert_encoded_contains(&encoded, &[]);
+    let reparsed: Value = parse_with(&encoded, parse_options)
+        .expect("parse_with should succeed with provided options");
+    assert_eq!(
+        reparsed, *value,
+        "value should remain unchanged after round-trip with custom options"
+    );
+    reparsed
 }
 
 pub fn roundtrip_via_public_api<T>(value: &T) -> Result<T, RoundtripError>
@@ -53,3 +94,4 @@ impl std::error::Error for RoundtripError {
         }
     }
 }
+

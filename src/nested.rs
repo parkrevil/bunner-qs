@@ -3,8 +3,6 @@ use crate::{ParseError, ParseResult};
 use indexmap::IndexMap;
 use std::collections::HashMap;
 
-/// Parse a key with bracket notation into path segments
-/// e.g., "foo[bar][0]" -> ["foo", "bar", "0"]
 pub fn parse_key_path(key: &str) -> Vec<String> {
     let mut segments = Vec::new();
     let mut current = String::new();
@@ -40,7 +38,6 @@ fn is_placeholder(value: &Value) -> bool {
     matches!(value, Value::String(s) if s.is_empty())
 }
 
-/// Insert a value into nested structure based on path segments
 pub(crate) fn insert_nested_value(
     map: &mut QueryMap,
     segments: &[String],
@@ -54,7 +51,6 @@ pub(crate) fn insert_nested_value(
     let root_key = &segments[0];
 
     if segments.len() == 1 {
-        // Simple key without nesting
         match map.get_mut(root_key) {
             Some(_) => {
                 return Err(ParseError::DuplicateKey {
@@ -68,10 +64,8 @@ pub(crate) fn insert_nested_value(
         return Ok(());
     }
 
-    // Resolve segments to enforce array patterns and detect mixing
     let resolved_segments = resolve_segments(state, segments)?;
 
-    // Build nested path iteratively
     build_nested_path(map, &resolved_segments, value, state)
 }
 
@@ -88,7 +82,6 @@ fn build_nested_path(
         .container_type(&container_path)
         .unwrap_or(ContainerType::Object);
 
-    // Create the root entry if it doesn't exist
     if map.contains_key(root_key) {
         let root_value = map.get_mut(root_key).unwrap();
         ensure_container(root_value, container_type, root_key)?;
@@ -96,7 +89,6 @@ fn build_nested_path(
         map.insert(root_key.clone(), initial_container(container_type));
     }
 
-    // Build path recursively
     set_nested_value(
         map.get_mut(root_key).unwrap(),
         &segments[1..],

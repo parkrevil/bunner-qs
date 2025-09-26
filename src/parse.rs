@@ -95,7 +95,6 @@ pub(crate) fn parse_query_map(input: &str, options: &ParseOptions) -> ParseResul
             };
             let value = decode_component(raw_value, options, value_offset)?;
 
-            // Parse the key path and insert nested value
             let key_segments = parse_key_path(&key);
             insert_nested_value(&mut map, &key_segments, value, &mut pattern_state)?;
         }

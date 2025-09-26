@@ -16,10 +16,7 @@ use stringify_options::build_stringify_options;
 
 #[test]
 fn parse_respects_max_params_limit() {
-    let options = ParseOptions {
-        max_params: Some(2),
-        ..ParseOptions::default()
-    };
+    let options = build_parse_options(|builder| builder.max_params(2));
 
     let ok: Value = parse_with("a=1&b=2", &options).expect("limit should allow two params");
     assert_str_path(&ok, &["a"], "1");
@@ -52,16 +49,10 @@ fn parse_enforces_zero_param_limit() {
 #[test]
 fn parse_respects_max_length_boundary() {
     let query = "token=abcdef"; // length 12
-    let allowed = ParseOptions {
-        max_length: Some(query.len()),
-        ..ParseOptions::default()
-    };
+    let allowed = build_parse_options(|builder| builder.max_length(query.len()));
     parse_with::<Value>(query, &allowed).expect("length at limit should parse");
 
-    let blocked = ParseOptions {
-        max_length: Some(query.len() - 1),
-        ..ParseOptions::default()
-    };
+    let blocked = build_parse_options(|builder| builder.max_length(query.len() - 1));
     asserts::assert_err_matches!(
         parse_with::<Value>(query, &blocked),
         ParseError::InputTooLong { limit } => |_message| {
@@ -72,17 +63,11 @@ fn parse_respects_max_length_boundary() {
 
 #[test]
 fn parse_respects_max_depth_boundary() {
-    let within = ParseOptions {
-        max_depth: Some(2),
-        ..ParseOptions::default()
-    };
+    let within = build_parse_options(|builder| builder.max_depth(2));
     let nested: Value = parse_with("a[b][c]=ok", &within).expect("depth 2 should succeed");
     assert_str_path(&nested, &["a", "b", "c"], "ok");
 
-    let over = ParseOptions {
-        max_depth: Some(2),
-        ..ParseOptions::default()
-    };
+    let over = build_parse_options(|builder| builder.max_depth(2));
     asserts::assert_err_matches!(
         parse_with::<Value>("a[b][c][d]=fail", &over),
         ParseError::DepthExceeded { key, limit } => |_message| {
@@ -137,11 +122,7 @@ fn parse_options_builder_rejects_zero_limits() {
 
 #[test]
 fn parse_combined_limits_prioritize_length_check() {
-    let options = ParseOptions {
-        max_params: Some(5),
-        max_length: Some(5),
-        ..ParseOptions::default()
-    };
+    let options = build_parse_options(|builder| builder.max_params(5).max_length(5));
 
     asserts::assert_err_matches!(
         parse_with::<Value>("toolong=value", &options),
@@ -153,11 +134,7 @@ fn parse_combined_limits_prioritize_length_check() {
 
 #[test]
 fn parse_combined_limits_still_enforce_params() {
-    let options = ParseOptions {
-        max_params: Some(1),
-        max_length: Some(64),
-        ..ParseOptions::default()
-    };
+    let options = build_parse_options(|builder| builder.max_params(1).max_length(64));
 
     asserts::assert_err_matches!(
         parse_with::<Value>("a=1&b=2", &options),
@@ -170,11 +147,7 @@ fn parse_combined_limits_still_enforce_params() {
 
 #[test]
 fn parse_combined_limits_respect_depth_even_with_param_budget() {
-    let options = ParseOptions {
-        max_params: Some(10),
-        max_depth: Some(1),
-        ..ParseOptions::default()
-    };
+    let options = build_parse_options(|builder| builder.max_params(10).max_depth(1));
 
     asserts::assert_err_matches!(
         parse_with::<Value>("a[b][c]=1", &options),
@@ -187,12 +160,12 @@ fn parse_combined_limits_respect_depth_even_with_param_budget() {
 
 #[test]
 fn parse_handles_extremely_large_limits_without_overflow() {
-    let options = ParseOptions {
-        max_params: Some(usize::MAX),
-        max_length: Some(usize::MAX),
-        max_depth: Some(usize::MAX),
-        ..ParseOptions::default()
-    };
+    let options = build_parse_options(|builder| {
+        builder
+            .max_params(usize::MAX)
+            .max_length(usize::MAX)
+            .max_depth(usize::MAX)
+    });
 
     let parsed: Value = parse_with("a=1&b=2", &options).expect("extreme limits should still parse");
     assert_str_path(&parsed, &["a"], "1");

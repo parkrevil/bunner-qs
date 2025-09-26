@@ -1,13 +1,19 @@
 #[path = "common/asserts.rs"]
 mod asserts;
+#[path = "common/options.rs"]
+mod options;
+#[path = "common/serde_helpers.rs"]
+mod serde_helpers;
 
 use asserts::{assert_str_path, assert_string_array_path};
-use bunner_qs::{ParseError, ParseOptions, parse, parse_with, stringify};
+use bunner_qs::{ParseError, parse, parse_with};
+use options::build_parse_options;
+use serde_helpers::{assert_parse_roundtrip, assert_stringify_roundtrip};
 use serde_json::{Value, json};
 #[test]
 fn parses_deeply_nested_structure_and_round_trips() {
     let query = "profile[name]=Ada&profile[contacts][email]=ada@example.com&profile[contacts][phones][0]=+44%20123&profile[contacts][phones][1]=+44%20987&profile[meta][created]=2024";
-    let parsed: Value = parse(query).expect("nested structure should parse");
+    let parsed = assert_parse_roundtrip(query);
 
     assert_str_path(&parsed, &["profile", "name"], "Ada");
     assert_str_path(
@@ -21,10 +27,6 @@ fn parses_deeply_nested_structure_and_round_trips() {
         &["+44 123", "+44 987"],
     );
     assert_str_path(&parsed, &["profile", "meta", "created"], "2024");
-
-    let stringified = stringify(&parsed).expect("stringify should succeed");
-    let reparsed: Value = parse(&stringified).expect("reparsed string should match");
-    assert_eq!(parsed, reparsed);
 }
 
 #[test]
@@ -46,8 +48,7 @@ fn stringify_preserves_array_order_for_numeric_indices() {
         "items": ["alpha", "beta", "gamma"]
     });
 
-    let encoded = stringify(&map).expect("stringify should succeed");
-    let reparsed: Value = parse(&encoded).expect("encoded string should parse");
+    let reparsed = assert_stringify_roundtrip(&map);
     assert_string_array_path(&reparsed, &["items"], &["alpha", "beta", "gamma"]);
 }
 
@@ -115,16 +116,10 @@ fn rejects_non_contiguous_numeric_indexes() {
 fn respects_depth_limit_for_mixed_nested_structure() {
     let query = "profile[contacts][phones][0][number]=+44%20123";
 
-    let permissive = ParseOptions {
-        max_depth: Some(4),
-        ..ParseOptions::default()
-    };
+    let permissive = build_parse_options(|builder| builder.max_depth(4));
     parse_with::<Value>(query, &permissive).expect("depth of four should succeed");
 
-    let strict = ParseOptions {
-        max_depth: Some(2),
-        ..ParseOptions::default()
-    };
+    let strict = build_parse_options(|builder| builder.max_depth(2));
     asserts::assert_err_matches!(
         parse_with::<Value>(query, &strict),
         ParseError::DepthExceeded { key, limit } => |_message| {
