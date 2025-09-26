@@ -421,7 +421,9 @@ fn parse_reports_custom_adapter_error() {
         if raw.chars().all(|ch| ch.is_ascii_uppercase()) {
             Ok(raw)
         } else {
-            Err(de::Error::custom("code must contain only uppercase letters"))
+            Err(de::Error::custom(
+                "code must contain only uppercase letters",
+            ))
         }
     }
 
