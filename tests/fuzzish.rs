@@ -1,222 +1,38 @@
+#[path = "common/fuzzish/mod.rs"]
+mod fuzzish;
+
 use bunner_qs::{ParseError, ParseOptions, StringifyOptions, parse, parse_with, stringify_with};
+use fuzzish::{
+    allow_cases, allowed_char, arb_roundtrip_input, assert_case_outcome, estimate_params,
+    form_encode, normalize_empty, percent_encode, reject_cases, root_depth, root_key_string,
+    roundtrip_cases, string_with_spaces, total_string_length, unicode_key_string,
+    unicode_value_string,
+};
 use proptest::prelude::*;
 use proptest::test_runner::{Config as ProptestConfig, FileFailurePersistence};
-use serde::Deserialize;
-use serde_json::{Map as JsonMap, Value, json};
-
-#[derive(Debug, Deserialize)]
-struct SeedCase {
-    name: String,
-    input: String,
-    expect: SeedExpect,
-    #[serde(default)]
-    options: Option<SeedOptions>,
-}
-
-#[derive(Debug, Deserialize)]
-struct SeedOptions {
-    #[serde(default)]
-    space_as_plus: Option<bool>,
-    #[serde(default)]
-    max_params: Option<usize>,
-    #[serde(default)]
-    max_length: Option<usize>,
-    #[serde(default)]
-    max_depth: Option<usize>,
-}
-
-#[derive(Debug, Deserialize)]
-struct SeedStringifyOptions {
-    #[serde(default)]
-    space_as_plus: Option<bool>,
-}
-
-#[derive(Debug, Deserialize)]
-struct RoundTripSeed {
-    name: String,
-    query: String,
-    #[serde(default)]
-    parse_options: Option<SeedOptions>,
-    #[serde(default)]
-    stringify_options: Option<SeedStringifyOptions>,
-    #[serde(default)]
-    normalized: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "snake_case")]
-enum SeedExpect {
-    Ok,
-    DuplicateKey,
-    InvalidPercentEncoding,
-    InvalidCharacter,
-    TooManyParameters,
-    InputTooLong,
-    DepthExceeded,
-    UnmatchedBracket,
-    UnexpectedQuestionMark,
-    InvalidUtf8,
-}
-
-impl SeedCase {
-    fn parse_options(&self) -> ParseOptions {
-        build_parse_options(self.options.as_ref())
-    }
-}
-
-impl RoundTripSeed {
-    fn parse_options(&self) -> ParseOptions {
-        build_parse_options(self.parse_options.as_ref())
-    }
-
-    fn stringify_options(&self) -> StringifyOptions {
-        build_stringify_options(self.stringify_options.as_ref())
-    }
-
-    fn normalized_query(&self) -> Option<&str> {
-        self.normalized.as_deref()
-    }
-}
-
-fn build_parse_options(config: Option<&SeedOptions>) -> ParseOptions {
-    let mut opts = ParseOptions::default();
-    if let Some(cfg) = config {
-        if let Some(space) = cfg.space_as_plus {
-            opts.space_as_plus = space;
-        }
-        if let Some(max_params) = cfg.max_params {
-            opts.max_params = Some(max_params);
-        }
-        if let Some(max_length) = cfg.max_length {
-            opts.max_length = Some(max_length);
-        }
-        if let Some(max_depth) = cfg.max_depth {
-            opts.max_depth = Some(max_depth);
-        }
-    }
-    opts
-}
-
-fn build_stringify_options(config: Option<&SeedStringifyOptions>) -> StringifyOptions {
-    let mut opts = StringifyOptions::default();
-    if let Some(SeedStringifyOptions {
-        space_as_plus: Some(space),
-    }) = config
-    {
-        opts.space_as_plus = *space;
-    }
-    opts
-}
-
-fn load_cases(data: &str) -> Vec<SeedCase> {
-    serde_json::from_str(data).expect("seed JSON should parse")
-}
-
-fn load_roundtrip_cases(data: &str) -> Vec<RoundTripSeed> {
-    serde_json::from_str(data).expect("roundtrip seed JSON should parse")
-}
-
-fn expect_result(case: &SeedCase, result: Result<Value, ParseError>) {
-    match case.expect {
-        SeedExpect::Ok => {
-            result.unwrap_or_else(|err| {
-                panic!("case `{}` expected success but failed: {err:?}", case.name)
-            });
-        }
-        SeedExpect::DuplicateKey => match result {
-            Err(ParseError::DuplicateKey { .. }) => {}
-            other => panic!(
-                "case `{}` expected DuplicateKey, got {:?}",
-                case.name, other
-            ),
-        },
-        SeedExpect::InvalidPercentEncoding => match result {
-            Err(ParseError::InvalidPercentEncoding { .. }) => {}
-            other => panic!(
-                "case `{}` expected InvalidPercentEncoding, got {:?}",
-                case.name, other
-            ),
-        },
-        SeedExpect::InvalidCharacter => match result {
-            Err(ParseError::InvalidCharacter { .. }) => {}
-            other => panic!(
-                "case `{}` expected InvalidCharacter, got {:?}",
-                case.name, other
-            ),
-        },
-        SeedExpect::TooManyParameters => match result {
-            Err(ParseError::TooManyParameters { .. }) => {}
-            other => panic!(
-                "case `{}` expected TooManyParameters, got {:?}",
-                case.name, other
-            ),
-        },
-        SeedExpect::InputTooLong => match result {
-            Err(ParseError::InputTooLong { .. }) => {}
-            other => panic!(
-                "case `{}` expected InputTooLong, got {:?}",
-                case.name, other
-            ),
-        },
-        SeedExpect::DepthExceeded => match result {
-            Err(ParseError::DepthExceeded { .. }) => {}
-            other => panic!(
-                "case `{}` expected DepthExceeded, got {:?}",
-                case.name, other
-            ),
-        },
-        SeedExpect::UnmatchedBracket => match result {
-            Err(ParseError::UnmatchedBracket { .. }) => {}
-            other => panic!(
-                "case `{}` expected UnmatchedBracket, got {:?}",
-                case.name, other
-            ),
-        },
-        SeedExpect::UnexpectedQuestionMark => match result {
-            Err(ParseError::UnexpectedQuestionMark { .. }) => {}
-            other => panic!(
-                "case `{}` expected UnexpectedQuestionMark, got {:?}",
-                case.name, other
-            ),
-        },
-        SeedExpect::InvalidUtf8 => match result {
-            Err(ParseError::InvalidUtf8) => {}
-            other => panic!("case `{}` expected InvalidUtf8, got {:?}", case.name, other),
-        },
-    }
-}
-
-fn normalize_empty(value: Value) -> Value {
-    match value {
-        Value::Null => Value::Object(JsonMap::new()),
-        other => other,
-    }
-}
+use serde_json::{Value, json};
 
 #[test]
 fn seed_allow_cases() {
-    const DATA: &str = include_str!("data/query_allow.json");
-    for case in load_cases(DATA) {
+    for case in allow_cases() {
         let opts = case.parse_options();
         let result = parse_with::<Value>(&case.input, &opts);
-        expect_result(&case, result);
+        assert_case_outcome(&case, result);
     }
 }
 
 #[test]
 fn seed_reject_cases() {
-    const DATA: &str = include_str!("data/query_reject.json");
-    for case in load_cases(DATA) {
+    for case in reject_cases() {
         let opts = case.parse_options();
         let result = parse_with::<Value>(&case.input, &opts);
-        expect_result(&case, result);
+        assert_case_outcome(&case, result);
     }
 }
 
 #[test]
 fn seed_roundtrip_cases() {
-    const DATA: &str = include_str!("data/query_roundtrip.json");
-    for case in load_roundtrip_cases(DATA) {
+    for case in roundtrip_cases() {
         let name = &case.name;
         let parse_opts = case.parse_options();
         let stringify_opts = case.stringify_options();
@@ -248,196 +64,6 @@ fn seed_roundtrip_cases() {
         );
     }
 }
-
-fn allowed_char() -> impl Strategy<Value = char> {
-    prop::char::range('\u{0020}', '\u{10FFFF}').prop_filter("exclude DEL", |c| *c != '\u{007F}')
-}
-
-fn unicode_value_string() -> impl Strategy<Value = String> {
-    prop_oneof![
-        prop::collection::vec(allowed_char(), 0..8),
-        prop::collection::vec(allowed_char(), 8..24),
-        prop::collection::vec(allowed_char(), 24..96),
-    ]
-    .prop_map(|chars: Vec<char>| chars.into_iter().collect())
-}
-
-fn string_with_spaces() -> impl Strategy<Value = String> {
-    prop::collection::vec(prop::collection::vec(allowed_char(), 1..12), 2..6).prop_map(|segments| {
-        segments
-            .into_iter()
-            .map(|chars| chars.into_iter().collect::<String>())
-            .collect::<Vec<String>>()
-            .join(" ")
-    })
-}
-
-fn percent_encode(input: &str) -> String {
-    input
-        .as_bytes()
-        .iter()
-        .map(|byte| format!("%{:02X}", byte))
-        .collect()
-}
-
-fn form_encode(input: &str) -> String {
-    input
-        .as_bytes()
-        .iter()
-        .map(|byte| match byte {
-            b' ' => "+".to_string(),
-            other => format!("%{:02X}", other),
-        })
-        .collect()
-}
-
-fn unicode_key_string() -> impl Strategy<Value = String> {
-    prop::collection::vec(
-        prop::char::range('\u{0020}', '\u{10FFFF}').prop_filter("exclude DEL and brackets", |c| {
-            *c != '\u{007F}' && *c != '[' && *c != ']'
-        }),
-        1..5,
-    )
-    .prop_map(|chars| chars.into_iter().collect())
-}
-
-fn root_key_string() -> impl Strategy<Value = String> {
-    const ROOT_CHARS: &str = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-    let choices: Vec<char> = ROOT_CHARS.chars().collect();
-    prop::collection::vec(prop::sample::select(choices), 3..8)
-        .prop_map(|chars| chars.into_iter().collect())
-}
-
-fn object_key_string() -> impl Strategy<Value = String> {
-    const FIRST: &str = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
-    const REST: &str = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_";
-    let first_choices: Vec<char> = FIRST.chars().collect();
-    let rest_choices: Vec<char> = REST.chars().collect();
-    (
-        prop::sample::select(first_choices),
-        prop::collection::vec(prop::sample::select(rest_choices), 0..4),
-    )
-        .prop_map(|(first, rest)| {
-            let mut s = String::new();
-            s.push(first);
-            for ch in rest {
-                s.push(ch);
-            }
-            s
-        })
-}
-
-fn value_depth(value: &Value) -> usize {
-    match value {
-        Value::String(_) => 0,
-        Value::Array(items) => items.iter().map(value_depth).max().unwrap_or(0) + 1,
-        Value::Object(map) => map.values().map(value_depth).max().unwrap_or(0) + 1,
-        _ => 0,
-    }
-}
-
-fn root_depth(value: &Value) -> usize {
-    match value {
-        Value::Object(map) => map.values().map(value_depth).max().unwrap_or(0),
-        other => value_depth(other),
-    }
-}
-
-fn estimate_params_value(value: &Value) -> usize {
-    match value {
-        Value::String(_) => 1,
-        Value::Array(items) => items.iter().map(estimate_params_value).sum(),
-        Value::Object(map) => map.values().map(estimate_params_value).sum(),
-        _ => 1,
-    }
-}
-
-fn estimate_params(value: &Value) -> usize {
-    match value {
-        Value::Object(map) => map.values().map(estimate_params_value).sum(),
-        other => estimate_params_value(other),
-    }
-}
-
-fn total_string_length(value: &Value) -> usize {
-    match value {
-        Value::String(s) => s.len(),
-        Value::Array(items) => items.iter().map(total_string_length).sum(),
-        Value::Object(map) => map.values().map(total_string_length).sum(),
-        _ => 0,
-    }
-}
-
-fn arb_query_value() -> impl Strategy<Value = Value> {
-    let leaf = unicode_value_string().prop_map(Value::String);
-    leaf.prop_recursive(5, 64, 8, |inner| {
-        let arrays = prop::collection::vec(inner.clone(), 1..6).prop_map(Value::Array);
-        let objects = prop::collection::vec((object_key_string(), inner), 1..6).prop_map(|pairs| {
-            let mut map = JsonMap::new();
-            for (key, value) in pairs {
-                map.entry(key).or_insert(value);
-            }
-            Value::Object(map)
-        });
-        prop_oneof![arrays, objects]
-    })
-}
-
-fn arb_root_value() -> impl Strategy<Value = Value> {
-    prop::collection::vec((root_key_string(), arb_query_value()), 0..6).prop_map(|pairs| {
-        let mut map = JsonMap::new();
-        for (key, value) in pairs {
-            map.entry(key).or_insert(value);
-        }
-        Value::Object(map)
-    })
-}
-
-#[derive(Debug, Clone)]
-struct RoundTripConfig {
-    space_as_plus: bool,
-    max_params: Option<usize>,
-    max_length: Option<usize>,
-    max_depth: Option<usize>,
-}
-
-fn arb_roundtrip_input() -> impl Strategy<Value = (Value, RoundTripConfig)> {
-    arb_root_value().prop_flat_map(|value| {
-        let depth = root_depth(&value);
-        let params = estimate_params(&value);
-        let seed = value.clone();
-        (
-            any::<bool>(),
-            prop::option::of(0usize..5),
-            any::<bool>(),
-            any::<bool>(),
-        )
-            .prop_map(
-                move |(space_as_plus, extra_params, use_length, use_depth)| {
-                    let max_params = extra_params.map(|extra| params + extra);
-                    let estimated_len = stringify_with(&seed, &StringifyOptions::default())
-                        .map(|encoded| encoded.len())
-                        .unwrap_or(0);
-                    let max_length = if use_length {
-                        Some(estimated_len + 512)
-                    } else {
-                        None
-                    };
-                    let max_depth = if use_depth { Some(depth + 2) } else { None };
-                    (
-                        seed.clone(),
-                        RoundTripConfig {
-                            space_as_plus,
-                            max_params,
-                            max_length,
-                            max_depth,
-                        },
-                    )
-                },
-            )
-    })
-}
-
 proptest! {
     #![proptest_config(ProptestConfig {
         cases: 256,

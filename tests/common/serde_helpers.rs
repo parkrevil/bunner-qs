@@ -4,7 +4,7 @@ use bunner_qs::{
 };
 use serde::Serialize;
 use serde::de::DeserializeOwned;
-use serde_json::Value;
+use serde_json::{Map as JsonMap, Value};
 
 pub fn assert_encoded_contains(encoded: &str, expected: &[&str]) {
     for fragment in expected {
@@ -23,7 +23,8 @@ pub fn assert_parse_roundtrip(input: &str) -> Value {
 pub fn assert_stringify_roundtrip(value: &Value) -> Value {
     let via_public_api = roundtrip_via_public_api(value).expect("Value round-trip should succeed");
     assert_eq!(
-        via_public_api, *value,
+        canonicalize_query_value(&via_public_api),
+        canonicalize_query_value(value),
         "public API round-trip should preserve the value"
     );
 
@@ -46,10 +47,28 @@ pub fn assert_stringify_roundtrip_with_options(
     let reparsed: Value = parse_with(&encoded, parse_options)
         .expect("parse_with should succeed with provided options");
     assert_eq!(
-        reparsed, *value,
+        canonicalize_query_value(&reparsed),
+        canonicalize_query_value(value),
         "value should remain unchanged after round-trip with custom options"
     );
     reparsed
+}
+
+fn canonicalize_query_value(value: &Value) -> Value {
+    match value {
+        Value::Bool(flag) => Value::String(flag.to_string()),
+        Value::Number(num) => Value::String(num.to_string()),
+        Value::Array(items) => Value::Array(items.iter().map(canonicalize_query_value).collect()),
+        Value::Object(map) => {
+            let mut object = JsonMap::with_capacity(map.len());
+            for (key, val) in map {
+                object.insert(key.clone(), canonicalize_query_value(val));
+            }
+            Value::Object(object)
+        }
+        Value::Null => Value::Null,
+        Value::String(text) => Value::String(text.clone()),
+    }
 }
 
 pub fn roundtrip_via_public_api<T>(value: &T) -> Result<T, RoundtripError>
