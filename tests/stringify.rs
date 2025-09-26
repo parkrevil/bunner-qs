@@ -1,14 +1,14 @@
 #[path = "common/asserts.rs"]
 mod asserts;
 #[path = "common/json.rs"]
-mod json_helpers;
+mod json;
 
-use asserts::{assert_str_entry, expect_object};
+use asserts::{assert_str_entry, expect_object, expect_path};
 use bunner_qs::{
     ParseOptions, SerdeStringifyError, StringifyError, StringifyOptions, parse, parse_with,
     stringify, stringify_with,
 };
-use json_helpers::json_from_pairs;
+use json::json_from_pairs;
 use serde_json::{Map, Value, json};
 
 fn build_nested_user_value() -> Value {
@@ -79,9 +79,7 @@ fn percent_encodes_fragments_and_equals() {
     assert_eq!(encoded, "frag%23ment=a%3Db%26c");
 
     let reparsed: Value = parse(&encoded).expect("encoded string should be parseable");
-    let object = reparsed
-        .as_object()
-        .expect("parsed value should be an object");
+    let object = expect_object(&reparsed);
     assert_str_entry(object, "frag#ment", "a=b&c");
 }
 
@@ -95,7 +93,7 @@ fn plus_sign_is_percent_encoded_by_default() {
     assert_eq!(encoded, "symbol=1%2B1");
 
     let parsed: Value = parse(&encoded).expect("encoded plus should decode");
-    let object = parsed.as_object().expect("parsed value should be object");
+    let object = expect_object(&parsed);
     assert_str_entry(object, "symbol", "1+1");
 }
 
@@ -113,11 +111,7 @@ fn percent_encodes_long_nested_unicode_values() {
     assert!(encoded.contains("%F0%9F%9A%80"));
 
     let parsed: Value = parse(&encoded).expect("percent encoded payload should parse");
-    let profile = parsed
-        .as_object()
-        .and_then(|obj| obj.get("profile"))
-        .map(expect_object)
-        .expect("missing profile");
+    let profile = expect_object(expect_path(&parsed, &["profile"]));
     assert_str_entry(profile, "bio", &long_value);
 }
 
@@ -191,7 +185,7 @@ fn round_trip_with_space_plus_option() {
         ..ParseOptions::default()
     };
     let reparsed: Value = parse_with(&encoded, &parse_options).expect("parse should honor plus");
-    let object = reparsed.as_object().expect("parsed value should be object");
+    let object = expect_object(&reparsed);
     assert_str_entry(object, "msg", "one two");
 }
 

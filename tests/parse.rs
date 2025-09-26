@@ -1,14 +1,14 @@
 #[path = "common/arrays.rs"]
-mod array_asserts;
+mod arrays;
 #[path = "common/asserts.rs"]
 mod asserts;
 #[path = "common/json.rs"]
-mod json_helpers;
+mod json;
 
-use array_asserts::assert_string_array;
-use asserts::{assert_str_entry, expect_object};
+use arrays::assert_string_array;
+use asserts::{assert_str_entry, expect_object, expect_path};
 use bunner_qs::{ParseError, ParseOptions, SerdeQueryError, parse, parse_with, stringify};
-use json_helpers::json_from_pairs;
+use json::json_from_pairs;
 use serde::Deserialize;
 use serde_json::{Value, json};
 
@@ -30,7 +30,7 @@ fn decodes_percent_encoded_ascii_and_unicode() {
         "&thai=%E0%B8%AA%E0%B8%A7%E0%B8%B1%E0%B8%AA%E0%B8%94%E0%B8%B5",
     ))
     .expect("percent encoding should decode");
-    let object = parsed.as_object().expect("parsed value should be object");
+    let object = expect_object(&parsed);
     assert_str_entry(object, "name", "Jürgen");
     assert_str_entry(object, "emoji", "😀");
     assert_str_entry(object, "cyrillic", "Привет");
@@ -61,7 +61,7 @@ fn strips_leading_question_mark_before_pairs() {
 #[test]
 fn treats_flag_without_value_as_empty_string() {
     let parsed: Value = parse("flag").expect("keys without '=' should map to empty strings");
-    let object = parsed.as_object().expect("parsed value should be object");
+    let object = expect_object(&parsed);
     assert_str_entry(object, "flag", "");
 }
 
@@ -72,11 +72,11 @@ fn space_as_plus_option_controls_plus_handling() {
         ..ParseOptions::default()
     };
     let relaxed: Value = parse_with("note=one+two", &relaxed).expect("plus should become space");
-    let relaxed_obj = relaxed.as_object().expect("relaxed parse should be object");
+    let relaxed_obj = expect_object(&relaxed);
     assert_str_entry(relaxed_obj, "note", "one two");
 
     let strict: Value = parse("note=one+two").expect("default should keep plus literal");
-    let strict_obj = strict.as_object().expect("strict parse should be object");
+    let strict_obj = expect_object(&strict);
     assert_str_entry(strict_obj, "note", "one+two");
 }
 
@@ -272,15 +272,13 @@ fn parses_nested_objects_and_arrays() {
     )
     .expect("nested structures should parse");
 
-    let root = parsed.as_object().expect("parsed value should be object");
-    let user = expect_object(root.get("user").expect("missing user object"));
-
+    let user = expect_object(expect_path(&parsed, &["user"]));
     assert_str_entry(user, "name", "Alice");
 
-    let stats = expect_object(user.get("stats").expect("missing stats"));
+    let stats = expect_object(expect_path(&parsed, &["user", "stats"]));
     assert_str_entry(stats, "age", "30");
 
-    let hobbies = user.get("hobbies").expect("missing hobbies");
+    let hobbies = expect_path(&parsed, &["user", "hobbies"]);
     assert_string_array(hobbies, &["reading", "coding"]);
 }
 

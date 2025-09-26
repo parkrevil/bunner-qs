@@ -1,5 +1,6 @@
 use serde_json::Value;
 
+#[track_caller]
 pub fn assert_string_array(value: &Value, expected: &[&str]) {
     match value.as_array() {
         Some(items) => {

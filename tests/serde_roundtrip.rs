@@ -1,17 +1,17 @@
 #[path = "common/arrays.rs"]
-mod array_asserts;
+mod arrays;
 #[path = "common/asserts.rs"]
 mod asserts;
 #[path = "common/json.rs"]
-mod json_helpers;
+mod json;
 
-use array_asserts::assert_string_array;
-use asserts::{assert_str_entry, expect_object};
+use arrays::assert_string_array;
+use asserts::{assert_str_entry, expect_object, expect_path};
 use bunner_qs::{
     ParseError, ParseOptions, SerdeQueryError, StringifyOptions, parse, parse_with, stringify,
     stringify_with,
 };
-use json_helpers::json_from_pairs;
+use json::json_from_pairs;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::{Value, json};
 use std::collections::BTreeMap;
@@ -262,15 +262,13 @@ fn stringify_shapes_nested_data_for_inspection() -> Result<(), Box<dyn Error>> {
     assert_str_entry(root, "profile✨name", "ada");
     assert_str_entry(root, "age✨", "36");
 
-    let contact = expect_object(root.get("contact").expect("missing contact"));
+    let contact = expect_object(expect_path(&parsed, &["contact"]));
     assert_str_entry(contact, "email📮", "ada@example.com");
 
-    let phones = contact.get("phones📱").expect("missing phones");
+    let phones = expect_path(&parsed, &["contact", "phones📱"]);
     assert_string_array(phones, &["+44 123", "+44 987"]);
 
-    let numbers = contact
-        .get("numbers📇")
-        .expect("missing numbers")
+    let numbers = expect_path(&parsed, &["contact", "numbers📇"])
         .as_array()
         .expect("numbers should be array");
     assert_eq!(numbers.len(), 2);

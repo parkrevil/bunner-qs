@@ -1,11 +1,11 @@
 #[path = "common/asserts.rs"]
 mod asserts;
 #[path = "common/json.rs"]
-mod json_helpers;
+mod json;
 
-use asserts::{assert_str_entry, expect_object};
+use asserts::{assert_str_entry, expect_object, expect_path};
 use bunner_qs::{ParseError, ParseOptions, StringifyOptions, parse_with, stringify_with};
-use json_helpers::json_from_pairs;
+use json::json_from_pairs;
 use serde_json::Value;
 
 #[test]
@@ -73,7 +73,13 @@ fn parse_respects_max_depth_boundary() {
         max_depth: Some(2),
         ..ParseOptions::default()
     };
-    parse_with::<Value>("a[b][c]=ok", &within).expect("depth 2 should succeed");
+    let nested: Value = parse_with("a[b][c]=ok", &within).expect("depth 2 should succeed");
+    assert_eq!(
+        expect_path(&nested, &["a", "b", "c"])
+            .as_str()
+            .expect("nested value should be string"),
+        "ok"
+    );
 
     let over = ParseOptions {
         max_depth: Some(2),
