@@ -30,6 +30,31 @@ fn parses_deeply_nested_structure_and_round_trips() {
 }
 
 #[test]
+fn parses_arrays_with_empty_gaps_and_objects() {
+    let query = "key[0][a]=1&key[1]=&key[2][b]=2";
+    let parsed = assert_parse_roundtrip(query);
+
+    let key_array = parsed
+        .get("key")
+        .expect("key array should exist")
+        .as_array()
+        .expect("key should parse as array");
+    assert_eq!(key_array.len(), 3);
+
+    let first = key_array[0]
+        .as_object()
+        .expect("index 0 should be object containing `a`");
+    assert_eq!(first.get("a").and_then(Value::as_str), Some("1"));
+
+    assert_eq!(key_array[1].as_str(), Some(""));
+
+    let third = key_array[2]
+        .as_object()
+        .expect("index 2 should be object containing `b`");
+    assert_eq!(third.get("b").and_then(Value::as_str), Some("2"));
+}
+
+#[test]
 fn allows_uniform_append_pattern() {
     let parsed: Value = parse("tags[]=rust&tags[]=serde").expect("append pattern should parse");
     assert_string_array_path(&parsed, &["tags"], &["rust", "serde"]);

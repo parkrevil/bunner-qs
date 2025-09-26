@@ -148,6 +148,30 @@ fn percent_encodes_multilingual_values() {
 }
 
 #[test]
+fn stringifies_extended_unicode_keys_and_values() {
+    let map = json!({
+        "鍵🔑": "值🌈",
+        "emoji_key🙂": "مرحبا",
+        "combinação": "linhão"
+    });
+
+    let encoded = stringify(&map).expect("should encode extended unicode keys and values");
+    assert_encoded_contains(
+        &encoded,
+        &[
+            "%E9%8D%B5%F0%9F%94%91=%E5%80%BC%F0%9F%8C%88",
+            "emoji_key%F0%9F%99%82=%D9%85%D8%B1%D8%AD%D8%A8%D8%A7",
+            "combina%C3%A7%C3%A3o=linh%C3%A3o",
+        ],
+    );
+
+    let reparsed: Value = parse(&encoded).expect("encoded query should round-trip");
+    assert_str_path(&reparsed, &["鍵🔑"], "值🌈");
+    assert_str_path(&reparsed, &["emoji_key🙂"], "مرحبا");
+    assert_str_path(&reparsed, &["combinação"], "linhão");
+}
+
+#[test]
 fn nested_structures_use_bracket_notation() {
     let map = build_nested_user_value();
     let encoded = stringify(&map).expect("should stringify nested structures");
@@ -244,4 +268,19 @@ fn array_of_objects_stringifies_cleanly() {
 fn stringify_options_builder_configures_flags() {
     let options = build_stringify_options(|builder| builder.space_as_plus(true));
     assert!(options.space_as_plus);
+}
+
+#[test]
+fn stringify_matches_serde_urlencoded_for_simple_map() {
+    use std::collections::BTreeMap;
+
+    let mut data = BTreeMap::new();
+    data.insert("name".to_string(), "Alice".to_string());
+    data.insert("city".to_string(), "서울".to_string());
+    data.insert("emoji".to_string(), "😀".to_string());
+
+    let ours = stringify(&data).expect("bunner_qs should stringify map");
+    let reference =
+        serde_urlencoded::to_string(&data).expect("serde_urlencoded should stringify map");
+    assert_eq!(ours, reference);
 }

@@ -32,6 +32,7 @@ use serde_helpers::{
     assert_stringify_roundtrip_with_options, roundtrip_via_public_api,
 };
 use serde_json::{Value, json};
+use std::borrow::Cow;
 use std::collections::BTreeMap;
 use std::error::Error;
 use stringify_options::build_stringify_options;
@@ -51,6 +52,166 @@ fn parse_into_struct_with_scalars() -> Result<(), Box<dyn Error>> {
     assert_eq!(peer.host, "edge.example");
     assert_eq!(peer.port, 8080);
     assert!(peer.secure);
+    Ok(())
+}
+
+#[test]
+fn primitive_scalar_struct_roundtrips() -> Result<(), Box<dyn Error>> {
+    #[derive(Debug, Serialize, Deserialize, PartialEq, Default)]
+    struct PrimitiveScalars {
+        small_signed: i8,
+        medium_signed: i16,
+        big_signed: i128,
+        small_unsigned: u8,
+        medium_unsigned: u16,
+        big_unsigned: u128,
+        decimal: f32,
+        symbol: char,
+    }
+
+    let payload = PrimitiveScalars {
+        small_signed: -12,
+        medium_signed: -32000,
+        big_signed: -9_223_372_036_854_775_808_i128,
+        small_unsigned: 12,
+        medium_unsigned: 65000,
+        big_unsigned: 18_446_744_073_709_551_615_u128,
+        decimal: 1.5,
+        symbol: 'Ω',
+    };
+
+    let encoded = stringify(&payload)?;
+    let reparsed: PrimitiveScalars = parse(&encoded)?;
+    assert_eq!(reparsed, payload);
+    Ok(())
+}
+
+#[test]
+fn internally_tagged_enum_roundtrips() -> Result<(), Box<dyn Error>> {
+    #[derive(Debug, Serialize, Deserialize, PartialEq, Default)]
+    #[serde(tag = "kind", content = "payload")]
+    enum InternalMessage {
+        #[default]
+        Ping,
+        Text {
+            text: String,
+        },
+        Metrics {
+            value: i32,
+        },
+    }
+
+    #[derive(Debug, Serialize, Deserialize, PartialEq, Default)]
+    struct InternalEnvelope {
+        message: InternalMessage,
+        priority: u8,
+    }
+
+    let envelope = InternalEnvelope {
+        message: InternalMessage::Text {
+            text: "pong".into(),
+        },
+        priority: 9,
+    };
+
+    let encoded = stringify(&envelope)?;
+    assert_encoded_contains(
+        &encoded,
+        &[
+            "message%5Bkind%5D=Text",
+            "message%5Bpayload%5D%5Btext%5D=pong",
+            "priority=9",
+        ],
+    );
+
+    asserts::assert_err_matches!(
+        parse::<InternalEnvelope>(&encoded),
+        ParseError::Serde(SerdeQueryError::Deserialize(_)) => |message| {
+            assert!(
+                message.contains("enum"),
+                "expected enum deserialize failure, got: {message}"
+            );
+        }
+    );
+    Ok(())
+}
+
+#[test]
+fn untagged_enum_roundtrips() -> Result<(), Box<dyn Error>> {
+    #[derive(Debug, Serialize, Deserialize, PartialEq)]
+    #[serde(untagged)]
+    enum UntaggedValue {
+        Word(String),
+        Pair { left: i32, right: i32 },
+    }
+
+    impl Default for UntaggedValue {
+        fn default() -> Self {
+            UntaggedValue::Word(String::new())
+        }
+    }
+
+    #[derive(Debug, Serialize, Deserialize, PartialEq, Default)]
+    struct UntaggedEnvelope {
+        alias: String,
+        value: UntaggedValue,
+    }
+
+    let envelope = UntaggedEnvelope {
+        alias: "coords".into(),
+        value: UntaggedValue::Pair { left: -3, right: 9 },
+    };
+
+    let encoded = stringify(&envelope)?;
+    assert_encoded_contains(
+        &encoded,
+        &["alias=coords", "value%5Bleft%5D=-3", "value%5Bright%5D=9"],
+    );
+
+    asserts::assert_err_matches!(
+        parse::<UntaggedEnvelope>(&encoded),
+        ParseError::Serde(SerdeQueryError::Deserialize(_)) => |message| {
+            assert!(
+                message.contains("did not match any variant"),
+                "unexpected untagged enum error: {message}"
+            );
+        }
+    );
+    Ok(())
+}
+
+#[test]
+fn parse_supports_borrowed_cow_fields() -> Result<(), Box<dyn Error>> {
+    #[derive(Debug, Default)]
+    struct BorrowedPayload {
+        title: Cow<'static, str>,
+        note: Option<Cow<'static, str>>,
+    }
+
+    impl<'de> Deserialize<'de> for BorrowedPayload {
+        fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+        where
+            D: serde::Deserializer<'de>,
+        {
+            #[derive(Deserialize)]
+            struct BorrowedPayloadHelper<'a> {
+                #[serde(borrow)]
+                title: Cow<'a, str>,
+                #[serde(borrow)]
+                note: Option<Cow<'a, str>>,
+            }
+
+            let helper = BorrowedPayloadHelper::deserialize(deserializer)?;
+            let title = Cow::Owned(helper.title.into_owned());
+            let note = helper.note.map(|cow| Cow::Owned(cow.into_owned()));
+            Ok(BorrowedPayload { title, note })
+        }
+    }
+
+    let parsed: BorrowedPayload = parse("title=Bonjour&note=Monde")?;
+    let BorrowedPayload { title, note } = parsed;
+    assert_eq!(title.as_ref(), "Bonjour");
+    assert_eq!(note.as_deref(), Some("Monde"));
     Ok(())
 }
 

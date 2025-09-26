@@ -191,6 +191,25 @@ fn parse_with_builder_space_as_plus_decodes_plus() {
 }
 
 #[test]
+fn parse_combines_space_as_plus_with_length_limit() {
+    let query = "note=one+two+three";
+    let permissive =
+        build_parse_options(|builder| builder.space_as_plus(true).max_length(query.len()));
+    let parsed: Value = parse_with(query, &permissive)
+        .expect("length within limit should parse with space_as_plus");
+    assert_str_path(&parsed, &["note"], "one two three");
+
+    let strict =
+        build_parse_options(|builder| builder.space_as_plus(true).max_length(query.len() - 1));
+    asserts::assert_err_matches!(
+        parse_with::<Value>(query, &strict),
+        ParseError::InputTooLong { limit } => |_message| {
+            assert_eq!(limit, query.len() - 1);
+        }
+    );
+}
+
+#[test]
 fn stringify_options_builder_controls_space_encoding() {
     let map = json_from_pairs(&[("greeting", "hello world")]);
     let options = build_stringify_options(|builder| builder.space_as_plus(true));

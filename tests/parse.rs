@@ -42,6 +42,28 @@ fn decodes_percent_encoded_ascii_and_unicode() {
 }
 
 #[test]
+fn parses_extended_unicode_keys_and_values() {
+    use percent_encoding::{NON_ALPHANUMERIC, utf8_percent_encode};
+
+    let key_one = "ключ🌌";
+    let value_one = "नमस्ते";
+    let key_two = "combinação";
+    let value_two = "שָׁלוֹם";
+
+    let query = format!(
+        "{}={}&{}={}",
+        utf8_percent_encode(key_one, NON_ALPHANUMERIC),
+        utf8_percent_encode(value_one, NON_ALPHANUMERIC),
+        utf8_percent_encode(key_two, NON_ALPHANUMERIC),
+        utf8_percent_encode(value_two, NON_ALPHANUMERIC)
+    );
+
+    let parsed: Value = parse(&query).expect("extended unicode keys should parse");
+    assert_str_path(&parsed, &[key_one], value_one);
+    assert_str_path(&parsed, &[key_two], value_two);
+}
+
+#[test]
 fn allows_empty_input() {
     let parsed: Value = parse("").expect("empty input should produce empty result");
     assert_eq!(parsed, Value::Null, "empty input should yield null");
@@ -275,4 +297,16 @@ fn parse_options_builder_produces_expected_configuration() {
     assert_eq!(options.max_params, Some(3));
     assert_eq!(options.max_length, Some(128));
     assert_eq!(options.max_depth, Some(2));
+}
+
+#[test]
+fn parse_matches_serde_urlencoded_for_simple_kv_pairs() {
+    use std::collections::BTreeMap;
+
+    let query = "name=alice&count=3&city=서울";
+    let ours: BTreeMap<String, String> =
+        parse(query).expect("bunner_qs should parse simple key-value pairs");
+    let reference: BTreeMap<String, String> =
+        serde_urlencoded::from_str(query).expect("serde_urlencoded should parse query");
+    assert_eq!(ours, reference);
 }
