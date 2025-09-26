@@ -4,8 +4,12 @@ mod asserts;
 mod json;
 #[path = "common/options.rs"]
 mod options;
+#[path = "common/proptest_profiles.rs"]
+mod proptest_profiles;
 #[path = "common/serde_data.rs"]
 mod serde_data;
+#[path = "common/serde_error_fixtures.rs"]
+mod serde_error_fixtures;
 #[path = "common/serde_helpers.rs"]
 mod serde_helpers;
 #[path = "common/stringify_options.rs"]
@@ -15,6 +19,9 @@ use asserts::{assert_str_path, assert_string_array_path, expect_path};
 use bunner_qs::{ParseError, SerdeQueryError, parse, parse_with, stringify, stringify_with};
 use json::json_from_pairs;
 use options::build_parse_options;
+use proptest::prelude::*;
+use proptest_profiles::{RandomProfileData, random_profile_strategy};
+use serde::Serialize;
 use serde_data::{
     ContactForm, DesiredContact, DesiredPhone, DesiredProfile, FlattenedContact, FlattenedName,
     FlattenedProfile, NetworkPeer, NotificationPreference, ProfileForm, SimpleUser, TaggedRecord,
@@ -28,6 +35,8 @@ use serde_json::{Value, json};
 use std::collections::BTreeMap;
 use std::error::Error;
 use stringify_options::build_stringify_options;
+
+use serde_error_fixtures::{BoolField, NestedWrapper, UnitHolder};
 
 #[test]
 fn parse_into_struct_returns_default_for_empty_input() -> Result<(), Box<dyn Error>> {
@@ -313,4 +322,98 @@ fn to_json_style_value_roundtrip() -> Result<(), SerdeQueryError> {
     let value: Value = parse(&encoded).expect("parse should succeed");
     assert_str_path(&value, &["contact📞", "email📧"], "json@example.com");
     Ok(())
+}
+
+#[test]
+fn stringify_rejects_tuple_variants() {
+    #[derive(Debug, Serialize)]
+    enum UnsupportedVariant {
+        Tuple(String, String),
+    }
+
+    asserts::assert_err_matches!(
+        stringify(&UnsupportedVariant::Tuple("lhs".into(), "rhs".into())),
+        bunner_qs::SerdeStringifyError::Serialize(SerdeQueryError::Serialize(_)) => |message| {
+            assert!(
+                message.contains("tuple variant"),
+                "unexpected serialize error: {message}"
+            );
+        }
+    );
+}
+
+#[test]
+fn stringify_rejects_invalid_map_keys() {
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+    struct UnitKey;
+
+    impl Serialize for UnitKey {
+        fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: serde::Serializer,
+        {
+            serializer.serialize_unit()
+        }
+    }
+
+    let mut map = BTreeMap::new();
+    map.insert(UnitKey, "value".to_string());
+
+    asserts::assert_err_matches!(
+        stringify(&map),
+        bunner_qs::SerdeStringifyError::Serialize(SerdeQueryError::Serialize(_)) => |message| {
+            assert!(
+                message.contains("map key must be a string"),
+                "unexpected serialize error: {message}"
+            );
+        }
+    );
+}
+
+#[test]
+fn parse_reports_invalid_bool_detail() {
+    asserts::assert_err_matches!(
+        parse::<BoolField>("secure=maybe"),
+        ParseError::Serde(SerdeQueryError::Deserialize(_)) => |message| {
+            assert!(
+                message.contains("invalid boolean literal `maybe`"),
+                "unexpected deserialize error: {message}"
+            );
+        }
+    );
+}
+
+#[test]
+fn parse_reports_expected_object_for_nested_struct() {
+    asserts::assert_err_matches!(
+        parse::<NestedWrapper>("peer=value"),
+        ParseError::Serde(SerdeQueryError::Deserialize(_)) => |message| {
+            assert!(
+                message.contains("expected an object for struct `NestedPeer`, found string"),
+                "unexpected deserialize error: {message}"
+            );
+        }
+    );
+}
+
+#[test]
+fn parse_reports_unexpected_type_for_unit_field() {
+    asserts::assert_err_matches!(
+        parse::<UnitHolder>("empty=value"),
+        ParseError::Serde(SerdeQueryError::Deserialize(_)) => |message| {
+            assert!(
+                message.contains("expected empty string for unit"),
+                "unexpected deserialize error: {message}"
+            );
+        }
+    );
+}
+
+proptest! {
+    #[test]
+    fn random_profile_roundtrips(profile in random_profile_strategy()) {
+        let encoded = stringify(&profile).expect("stringify should succeed");
+        let reparsed: RandomProfileData = parse(&encoded).expect("parse should succeed");
+        prop_assert_eq!(reparsed, profile);
+    }
 }

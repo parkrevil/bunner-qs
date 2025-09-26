@@ -127,6 +127,20 @@ fn rejects_control_characters_and_unexpected_question_mark() {
 }
 
 #[test]
+fn rejects_raw_space_in_keys() {
+    asserts::assert_err_matches!(
+        parse::<Value>("bad key=1"),
+        ParseError::InvalidCharacter { character, index } => |error_message| {
+            assert_eq!(character, ' ');
+            assert_eq!(index, 3);
+            let expected =
+                format!("query contains invalid character `{character}` at byte offset {index}");
+            assert_eq!(error_message, expected);
+        }
+    );
+}
+
+#[test]
 fn detects_unmatched_brackets_and_depth_overflow() {
     asserts::assert_err_matches!(
         parse::<Value>("a[=1"),
