@@ -118,6 +118,33 @@ fn percent_encodes_long_nested_unicode_values() {
 }
 
 #[test]
+fn percent_encodes_multilingual_values() {
+    let map = json!({
+        "name": "Jürgen",
+        "emoji": "😀",
+        "cyrillic": "Привет",
+        "arabic": "مرحبا",
+        "combining": "Café",
+        "thai": "สวัสดี"
+    });
+
+    let encoded = stringify(&map).expect("should percent encode multilingual values");
+    for expected in [
+        "name=J%C3%BCrgen",
+        "emoji=%F0%9F%98%80",
+        "cyrillic=%D0%9F%D1%80%D0%B8%D0%B2%D0%B5%D1%82",
+        "arabic=%D9%85%D8%B1%D8%AD%D8%A8%D8%A7",
+        "combining=Cafe%CC%81",
+        "thai=%E0%B8%AA%E0%B8%A7%E0%B8%B1%E0%B8%AA%E0%B8%94%E0%B8%B5",
+    ] {
+        assert!(
+            encoded.contains(expected),
+            "encoded string `{encoded}` should contain `{expected}`"
+        );
+    }
+}
+
+#[test]
 fn nested_structures_use_bracket_notation() {
     let map = build_nested_user_value();
     let encoded = stringify(&map).expect("should stringify nested structures");

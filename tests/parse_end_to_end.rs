@@ -13,11 +13,22 @@ fn parses_basic_key_value_pairs() {
 
 #[test]
 fn decodes_percent_encoded_ascii_and_unicode() {
-    let parsed: Value =
-        parse("name=J%C3%BCrgen&emoji=%F0%9F%98%80").expect("percent encoding should decode");
+    let parsed: Value = parse(concat!(
+        "name=J%C3%BCrgen",
+        "&emoji=%F0%9F%98%80",
+        "&cyrillic=%D0%9F%D1%80%D0%B8%D0%B2%D0%B5%D1%82",
+        "&arabic=%D9%85%D8%B1%D8%AD%D8%A8%D8%A7",
+        "&combining=Cafe%CC%81",
+        "&thai=%E0%B8%AA%E0%B8%A7%E0%B8%B1%E0%B8%AA%E0%B8%94%E0%B8%B5",
+    ))
+    .expect("percent encoding should decode");
     let object = parsed.as_object().expect("parsed value should be object");
     assert_str_entry(object, "name", "Jürgen");
     assert_str_entry(object, "emoji", "😀");
+    assert_str_entry(object, "cyrillic", "Привет");
+    assert_str_entry(object, "arabic", "مرحبا");
+    assert_str_entry(object, "combining", "Café");
+    assert_str_entry(object, "thai", "สวัสดี");
 }
 
 #[test]
