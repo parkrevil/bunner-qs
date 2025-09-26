@@ -1,12 +1,30 @@
 use crate::nested::{PatternState, insert_nested_value, parse_key_path};
-use crate::{ParseError, ParseOptions, ParseResult, QueryMap};
+use crate::value::QueryMap;
+use crate::{ParseError, ParseOptions, ParseResult};
 
-pub fn parse<S: AsRef<str>>(input: S) -> ParseResult<QueryMap> {
+use serde::de::DeserializeOwned;
+
+pub fn parse<T>(input: impl AsRef<str>) -> ParseResult<T>
+where
+    T: DeserializeOwned + Default,
+{
     parse_with(input, &ParseOptions::default())
 }
 
-pub fn parse_with<S: AsRef<str>>(input: S, options: &ParseOptions) -> ParseResult<QueryMap> {
-    let raw = input.as_ref();
+pub fn parse_with<T>(input: impl AsRef<str>, options: &ParseOptions) -> ParseResult<T>
+where
+    T: DeserializeOwned + Default,
+{
+    let map = parse_query_map(input.as_ref(), options)?;
+    if map.is_empty() {
+        Ok(T::default())
+    } else {
+        map.to_struct::<T>().map_err(ParseError::from)
+    }
+}
+
+pub(crate) fn parse_query_map(input: &str, options: &ParseOptions) -> ParseResult<QueryMap> {
+    let raw = input;
 
     if let Some(limit) = options.max_length
         && raw.len() > limit

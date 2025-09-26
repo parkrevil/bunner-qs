@@ -1,4 +1,5 @@
-use crate::{ParseError, ParseResult, QueryMap, Value};
+use crate::value::{QueryMap, Value};
+use crate::{ParseError, ParseResult};
 use indexmap::IndexMap;
 use std::collections::HashMap;
 

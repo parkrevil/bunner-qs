@@ -1,7 +1,5 @@
-use thiserror::Error;
-
-#[cfg(feature = "serde")]
 use crate::serde_bridge::SerdeQueryError;
+use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum ParseError {
@@ -23,6 +21,8 @@ pub enum ParseError {
     DepthExceeded { key: String, limit: usize },
     #[error("decoded component is not valid UTF-8")]
     InvalidUtf8,
+    #[error("failed to deserialize parsed query into target type: {0}")]
+    Serde(#[from] SerdeQueryError),
 }
 
 pub type ParseResult<T> = Result<T, ParseError>;
@@ -37,8 +37,6 @@ pub enum StringifyError {
 
 pub type StringifyResult<T> = Result<T, StringifyError>;
 
-#[cfg(feature = "serde")]
-#[allow(dead_code)]
 #[derive(Debug, Error)]
 pub enum SerdeStringifyError {
     #[error(transparent)]
@@ -47,6 +45,4 @@ pub enum SerdeStringifyError {
     Stringify(#[from] StringifyError),
 }
 
-#[cfg(feature = "serde")]
-#[allow(dead_code)]
 pub type SerdeStringifyResult<T> = Result<T, SerdeStringifyError>;

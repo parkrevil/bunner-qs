@@ -1,10 +1,8 @@
-use bunner_qs::{
-    ParseError, ParseOptions, QueryMap, StringifyOptions, Value, parse, parse_with, stringify_with,
-};
-use indexmap::IndexMap;
+use bunner_qs::{ParseError, ParseOptions, StringifyOptions, parse, parse_with, stringify_with};
 use proptest::prelude::*;
 use proptest::test_runner::{Config as ProptestConfig, FileFailurePersistence};
 use serde::Deserialize;
+use serde_json::{Map as JsonMap, Value};
 
 #[derive(Debug, Deserialize)]
 struct SeedCase {
@@ -118,7 +116,7 @@ fn load_roundtrip_cases(data: &str) -> Vec<RoundTripSeed> {
     serde_json::from_str(data).expect("roundtrip seed JSON should parse")
 }
 
-fn expect_result(case: &SeedCase, result: Result<QueryMap, ParseError>) {
+fn expect_result(case: &SeedCase, result: Result<Value, ParseError>) {
     match case.expect {
         SeedExpect::Ok => {
             result.unwrap_or_else(|err| {
@@ -188,12 +186,19 @@ fn expect_result(case: &SeedCase, result: Result<QueryMap, ParseError>) {
     }
 }
 
+fn normalize_empty(value: Value) -> Value {
+    match value {
+        Value::Null => Value::Object(JsonMap::new()),
+        other => other,
+    }
+}
+
 #[test]
 fn seed_allow_cases() {
     const DATA: &str = include_str!("data/query_allow.json");
     for case in load_cases(DATA) {
         let opts = case.parse_options();
-        let result = parse_with(&case.input, &opts);
+        let result = parse_with::<Value>(&case.input, &opts);
         expect_result(&case, result);
     }
 }
@@ -203,7 +208,7 @@ fn seed_reject_cases() {
     const DATA: &str = include_str!("data/query_reject.json");
     for case in load_cases(DATA) {
         let opts = case.parse_options();
-        let result = parse_with(&case.input, &opts);
+        let result = parse_with::<Value>(&case.input, &opts);
         expect_result(&case, result);
     }
 }
@@ -215,22 +220,30 @@ fn seed_roundtrip_cases() {
         let name = &case.name;
         let parse_opts = case.parse_options();
         let stringify_opts = case.stringify_options();
-        let parsed = parse_with(&case.query, &parse_opts).unwrap_or_else(|err| {
+        let parsed: Value = parse_with(&case.query, &parse_opts).unwrap_or_else(|err| {
             panic!("case `{name}` expected parse success but failed: {err:?}")
         });
         let normalized = stringify_with(&parsed, &stringify_opts)
             .unwrap_or_else(|err| panic!("case `{name}` failed to stringify: {err:?}"));
         if let Some(expected) = case.normalized_query() {
+            let normalized_value: Value = parse(&normalized).unwrap_or_else(|err| {
+                panic!("case `{name}` failed to parse normalized output: {err:?}")
+            });
+            let expected_value: Value = parse(expected).unwrap_or_else(|err| {
+                panic!("case `{name}` failed to parse expected normalized output: {err:?}")
+            });
             assert_eq!(
-                normalized, expected,
+                normalize_empty(normalized_value),
+                normalize_empty(expected_value),
                 "case `{name}` normalized output mismatch"
             );
         }
-        let reparsed = parse_with(&normalized, &parse_opts).unwrap_or_else(|err| {
+        let reparsed: Value = parse_with(&normalized, &parse_opts).unwrap_or_else(|err| {
             panic!("case `{name}` failed to parse normalized output: {err:?}")
         });
         assert_eq!(
-            reparsed, parsed,
+            normalize_empty(reparsed),
+            normalize_empty(parsed),
             "case `{name}` round-trip altered structure"
         );
     }
@@ -304,11 +317,15 @@ fn value_depth(value: &Value) -> usize {
         Value::String(_) => 0,
         Value::Array(items) => items.iter().map(value_depth).max().unwrap_or(0) + 1,
         Value::Object(map) => map.values().map(value_depth).max().unwrap_or(0) + 1,
+        _ => 0,
     }
 }
 
-fn query_map_depth(map: &QueryMap) -> usize {
-    map.values().map(value_depth).max().unwrap_or(0)
+fn root_depth(value: &Value) -> usize {
+    match value {
+        Value::Object(map) => map.values().map(value_depth).max().unwrap_or(0),
+        other => value_depth(other),
+    }
 }
 
 fn estimate_params_value(value: &Value) -> usize {
@@ -316,11 +333,15 @@ fn estimate_params_value(value: &Value) -> usize {
         Value::String(_) => 1,
         Value::Array(items) => items.iter().map(estimate_params_value).sum(),
         Value::Object(map) => map.values().map(estimate_params_value).sum(),
+        _ => 1,
     }
 }
 
-fn estimate_params(map: &QueryMap) -> usize {
-    map.values().map(estimate_params_value).sum()
+fn estimate_params(value: &Value) -> usize {
+    match value {
+        Value::Object(map) => map.values().map(estimate_params_value).sum(),
+        other => estimate_params_value(other),
+    }
 }
 
 fn arb_query_value() -> impl Strategy<Value = Value> {
@@ -329,7 +350,7 @@ fn arb_query_value() -> impl Strategy<Value = Value> {
         prop_oneof![
             prop::collection::vec(inner.clone(), 1..3).prop_map(Value::Array),
             prop::collection::vec((object_key_string(), inner), 1..3).prop_map(|pairs| {
-                let mut map = IndexMap::new();
+                let mut map = JsonMap::new();
                 for (key, value) in pairs {
                     map.entry(key).or_insert(value);
                 }
@@ -339,16 +360,13 @@ fn arb_query_value() -> impl Strategy<Value = Value> {
     })
 }
 
-fn arb_query_map() -> impl Strategy<Value = QueryMap> {
+fn arb_root_value() -> impl Strategy<Value = Value> {
     prop::collection::vec((root_key_string(), arb_query_value()), 0..4).prop_map(|pairs| {
-        let mut map = QueryMap::new();
+        let mut map = JsonMap::new();
         for (key, value) in pairs {
-            if map.contains_key(&key) {
-                continue;
-            }
-            map.insert(key, value);
+            map.entry(key).or_insert(value);
         }
-        map
+        Value::Object(map)
     })
 }
 
@@ -360,11 +378,11 @@ struct RoundTripConfig {
     max_depth: Option<usize>,
 }
 
-fn arb_roundtrip_input() -> impl Strategy<Value = (QueryMap, RoundTripConfig)> {
-    arb_query_map().prop_flat_map(|map| {
-        let depth = query_map_depth(&map);
-        let params = estimate_params(&map);
-        let map_clone = map.clone();
+fn arb_roundtrip_input() -> impl Strategy<Value = (Value, RoundTripConfig)> {
+    arb_root_value().prop_flat_map(|value| {
+        let depth = root_depth(&value);
+        let params = estimate_params(&value);
+        let seed = value.clone();
         (
             any::<bool>(),
             prop::option::of(0usize..3),
@@ -377,7 +395,7 @@ fn arb_roundtrip_input() -> impl Strategy<Value = (QueryMap, RoundTripConfig)> {
                     let max_length = if use_length { Some(4096) } else { None };
                     let max_depth = if use_depth { Some(depth + 2) } else { None };
                     (
-                        map_clone.clone(),
+                        seed.clone(),
                         RoundTripConfig {
                             space_as_plus,
                             max_params,
@@ -413,11 +431,16 @@ proptest! {
             query_segments.push(format!("{}={}", encoded_key, encoded_value));
         }
         let query = query_segments.join("&");
-        let parsed = parse(&query).expect("percent-encoded unicode should parse");
-        for (idx, (key, value)) in pairs.iter().enumerate() {
-            let stored = parsed.get(key).unwrap_or_else(|| panic!("missing key at index {idx}"));
-            let s = stored.as_str().unwrap_or_else(|| panic!("expected string for value `{key}`"));
-            prop_assert_eq!(s, value);
+        let parsed: Value = parse(&query).expect("percent-encoded unicode should parse");
+        if pairs.is_empty() {
+            prop_assert!(parsed.is_null());
+        } else {
+            let object = parsed.as_object().expect("parsed root should be object");
+            for (idx, (key, value)) in pairs.iter().enumerate() {
+                let stored = object.get(key).unwrap_or_else(|| panic!("missing key at index {idx}"));
+                let s = stored.as_str().unwrap_or_else(|| panic!("expected string for value `{key}`"));
+                prop_assert_eq!(s, value);
+            }
         }
     }
 
@@ -429,8 +452,14 @@ proptest! {
             space_as_plus: true,
             ..Default::default()
         };
-    let parsed = parse_with(&query, &opts).expect("should decode plus as space");
-        let stored = parsed.get("note").unwrap().as_str().unwrap();
+        let parsed: Value = parse_with(&query, &opts).expect("should decode plus as space");
+        let stored = parsed
+            .as_object()
+            .expect("parsed root should be object")
+            .get("note")
+            .expect("missing note")
+            .as_str()
+            .expect("note should be string");
         prop_assert_eq!(stored, value);
     }
 
@@ -446,7 +475,7 @@ proptest! {
             max_params: Some(limit),
             ..Default::default()
         };
-    let result = parse_with(&query, &opts);
+        let result = parse_with::<Value>(&query, &opts);
         match result {
             Err(ParseError::TooManyParameters { limit: lim, actual: act }) => {
                 prop_assert_eq!(lim, limit);
@@ -465,7 +494,7 @@ proptest! {
             max_length: Some(limit),
             ..Default::default()
         };
-    let result = parse_with(&query, &opts);
+        let result = parse_with::<Value>(&query, &opts);
         match result {
             Err(ParseError::InputTooLong { limit: lim }) => {
                 prop_assert_eq!(lim, limit);
@@ -486,7 +515,7 @@ proptest! {
             max_depth: Some(limit),
             ..Default::default()
         };
-    let result = parse_with(&query, &opts);
+        let result = parse_with::<Value>(&query, &opts);
         match result {
             Err(ParseError::DepthExceeded { limit: lim, .. }) => {
                 prop_assert_eq!(lim, limit);
@@ -511,7 +540,7 @@ proptest! {
             max_depth: Some(limit),
             ..Default::default()
         };
-    let result = parse_with(&query, &opts);
+        let result = parse_with::<Value>(&query, &opts);
         prop_assert!(result.is_ok());
     }
 
@@ -537,12 +566,17 @@ proptest! {
             segments.push(format!("{root}[items][{idx}][flags][]={flag_beta}"));
         }
 
-            let query = segments.join("&");
-            let parsed = parse(&query).expect("nested structures should parse");
-        let root_value = parsed.get(&root).expect("missing root value");
-        let root_obj = root_value.as_object().expect("root should be an object");
+        let query = segments.join("&");
+        let parsed: Value = parse(&query).expect("nested structures should parse");
+        let root_value = parsed
+            .as_object()
+            .expect("parsed root should be object")
+            .get(&root)
+            .expect("missing root value")
+            .as_object()
+            .expect("root entry should be object");
 
-        let meta = root_obj
+        let meta = root_value
             .get("meta")
             .expect("meta missing")
             .as_object()
@@ -561,7 +595,7 @@ proptest! {
             .expect("version string");
         prop_assert_eq!(version, "1");
 
-        let constants = root_obj
+        let constants = root_value
             .get("constants")
             .expect("constants missing")
             .as_object()
@@ -583,7 +617,7 @@ proptest! {
             "6.28318"
         );
 
-        let items_value = root_obj
+        let items_value = root_value
             .get("items")
             .expect("items missing")
             .as_array()
@@ -623,7 +657,7 @@ proptest! {
     #[test]
     fn stringify_parse_roundtrip_survives_random_structures((map, config) in arb_roundtrip_input()) {
         let params_required = estimate_params(&map);
-        let depth_required = query_map_depth(&map);
+        let depth_required = root_depth(&map);
 
         let parse_options = ParseOptions {
             space_as_plus: config.space_as_plus,
@@ -647,15 +681,15 @@ proptest! {
             prop_assume!(encoded.len() <= limit);
         }
 
-        let reparsed = parse_with(&encoded, &parse_options).expect("round trip parse should succeed");
-        prop_assert_eq!(reparsed, map);
+    let reparsed: Value = parse_with(&encoded, &parse_options).expect("round trip parse should succeed");
+    prop_assert_eq!(normalize_empty(reparsed), normalize_empty(map.clone()));
     }
 
     #[test]
     fn control_characters_in_values_are_rejected(value in prop::collection::vec(prop::char::range('\u{0000}', '\u{001F}'), 1..10)) {
         let bad_value: String = value.into_iter().collect();
         let query = format!("bad={}", percent_encode(&bad_value));
-        let result = parse(&query);
+    let result = parse::<Value>(&query);
         match result {
             Err(ParseError::InvalidCharacter { .. }) => {}
             other => prop_assert!(false, "expected InvalidCharacter for control chars, got {:?}", other),
@@ -673,7 +707,7 @@ proptest! {
             max_depth: Some(depth),
             ..Default::default()
         };
-        let result = parse_with(&query, &opts);
+    let result = parse_with::<Value>(&query, &opts);
         prop_assert!(result.is_ok(), "deep nesting should succeed within limit");
     }
 
@@ -689,7 +723,7 @@ proptest! {
             max_length: Some(query.len()),
             ..Default::default()
         };
-        let result = parse_with(&query, &opts);
+    let result = parse_with::<Value>(&query, &opts);
         prop_assert!(result.is_ok(), "large input should parse within limits");
     }
 }

@@ -1,11 +1,28 @@
 use crate::encoding::{encode_key, encode_value};
-use crate::{QueryMap, StringifyError, StringifyOptions, StringifyResult, Value};
+use crate::error::{SerdeStringifyError, SerdeStringifyResult, StringifyError, StringifyResult};
+use crate::options::StringifyOptions;
+use crate::value::{QueryMap, Value};
+use serde::Serialize;
 
-pub fn stringify(map: &QueryMap) -> StringifyResult<String> {
-    stringify_with(map, &StringifyOptions::default())
+pub fn stringify<T>(data: &T) -> SerdeStringifyResult<String>
+where
+    T: Serialize,
+{
+    stringify_with(data, &StringifyOptions::default())
 }
 
-pub fn stringify_with(map: &QueryMap, options: &StringifyOptions) -> StringifyResult<String> {
+pub fn stringify_with<T>(data: &T, options: &StringifyOptions) -> SerdeStringifyResult<String>
+where
+    T: Serialize,
+{
+    let map = QueryMap::from_struct(data).map_err(SerdeStringifyError::from)?;
+    stringify_query_map_with(&map, options).map_err(SerdeStringifyError::from)
+}
+
+pub(crate) fn stringify_query_map_with(
+    map: &QueryMap,
+    options: &StringifyOptions,
+) -> StringifyResult<String> {
     if map.is_empty() {
         return Ok(String::new());
     }
