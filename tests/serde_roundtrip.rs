@@ -4,6 +4,10 @@ mod asserts;
 mod json;
 #[path = "common/options.rs"]
 mod options;
+#[path = "common/serde_data.rs"]
+mod serde_data;
+#[path = "common/serde_helpers.rs"]
+mod serde_helpers;
 #[path = "common/stringify_options.rs"]
 mod stringify_options;
 
@@ -13,168 +17,16 @@ use bunner_qs::{
 };
 use json::json_from_pairs;
 use options::build_parse_options;
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde_data::{
+    ContactForm, DesiredContact, DesiredPhone, DesiredProfile, FlattenedContact, FlattenedName,
+    FlattenedProfile, NetworkPeer, NotificationPreference, ProfileForm, SimpleUser, TaggedRecord,
+    TaggedSettings,
+};
+use serde_helpers::{assert_encoded_contains, roundtrip_via_public_api};
 use serde_json::{Value, json};
 use std::collections::BTreeMap;
 use std::error::Error;
 use stringify_options::build_stringify_options;
-
-#[derive(Debug, Default, Serialize, Deserialize, PartialEq, Clone)]
-struct ContactForm {
-    #[serde(rename = "email📧", alias = "email_address")]
-    email: String,
-    #[serde(rename = "primary-phone")]
-    primary_phone: String,
-    #[serde(
-        default,
-        alias = "secondaryPhone",
-        skip_serializing_if = "Option::is_none"
-    )]
-    secondary_phone: Option<String>,
-}
-
-#[derive(Debug, Default, Serialize, Deserialize, PartialEq, Clone)]
-struct ProfileForm {
-    #[serde(rename = "user_name")]
-    username: String,
-    #[serde(rename = "age-years", alias = "user_age")]
-    age: u8,
-    #[serde(rename = "active?")]
-    active: bool,
-    #[serde(rename = "contact📞")]
-    contact: ContactForm,
-    #[serde(
-        default,
-        rename = "nickname🎭",
-        alias = "alias🎭",
-        skip_serializing_if = "Option::is_none"
-    )]
-    nickname: Option<String>,
-}
-
-#[derive(Debug, Default, Serialize, Deserialize, PartialEq, Clone)]
-struct SimpleUser {
-    username: String,
-    age: u8,
-    active: bool,
-}
-
-#[derive(Debug, Default, Serialize, Deserialize, PartialEq, Clone)]
-struct TaggedRecord {
-    name: String,
-    tags: Vec<String>,
-}
-
-#[derive(Debug, Deserialize, PartialEq, Default)]
-struct NetworkPeer {
-    host: String,
-    port: u16,
-    secure: bool,
-}
-
-#[derive(Debug, Serialize, Deserialize, PartialEq, Default, Clone)]
-struct DesiredPhone {
-    #[serde(rename = "kind🥇")]
-    kind: String,
-    #[serde(rename = "number#")]
-    number: String,
-    #[serde(rename = "preferred✔")]
-    preferred: bool,
-}
-
-#[derive(Debug, Serialize, Deserialize, PartialEq, Default, Clone)]
-struct DesiredContact {
-    #[serde(rename = "email📮")]
-    email: String,
-    #[serde(rename = "phones📱")]
-    phones: Vec<String>,
-    #[serde(rename = "numbers📇")]
-    numbers: Vec<DesiredPhone>,
-    #[serde(rename = "tags🔥", alias = "tag_list", default)]
-    tags: Vec<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize, PartialEq, Default, Clone)]
-struct DesiredProfile {
-    #[serde(rename = "profile✨name")]
-    username: String,
-    #[serde(rename = "age✨", alias = "alt_age")]
-    age: u8,
-    contact: DesiredContact,
-    bio: Option<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize, PartialEq, Default, Clone)]
-struct FlattenedName {
-    #[serde(rename = "first_name")]
-    first: String,
-    #[serde(rename = "last_name")]
-    last: String,
-}
-
-#[derive(Debug, Serialize, Deserialize, PartialEq, Default, Clone)]
-struct FlattenedContact {
-    #[serde(rename = "contact_email")]
-    email: String,
-    #[serde(rename = "contact_phone")]
-    phone: String,
-}
-
-#[derive(Debug, Serialize, Deserialize, PartialEq, Default, Clone)]
-struct FlattenedProfile {
-    #[serde(flatten)]
-    name: FlattenedName,
-    #[serde(flatten)]
-    contact: FlattenedContact,
-    active: bool,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    note: Option<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
-#[serde(tag = "notification_kind", content = "notification")]
-enum NotificationPreference {
-    Email { address: String },
-    Sms { number: String },
-}
-
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
-struct TaggedSettings {
-    #[serde(flatten)]
-    preference: NotificationPreference,
-    #[serde(
-        rename = "access_token",
-        serialize_with = "serialize_trimmed",
-        deserialize_with = "deserialize_trimmed"
-    )]
-    token: String,
-}
-
-impl Default for TaggedSettings {
-    fn default() -> Self {
-        Self {
-            preference: NotificationPreference::Email {
-                address: String::new(),
-            },
-            token: String::new(),
-        }
-    }
-}
-
-fn serialize_trimmed<S>(value: &str, serializer: S) -> Result<S::Ok, S::Error>
-where
-    S: Serializer,
-{
-    serializer.serialize_str(value.trim())
-}
-
-fn deserialize_trimmed<'de, D>(deserializer: D) -> Result<String, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let raw = String::deserialize(deserializer)?;
-    Ok(raw.trim().to_string())
-}
 
 #[test]
 fn parse_into_struct_returns_default_for_empty_input() -> Result<(), Box<dyn Error>> {
@@ -226,8 +78,7 @@ fn struct_roundtrip_preserves_data() -> Result<(), Box<dyn Error>> {
         nickname: Some("Countess".into()),
     };
 
-    let encoded = stringify(&profile).expect("stringify should succeed");
-    let reparsed: ProfileForm = parse(&encoded)?;
+    let reparsed = roundtrip_via_public_api(&profile)?;
     assert_eq!(reparsed, profile);
     Ok(())
 }
@@ -300,8 +151,7 @@ fn btree_map_roundtrip_via_public_api() -> Result<(), Box<dyn Error>> {
     data.insert("city".to_string(), "Seoul".to_string());
     data.insert("country".to_string(), "KR".to_string());
 
-    let encoded = stringify(&data)?;
-    let restored: BTreeMap<String, String> = parse(&encoded)?;
+    let restored = roundtrip_via_public_api(&data)?;
     assert_eq!(restored, data);
     Ok(())
 }
@@ -313,8 +163,7 @@ fn sequence_field_roundtrip_preserves_values() -> Result<(), Box<dyn Error>> {
         tags: vec!["stable".into(), "serde".into()],
     };
 
-    let encoded = stringify(&record)?;
-    let restored: TaggedRecord = parse(&encoded)?;
+    let restored = roundtrip_via_public_api(&record)?;
     assert_eq!(restored, record);
     Ok(())
 }
@@ -335,8 +184,10 @@ fn flattened_struct_roundtrip_preserves_fields() -> Result<(), Box<dyn Error>> {
     };
 
     let encoded = stringify(&profile)?;
-    assert!(encoded.contains("first_name=Ada"));
-    assert!(encoded.contains("contact_email=ada%40example.com"));
+    assert_encoded_contains(
+        &encoded,
+        &["first_name=Ada", "contact_email=ada%40example.com"],
+    );
     let reparsed: FlattenedProfile = parse(&encoded)?;
     assert_eq!(reparsed, profile);
     Ok(())
@@ -352,9 +203,14 @@ fn tagged_enum_roundtrip_preserves_variant_and_token() -> Result<(), Box<dyn Err
     };
 
     let encoded = stringify(&settings)?;
-    assert!(encoded.contains("notification_kind=Email"));
-    assert!(encoded.contains("notification%5Baddress%5D=ada%40example.com"));
-    assert!(encoded.contains("access_token=SECRET"));
+    assert_encoded_contains(
+        &encoded,
+        &[
+            "notification_kind=Email",
+            "notification%5Baddress%5D=ada%40example.com",
+            "access_token=SECRET",
+        ],
+    );
 
     let reparsed: TaggedSettings = parse(&encoded)?;
     assert_eq!(reparsed, settings);
