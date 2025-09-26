@@ -615,3 +615,28 @@ fn deep_struct_to_struct_detects_type_mismatch() -> Result<(), SerdeQueryError> 
         other => panic!("expected Deserialize error, got {other:?}"),
     }
 }
+
+#[test]
+fn serialize_rejects_non_map_top_level() {
+    let primitive: i32 = 42;
+    let result: Result<QueryMap, SerdeQueryError> = QueryMap::from_struct(&primitive);
+    match result {
+        Err(SerdeQueryError::Serialize(_)) => {} // TopLevel error
+        other => panic!("expected Serialize error for non-map top-level, got {other:?}"),
+    }
+}
+
+#[test]
+fn serialize_rejects_unsupported_enum_newtype_variant() {
+    #[derive(Serialize)]
+    enum UnsupportedEnum {
+        Variant(String),
+    }
+
+    let data = UnsupportedEnum::Variant("test".into());
+    let result: Result<QueryMap, SerdeQueryError> = QueryMap::from_struct(&data);
+    match result {
+        Err(SerdeQueryError::Serialize(_)) => {} // Unsupported error
+        other => panic!("expected Serialize error for unsupported enum, got {other:?}"),
+    }
+}

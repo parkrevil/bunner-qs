@@ -650,4 +650,46 @@ proptest! {
         let reparsed = parse_with(&encoded, &parse_options).expect("round trip parse should succeed");
         prop_assert_eq!(reparsed, map);
     }
+
+    #[test]
+    fn control_characters_in_values_are_rejected(value in prop::collection::vec(prop::char::range('\u{0000}', '\u{001F}'), 1..10)) {
+        let bad_value: String = value.into_iter().collect();
+        let query = format!("bad={}", percent_encode(&bad_value));
+        let result = parse(&query);
+        match result {
+            Err(ParseError::InvalidCharacter { .. }) => {}
+            other => prop_assert!(false, "expected InvalidCharacter for control chars, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn deep_nesting_with_high_depth(depth in 5usize..15) {
+        let mut key = String::from("root");
+        for _ in 0..depth {
+            key.push_str("[level]");
+        }
+        let query = format!("{key}=deep");
+        let opts = ParseOptions {
+            max_depth: Some(depth),
+            ..Default::default()
+        };
+        let result = parse_with(&query, &opts);
+        prop_assert!(result.is_ok(), "deep nesting should succeed within limit");
+    }
+
+    #[test]
+    fn large_input_with_many_keys(num_keys in 50usize..200) {
+        let mut segments = Vec::new();
+        for idx in 0..num_keys {
+            segments.push(format!("key{idx}=value{idx}"));
+        }
+        let query = segments.join("&");
+        let opts = ParseOptions {
+            max_params: Some(num_keys),
+            max_length: Some(query.len()),
+            ..Default::default()
+        };
+        let result = parse_with(&query, &opts);
+        prop_assert!(result.is_ok(), "large input should parse within limits");
+    }
 }
