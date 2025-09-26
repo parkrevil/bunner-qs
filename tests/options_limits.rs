@@ -20,14 +20,13 @@ fn parse_respects_max_params_limit() {
     assert_str_entry(ok_obj, "a", "1");
     assert_str_entry(ok_obj, "b", "2");
 
-    let error = parse_with::<Value>("a=1&b=2&c=3", &options).expect_err("third param should fail");
-    match error {
-        ParseError::TooManyParameters { limit, actual } => {
+    asserts::assert_err_matches!(
+        parse_with::<Value>("a=1&b=2&c=3", &options),
+        ParseError::TooManyParameters { limit, actual } => |_message| {
             assert_eq!(limit, 2);
             assert_eq!(actual, 3);
         }
-        other => panic!("unexpected error variant: {other:?}"),
-    }
+    );
 }
 
 #[test]
@@ -36,15 +35,13 @@ fn parse_enforces_zero_param_limit() {
         max_params: Some(0),
         ..ParseOptions::default()
     };
-    let error =
-        parse_with::<Value>("only=one", &options).expect_err("zero limit should reject first pair");
-    match error {
-        ParseError::TooManyParameters { limit, actual } => {
+    asserts::assert_err_matches!(
+        parse_with::<Value>("only=one", &options),
+        ParseError::TooManyParameters { limit, actual } => |_message| {
             assert_eq!(limit, 0);
             assert_eq!(actual, 1);
         }
-        other => panic!("unexpected error variant: {other:?}"),
-    }
+    );
 }
 
 #[test]
@@ -60,11 +57,12 @@ fn parse_respects_max_length_boundary() {
         max_length: Some(query.len() - 1),
         ..ParseOptions::default()
     };
-    let error = parse_with::<Value>(query, &blocked).expect_err("length over limit should fail");
-    match error {
-        ParseError::InputTooLong { limit } => assert_eq!(limit, query.len() - 1),
-        other => panic!("unexpected error variant: {other:?}"),
-    }
+    asserts::assert_err_matches!(
+        parse_with::<Value>(query, &blocked),
+        ParseError::InputTooLong { limit } => |_message| {
+            assert_eq!(limit, query.len() - 1);
+        }
+    );
 }
 
 #[test]
@@ -85,15 +83,13 @@ fn parse_respects_max_depth_boundary() {
         max_depth: Some(2),
         ..ParseOptions::default()
     };
-    let error =
-        parse_with::<Value>("a[b][c][d]=fail", &over).expect_err("depth beyond limit should fail");
-    match error {
-        ParseError::DepthExceeded { key, limit } => {
+    asserts::assert_err_matches!(
+        parse_with::<Value>("a[b][c][d]=fail", &over),
+        ParseError::DepthExceeded { key, limit } => |_message| {
             assert_eq!(key, "a[b][c][d]");
             assert_eq!(limit, 2);
         }
-        other => panic!("unexpected error variant: {other:?}"),
-    }
+    );
 }
 
 #[test]
@@ -153,12 +149,12 @@ fn parse_combined_limits_prioritize_length_check() {
         ..ParseOptions::default()
     };
 
-    let error = parse_with::<Value>("toolong=value", &options)
-        .expect_err("length limit should surface before param counting");
-    match error {
-        ParseError::InputTooLong { limit } => assert_eq!(limit, 5),
-        other => panic!("unexpected error variant: {other:?}"),
-    }
+    asserts::assert_err_matches!(
+        parse_with::<Value>("toolong=value", &options),
+        ParseError::InputTooLong { limit } => |_message| {
+            assert_eq!(limit, 5);
+        }
+    );
 }
 
 #[test]
@@ -169,15 +165,13 @@ fn parse_combined_limits_still_enforce_params() {
         ..ParseOptions::default()
     };
 
-    let error = parse_with::<Value>("a=1&b=2", &options)
-        .expect_err("second parameter should breach param limit");
-    match error {
-        ParseError::TooManyParameters { limit, actual } => {
+    asserts::assert_err_matches!(
+        parse_with::<Value>("a=1&b=2", &options),
+        ParseError::TooManyParameters { limit, actual } => |_message| {
             assert_eq!(limit, 1);
             assert_eq!(actual, 2);
         }
-        other => panic!("unexpected error variant: {other:?}"),
-    }
+    );
 }
 
 #[test]
@@ -188,15 +182,13 @@ fn parse_combined_limits_respect_depth_even_with_param_budget() {
         ..ParseOptions::default()
     };
 
-    let error = parse_with::<Value>("a[b][c]=1", &options)
-        .expect_err("depth limit should trigger ahead of parameter budget");
-    match error {
-        ParseError::DepthExceeded { key, limit } => {
+    asserts::assert_err_matches!(
+        parse_with::<Value>("a[b][c]=1", &options),
+        ParseError::DepthExceeded { key, limit } => |_message| {
             assert_eq!(key, "a[b][c]");
             assert_eq!(limit, 1);
         }
-        other => panic!("unexpected error variant: {other:?}"),
-    }
+    );
 }
 
 #[test]

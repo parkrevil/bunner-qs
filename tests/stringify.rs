@@ -194,13 +194,12 @@ fn rejects_control_characters_in_key() {
     let map = json!({
         "bad\u{0007}key": "value"
     });
-    let error = stringify(&map).expect_err("control characters in key should fail");
-    match error {
-        SerdeStringifyError::Stringify(StringifyError::InvalidKey { key }) => {
-            assert_eq!(key, "bad\u{0007}key")
+    asserts::assert_err_matches!(
+        stringify(&map),
+        SerdeStringifyError::Stringify(StringifyError::InvalidKey { key }) => |_message| {
+            assert_eq!(key, "bad\u{0007}key");
         }
-        other => panic!("unexpected error variant: {other:?}"),
-    }
+    );
 }
 
 #[test]
@@ -208,13 +207,12 @@ fn rejects_control_characters_in_value() {
     let map = json!({
         "normal": "line\nbreak"
     });
-    let error = stringify(&map).expect_err("control characters in value should fail");
-    match error {
-        SerdeStringifyError::Stringify(StringifyError::InvalidValue { key }) => {
-            assert_eq!(key, "normal")
+    asserts::assert_err_matches!(
+        stringify(&map),
+        SerdeStringifyError::Stringify(StringifyError::InvalidValue { key }) => |_message| {
+            assert_eq!(key, "normal");
         }
-        other => panic!("unexpected error variant: {other:?}"),
-    }
+    );
 }
 
 #[test]
@@ -227,13 +225,12 @@ fn rejects_control_characters_in_nested_value() {
         }
     });
 
-    let error = stringify(&map).expect_err("control characters inside nested value should fail");
-    match error {
-        SerdeStringifyError::Stringify(StringifyError::InvalidValue { key }) => {
-            assert_eq!(key, "profile[address][line1]")
+    asserts::assert_err_matches!(
+        stringify(&map),
+        SerdeStringifyError::Stringify(StringifyError::InvalidValue { key }) => |_message| {
+            assert_eq!(key, "profile[address][line1]");
         }
-        other => panic!("unexpected error variant: {other:?}"),
-    }
+    );
 }
 
 #[test]

@@ -58,60 +58,62 @@ fn stringify_preserves_array_order_for_numeric_indices() {
 
 #[test]
 fn rejects_array_scalar_then_object_conflict() {
-    let error = parse::<Value>("items[0]=apple&items[0][kind]=fruit")
-        .expect_err("array entries should not change from scalar to object");
-    match error {
-        ParseError::DuplicateKey { key } => assert_eq!(key, "items"),
-        other => panic!("unexpected error variant: {other:?}"),
-    }
+    asserts::assert_err_matches!(
+        parse::<Value>("items[0]=apple&items[0][kind]=fruit"),
+        ParseError::DuplicateKey { key } => |_message| {
+            assert_eq!(key, "items");
+        }
+    );
 }
 
 #[test]
 fn rejects_array_object_then_scalar_conflict() {
-    let error = parse::<Value>("items[0][kind]=fruit&items[0]=apple")
-        .expect_err("array entries should not change from object to scalar");
-    match error {
-        ParseError::DuplicateKey { key } => assert!(key == "items" || key == "0"),
-        other => panic!("unexpected error variant: {other:?}"),
-    }
+    asserts::assert_err_matches!(
+        parse::<Value>("items[0][kind]=fruit&items[0]=apple"),
+        ParseError::DuplicateKey { key } => |_message| {
+            assert!(key == "items" || key == "0");
+        }
+    );
 }
 
 #[test]
 fn rejects_mixed_append_and_numeric_patterns() {
-    let error = parse::<Value>("key[]=1&key[0]=1").expect_err("mixed append/numeric should fail");
-    match error {
-        ParseError::DuplicateKey { key } => assert_eq!(key, "key"),
-        other => panic!("unexpected error variant: {other:?}"),
-    }
+    asserts::assert_err_matches!(
+        parse::<Value>("key[]=1&key[0]=1"),
+        ParseError::DuplicateKey { key } => |_message| {
+            assert_eq!(key, "key");
+        }
+    );
 }
 
 #[test]
 fn rejects_scalar_and_nested_mix() {
-    let error =
-        parse::<Value>("foo=1&foo[bar]=2").expect_err("mixing scalar and nested should fail");
-    match error {
-        ParseError::DuplicateKey { key } => assert_eq!(key, "foo"),
-        other => panic!("unexpected error variant: {other:?}"),
-    }
+    asserts::assert_err_matches!(
+        parse::<Value>("foo=1&foo[bar]=2"),
+        ParseError::DuplicateKey { key } => |_message| {
+            assert_eq!(key, "foo");
+        }
+    );
 }
 
 #[test]
 fn rejects_duplicate_scalar_values() {
-    let error = parse::<Value>("foo=1&foo=2").expect_err("duplicate scalar keys should fail");
-    match error {
-        ParseError::DuplicateKey { key } => assert_eq!(key, "foo"),
-        other => panic!("unexpected error variant: {other:?}"),
-    }
+    asserts::assert_err_matches!(
+        parse::<Value>("foo=1&foo=2"),
+        ParseError::DuplicateKey { key } => |_message| {
+            assert_eq!(key, "foo");
+        }
+    );
 }
 
 #[test]
 fn rejects_non_contiguous_numeric_indexes() {
-    let error = parse::<Value>("items[0]=apple&items[2]=cherry")
-        .expect_err("non contiguous numeric indexes should fail");
-    match error {
-        ParseError::DuplicateKey { key } => assert_eq!(key, "items"),
-        other => panic!("unexpected error variant: {other:?}"),
-    }
+    asserts::assert_err_matches!(
+        parse::<Value>("items[0]=apple&items[2]=cherry"),
+        ParseError::DuplicateKey { key } => |_message| {
+            assert_eq!(key, "items");
+        }
+    );
 }
 
 #[test]
@@ -128,13 +130,11 @@ fn respects_depth_limit_for_mixed_nested_structure() {
         max_depth: Some(2),
         ..ParseOptions::default()
     };
-    let error = parse_with::<Value>(query, &strict)
-        .expect_err("depth limit should reject deeply nested structure");
-    match error {
-        ParseError::DepthExceeded { key, limit } => {
+    asserts::assert_err_matches!(
+        parse_with::<Value>(query, &strict),
+        ParseError::DepthExceeded { key, limit } => |_message| {
             assert_eq!(key, "profile[contacts][phones][0][number]");
             assert_eq!(limit, 2);
         }
-        other => panic!("unexpected error variant: {other:?}"),
-    }
+    );
 }
