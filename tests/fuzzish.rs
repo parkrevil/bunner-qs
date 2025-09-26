@@ -254,7 +254,12 @@ fn allowed_char() -> impl Strategy<Value = char> {
 }
 
 fn unicode_value_string() -> impl Strategy<Value = String> {
-    prop::collection::vec(allowed_char(), 0..6).prop_map(|chars| chars.into_iter().collect())
+    prop_oneof![
+        prop::collection::vec(allowed_char(), 0..8),
+        prop::collection::vec(allowed_char(), 8..24),
+        prop::collection::vec(allowed_char(), 24..96),
+    ]
+    .prop_map(|chars: Vec<char>| chars.into_iter().collect())
 }
 
 fn percent_encode(input: &str) -> String {
@@ -346,22 +351,21 @@ fn estimate_params(value: &Value) -> usize {
 
 fn arb_query_value() -> impl Strategy<Value = Value> {
     let leaf = unicode_value_string().prop_map(Value::String);
-    leaf.prop_recursive(3, 32, 4, |inner| {
-        prop_oneof![
-            prop::collection::vec(inner.clone(), 1..3).prop_map(Value::Array),
-            prop::collection::vec((object_key_string(), inner), 1..3).prop_map(|pairs| {
-                let mut map = JsonMap::new();
-                for (key, value) in pairs {
-                    map.entry(key).or_insert(value);
-                }
-                Value::Object(map)
-            })
-        ]
+    leaf.prop_recursive(5, 64, 8, |inner| {
+        let arrays = prop::collection::vec(inner.clone(), 1..6).prop_map(Value::Array);
+        let objects = prop::collection::vec((object_key_string(), inner), 1..6).prop_map(|pairs| {
+            let mut map = JsonMap::new();
+            for (key, value) in pairs {
+                map.entry(key).or_insert(value);
+            }
+            Value::Object(map)
+        });
+        prop_oneof![arrays, objects]
     })
 }
 
 fn arb_root_value() -> impl Strategy<Value = Value> {
-    prop::collection::vec((root_key_string(), arb_query_value()), 0..4).prop_map(|pairs| {
+    prop::collection::vec((root_key_string(), arb_query_value()), 0..6).prop_map(|pairs| {
         let mut map = JsonMap::new();
         for (key, value) in pairs {
             map.entry(key).or_insert(value);
@@ -385,14 +389,21 @@ fn arb_roundtrip_input() -> impl Strategy<Value = (Value, RoundTripConfig)> {
         let seed = value.clone();
         (
             any::<bool>(),
-            prop::option::of(0usize..3),
+            prop::option::of(0usize..5),
             any::<bool>(),
             any::<bool>(),
         )
             .prop_map(
                 move |(space_as_plus, extra_params, use_length, use_depth)| {
                     let max_params = extra_params.map(|extra| params + extra);
-                    let max_length = if use_length { Some(4096) } else { None };
+                    let estimated_len = stringify_with(&seed, &StringifyOptions::default())
+                        .map(|encoded| encoded.len())
+                        .unwrap_or(0);
+                    let max_length = if use_length {
+                        Some(estimated_len + 512)
+                    } else {
+                        None
+                    };
                     let max_depth = if use_depth { Some(depth + 2) } else { None };
                     (
                         seed.clone(),

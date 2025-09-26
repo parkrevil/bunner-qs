@@ -145,7 +145,7 @@ impl Default for TaggedSettings {
     }
 }
 
-fn serialize_trimmed<S>(value: &String, serializer: S) -> Result<S::Ok, S::Error>
+fn serialize_trimmed<S>(value: &str, serializer: S) -> Result<S::Ok, S::Error>
 where
     S: Serializer,
 {
