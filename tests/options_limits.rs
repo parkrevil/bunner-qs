@@ -7,8 +7,8 @@ mod options;
 #[path = "common/stringify_options.rs"]
 mod stringify_options;
 
-use asserts::assert_str_path;
-use bunner_qs::{ParseError, ParseOptions, parse_with, stringify_with};
+use asserts::{assert_str_path, assert_string_array_path};
+use bunner_qs::{ParseError, ParseOptions, parse, parse_with, stringify_with};
 use json::json_from_pairs;
 use options::{build_parse_options, try_build_parse_options};
 use serde_json::Value;
@@ -216,4 +216,19 @@ fn stringify_options_builder_controls_space_encoding() {
 
     let encoded = stringify_with(&map, &options).expect("should encode with plus");
     assert_eq!(encoded, "greeting=hello+world");
+}
+
+#[test]
+fn parse_treats_dots_as_literal_without_additional_option() {
+    let parsed: Value = parse("profile.name=Ada&profile[meta][timezone]=UTC")
+        .expect("dots should be treated as literal characters without extra configuration");
+    assert_str_path(&parsed, &["profile.name"], "Ada");
+    assert_str_path(&parsed, &["profile", "meta", "timezone"], "UTC");
+}
+
+#[test]
+fn parse_supports_brackets_after_literal_dot_segments() {
+    let parsed: Value = parse("metrics.cpu[0]=low&metrics.cpu[1]=high")
+        .expect("literal key segments followed by brackets should form arrays");
+    assert_string_array_path(&parsed, &["metrics.cpu"], &["low", "high"]);
 }

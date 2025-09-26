@@ -117,6 +117,80 @@ fn rejects_invalid_percent_encoding_sequences() {
 }
 
 #[test]
+fn rejects_unmatched_closing_bracket_in_key() {
+    asserts::assert_err_matches!(
+        parse::<Value>("a]=1"),
+        ParseError::UnmatchedBracket { key } => |_message| {
+            assert_eq!(key, "a]");
+        }
+    );
+}
+
+#[test]
+fn parses_numeric_segment_followed_by_field() {
+    let parsed: Value = parse("a[0]b=1")
+        .expect("numeric segment followed by field name should parse");
+
+    let array = parsed
+        .get("a")
+        .and_then(Value::as_array)
+        .expect("root key `a` should parse as array");
+    assert_eq!(array.len(), 1);
+
+    let first = array[0]
+        .as_object()
+        .expect("array index should contain object for trailing field name");
+    assert_eq!(first.get("b").and_then(Value::as_str), Some("1"));
+}
+
+#[test]
+fn parses_nested_empty_bracket_segment() {
+    let parsed: Value = parse("a[[]]=1")
+        .expect("nested empty bracket segment should parse as literal keys");
+    assert_str_path(&parsed, &["a", "[", "]"], "1");
+}
+
+#[test]
+fn rejects_unencoded_equals_inside_bracket_segment() {
+    asserts::assert_err_matches!(
+        parse::<Value>("profile[key=name]=alice"),
+        ParseError::UnmatchedBracket { key } => |_message| {
+            assert_eq!(key, "profile[key");
+        }
+    );
+}
+
+#[test]
+fn parses_percent_encoded_equals_inside_bracket_segment() {
+    let parsed: Value = parse("profile[key%3Dname]=alice")
+        .expect("percent-encoded '=' should be treated as literal character in key");
+    assert_str_path(&parsed, &["profile", "key=name"], "alice");
+}
+
+#[test]
+fn ignores_pairs_with_empty_keys() {
+    let parsed: Value = parse("=1&foo=bar").expect("empty key pairs should be ignored");
+    assert_eq!(parsed, json_from_pairs(&[("foo", "bar")]));
+}
+
+#[test]
+fn treats_explicit_empty_value_as_empty_string() {
+    let parsed: Value =
+        parse("a=&b=2").expect("explicit empty value should deserialize as empty string");
+    assert_str_path(&parsed, &["a"], "");
+    assert_str_path(&parsed, &["b"], "2");
+}
+
+#[test]
+fn treats_flag_without_value_amid_other_pairs_as_empty_string() {
+    let parsed: Value = parse("a=1&b&c=3")
+        .expect("flag parameters without '=' should deserialize as empty strings");
+    assert_str_path(&parsed, &["a"], "1");
+    assert_str_path(&parsed, &["b"], "");
+    assert_str_path(&parsed, &["c"], "3");
+}
+
+#[test]
 fn ignores_trailing_ampersands_without_pairs() {
     let parsed: Value = parse("alpha=beta&&").expect("trailing '&' should be ignored");
     let expected = json_from_pairs(&[("alpha", "beta")]);

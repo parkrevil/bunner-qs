@@ -19,6 +19,7 @@ use serde_helpers::{
     assert_encoded_contains, assert_parse_roundtrip, assert_stringify_roundtrip,
     assert_stringify_roundtrip_with_options,
 };
+use serde::Serialize;
 use serde_json::{Map, Value, json};
 use stringify_options::build_stringify_options;
 
@@ -283,4 +284,21 @@ fn stringify_matches_serde_urlencoded_for_simple_map() {
     let reference =
         serde_urlencoded::to_string(&data).expect("serde_urlencoded should stringify map");
     assert_eq!(ours, reference);
+}
+
+#[test]
+fn stringify_skips_none_option_fields_by_default() {
+    #[derive(Serialize)]
+    struct OptionalFields<'a> {
+        keep: Option<&'a str>,
+        drop: Option<&'a str>,
+    }
+
+    let payload = OptionalFields {
+        keep: Some("alpha"),
+        drop: None,
+    };
+
+    let encoded = stringify(&payload).expect("option fields set to None should be skipped");
+    assert_eq!(encoded, "keep=alpha");
 }

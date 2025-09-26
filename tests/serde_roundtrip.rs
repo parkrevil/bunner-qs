@@ -87,6 +87,33 @@ fn primitive_scalar_struct_roundtrips() -> Result<(), Box<dyn Error>> {
 }
 
 #[test]
+fn rename_all_struct_roundtrips() -> Result<(), Box<dyn Error>> {
+    #[derive(Debug, Serialize, Deserialize, PartialEq, Default)]
+    #[serde(rename_all = "camelCase")]
+    struct CamelCaseUser {
+        first_name: String,
+        last_name: String,
+        is_active: bool,
+    }
+
+    let user = CamelCaseUser {
+        first_name: "Ada".into(),
+        last_name: "Lovelace".into(),
+        is_active: true,
+    };
+
+    let encoded = stringify(&user)?;
+    assert_encoded_contains(
+        &encoded,
+        &["firstName=Ada", "lastName=Lovelace", "isActive=true"],
+    );
+
+    let reparsed: CamelCaseUser = parse(&encoded)?;
+    assert_eq!(reparsed, user);
+    Ok(())
+}
+
+#[test]
 fn internally_tagged_enum_roundtrips() -> Result<(), Box<dyn Error>> {
     #[derive(Debug, Serialize, Deserialize, PartialEq, Default)]
     #[serde(tag = "kind", content = "payload")]
