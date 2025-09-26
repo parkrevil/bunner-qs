@@ -6,6 +6,8 @@ mod options;
 mod parse;
 #[cfg(feature = "serde")]
 mod serde_bridge;
+#[cfg(feature = "serde")]
+mod serde_impl;
 mod stringify;
 mod value;
 

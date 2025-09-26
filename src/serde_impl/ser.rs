@@ -1,7 +1,7 @@
 use crate::value::Value;
 use indexmap::IndexMap;
 use serde::ser::{self, Impossible, Serialize, SerializeMap, SerializeSeq, SerializeStruct};
-use std::fmt::{self, Display};
+use std::fmt::Display;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -32,14 +32,18 @@ enum FormValue {
     Skip,
 }
 
-pub(crate) fn serialize_to_query_map<T: Serialize>(data: &T) -> Result<IndexMap<String, Value>, SerializeError> {
+pub(crate) fn serialize_to_query_map<T: Serialize>(
+    data: &T,
+) -> Result<IndexMap<String, Value>, SerializeError> {
     match data.serialize(FormSerializer)? {
         FormValue::Object(map) => map_into_value(map),
         other => Err(SerializeError::TopLevel(describe_form_value(&other))),
     }
 }
 
-fn map_into_value(map: IndexMap<String, FormValue>) -> Result<IndexMap<String, Value>, SerializeError> {
+fn map_into_value(
+    map: IndexMap<String, FormValue>,
+) -> Result<IndexMap<String, Value>, SerializeError> {
     let mut output = IndexMap::with_capacity(map.len());
     for (key, value) in map {
         let converted = form_value_to_value(value)?;
@@ -218,8 +222,8 @@ impl ser::Serializer for FormSerializer {
         self,
         _name: &'static str,
         _variant_index: u32,
-        variant: &'static str,
-        len: usize,
+        _variant: &'static str,
+        _len: usize,
     ) -> Result<Self::SerializeTupleVariant, Self::Error> {
         Err(SerializeError::Unsupported("tuple variant"))
     }
@@ -330,10 +334,9 @@ impl SerializeMap for FormMapSerializer {
     }
 
     fn serialize_value<T: ?Sized + Serialize>(&mut self, value: &T) -> Result<(), Self::Error> {
-        let key = self
-            .next_key
-            .take()
-            .ok_or_else(|| SerializeError::Message("serialize_value called before serialize_key".into()))?;
+        let key = self.next_key.take().ok_or_else(|| {
+            SerializeError::Message("serialize_value called before serialize_key".into())
+        })?;
         match value.serialize(FormSerializer)? {
             FormValue::Skip => Ok(()),
             other => {
@@ -474,6 +477,14 @@ impl ser::Serializer for MapKeySerializer {
         _name: &'static str,
         value: &T,
     ) -> Result<Self::Ok, Self::Error> {
+        value.serialize(self)
+    }
+
+    fn serialize_none(self) -> Result<Self::Ok, Self::Error> {
+        Err(SerializeError::InvalidKey("option".into()))
+    }
+
+    fn serialize_some<T: ?Sized + Serialize>(self, value: &T) -> Result<Self::Ok, Self::Error> {
         value.serialize(self)
     }
 

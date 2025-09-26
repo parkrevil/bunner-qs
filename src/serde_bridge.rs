@@ -1,33 +1,27 @@
-use crate::{ParseOptions, QueryMap, parse_with, stringify};
+use crate::QueryMap;
+use crate::serde_impl::{
+    DeserializeError, SerializeError, deserialize_from_query_map, serialize_to_query_map,
+};
 use serde::{Serialize, de::DeserializeOwned};
 use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum SerdeQueryError {
     #[error("failed to serialize values into query map: {0}")]
-    Serialize(#[from] serde_urlencoded::ser::Error),
+    Serialize(#[from] SerializeError),
     #[error("failed to deserialize query map: {0}")]
-    Deserialize(#[from] serde_urlencoded::de::Error),
-    #[error(transparent)]
-    Stringify(#[from] crate::StringifyError),
-    #[error(transparent)]
-    Parse(#[from] crate::ParseError),
+    Deserialize(#[from] DeserializeError),
 }
 
 /// Convert a serde-serializable struct to a QueryMap
 pub(crate) fn to_query_map<T: Serialize>(data: &T) -> Result<QueryMap, SerdeQueryError> {
-    let query_string = serde_urlencoded::to_string(data)?;
-    let options = ParseOptions {
-        space_as_plus: true,
-        ..ParseOptions::default()
-    };
-    Ok(parse_with(&query_string, &options)?)
+    let map = serialize_to_query_map(data)?;
+    Ok(QueryMap::from(map))
 }
 
 /// Convert a QueryMap to a serde-deserializable struct
 pub(crate) fn from_query_map<T: DeserializeOwned>(
     query_map: &QueryMap,
 ) -> Result<T, SerdeQueryError> {
-    let query_string = stringify(query_map)?;
-    Ok(serde_urlencoded::from_str(&query_string)?)
+    Ok(deserialize_from_query_map(query_map)?)
 }

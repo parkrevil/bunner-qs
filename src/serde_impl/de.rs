@@ -1,9 +1,19 @@
 use crate::value::Value;
 use indexmap::IndexMap;
-use serde::de::{self, DeserializeOwned, DeserializeSeed, IntoDeserializer, MapAccess, SeqAccess, Visitor};
+use serde::de::{
+    self, DeserializeOwned, DeserializeSeed, IntoDeserializer, MapAccess, SeqAccess, Visitor,
+};
 use std::collections::HashSet;
-use std::fmt::{self, Display};
+use std::fmt::Display;
 use thiserror::Error;
+
+fn format_expected(fields: &'static [&'static str]) -> String {
+    if fields.is_empty() {
+        "(none)".into()
+    } else {
+        fields.join(", ")
+    }
+}
 
 #[derive(Debug, Error)]
 pub enum DeserializeError {
@@ -15,10 +25,7 @@ pub enum DeserializeError {
         found: &'static str,
     },
     #[error("unknown field `{field}`; expected one of: {expected}")]
-    UnknownField {
-        field: String,
-        expected: &'static [&'static str],
-    },
+    UnknownField { field: String, expected: String },
     #[error("duplicate field `{field}` encountered during deserialization")]
     DuplicateField { field: String },
     #[error("expected string value, found {found}")]
@@ -28,7 +35,10 @@ pub enum DeserializeError {
     #[error("invalid number literal `{value}`")]
     InvalidNumber { value: String },
     #[error("expected {expected}, found {found}")]
-    UnexpectedType { expected: &'static str, found: &'static str },
+    UnexpectedType {
+        expected: &'static str,
+        found: &'static str,
+    },
 }
 
 impl de::Error for DeserializeError {
@@ -75,7 +85,9 @@ impl<'de> ValueDeserializer<'de> {
         F: FnOnce(&str) -> Result<N, std::num::ParseIntError>,
     {
         let s = self.as_str()?;
-        parse(s).map_err(|_| DeserializeError::InvalidNumber { value: s.to_string() })
+        parse(s).map_err(|_| DeserializeError::InvalidNumber {
+            value: s.to_string(),
+        })
     }
 
     fn parse_float<N>(&self) -> Result<N, DeserializeError>
@@ -83,8 +95,9 @@ impl<'de> ValueDeserializer<'de> {
         N: std::str::FromStr,
     {
         let s = self.as_str()?;
-        s.parse::<N>()
-            .map_err(|_| DeserializeError::InvalidNumber { value: s.to_string() })
+        s.parse::<N>().map_err(|_| DeserializeError::InvalidNumber {
+            value: s.to_string(),
+        })
     }
 }
 
@@ -110,7 +123,9 @@ impl<'de> de::Deserializer<'de> for ValueDeserializer<'de> {
         match s {
             "true" => visitor.visit_bool(true),
             "false" => visitor.visit_bool(false),
-            other => Err(DeserializeError::InvalidBool { value: other.to_string() }),
+            other => Err(DeserializeError::InvalidBool {
+                value: other.to_string(),
+            }),
         }
     }
 
@@ -207,7 +222,9 @@ impl<'de> de::Deserializer<'de> for ValueDeserializer<'de> {
         if let (Some(ch), None) = (chars.next(), chars.next()) {
             visitor.visit_char(ch)
         } else {
-            Err(DeserializeError::InvalidNumber { value: s.to_string() })
+            Err(DeserializeError::InvalidNumber {
+                value: s.to_string(),
+            })
         }
     }
 
@@ -273,11 +290,13 @@ impl<'de> de::Deserializer<'de> for ValueDeserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        self.deserialize_unit(visitor)
-            .map_err(|_| DeserializeError::UnexpectedType {
+        match self.value {
+            Value::String(s) if s.is_empty() => visitor.visit_unit(),
+            _ => Err(DeserializeError::UnexpectedType {
                 expected: name,
                 found: self.unexpected(),
-            })
+            }),
+        }
     }
 
     fn deserialize_newtype_struct<V>(
@@ -296,9 +315,7 @@ impl<'de> de::Deserializer<'de> for ValueDeserializer<'de> {
         V: Visitor<'de>,
     {
         match self.value {
-            Value::Array(items) => visitor.visit_seq(SequenceAccess {
-                iter: items.iter(),
-            }),
+            Value::Array(items) => visitor.visit_seq(SequenceAccess { iter: items.iter() }),
             _ => Err(DeserializeError::UnexpectedType {
                 expected: "array",
                 found: self.unexpected(),
@@ -466,7 +483,7 @@ impl<'de> MapAccess<'de> for StructDeserializer<'de> {
             if !self.allowed.iter().any(|allowed| *allowed == key_str) {
                 return Err(DeserializeError::UnknownField {
                     field: key_str.to_string(),
-                    expected: self.allowed,
+                    expected: format_expected(self.allowed),
                 });
             }
             if !self.seen.insert(key_str) {
