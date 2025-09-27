@@ -1,3 +1,5 @@
 /target
 Cargo.lock
 /tests/data/
+/profiling/
+bin

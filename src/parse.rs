@@ -1,12 +1,14 @@
+use crate::arena::{ArenaQueryMap, ArenaValue, ParseArena};
 use crate::buffer_pool::acquire_bytes;
-use crate::nested::{PatternState, insert_nested_value, parse_key_path};
+use crate::nested::{PatternState, insert_nested_value_arena, parse_key_path};
 use crate::options::{ParseOptions, global_parse_diagnostics, global_serde_fastpath};
-use crate::value::{QueryMap, Value};
+use crate::serde_bridge::from_arena_query_map;
+use crate::value::QueryMap;
 use crate::{ParseError, ParseResult};
-
+use ahash::AHashSet;
+use memchr::{memchr, memchr_iter};
 use serde::de::DeserializeOwned;
 use std::borrow::Cow;
-use std::collections::HashSet;
 
 #[derive(Clone, Copy)]
 struct ParseRuntime {
@@ -54,12 +56,13 @@ where
         return result;
     }
 
-    let map = parse_query_map_impl(trimmed, offset, &runtime)?;
-    if map.is_empty() {
-        Ok(T::default())
-    } else {
-        map.to_struct::<T>().map_err(ParseError::from)
-    }
+    with_arena_query_map(trimmed, offset, &runtime, |_, arena_map| {
+        if arena_map.len() == 0 {
+            Ok(T::default())
+        } else {
+            from_arena_query_map::<T>(arena_map).map_err(ParseError::from)
+        }
+    })
 }
 
 #[allow(dead_code)]
@@ -71,7 +74,9 @@ pub(crate) fn parse_query_map(input: &str, options: &ParseOptions) -> ParseResul
         return Ok(QueryMap::new());
     }
 
-    parse_query_map_impl(trimmed, offset, &runtime)
+    with_arena_query_map(trimmed, offset, &runtime, |_, arena_map| {
+        Ok(arena_map.to_owned())
+    })
 }
 
 fn decode_component<'a>(
@@ -85,11 +90,18 @@ fn decode_component<'a>(
     }
 
     let bytes = raw.as_bytes();
-    let needs_percent = bytes.contains(&b'%');
-    let needs_plus = space_as_plus && bytes.contains(&b'+');
+    let needs_percent = memchr(b'%', bytes).is_some();
+    let needs_plus = space_as_plus && memchr(b'+', bytes).is_some();
 
     if !needs_percent && !needs_plus {
-        validate_decoded(raw, offset)?;
+        for (idx, byte) in bytes.iter().enumerate() {
+            if *byte <= 0x1F || *byte == 0x7F {
+                return Err(ParseError::InvalidCharacter {
+                    character: *byte as char,
+                    index: offset + idx,
+                });
+            }
+        }
         return Ok(Cow::Borrowed(raw));
     }
 
@@ -113,7 +125,14 @@ fn decode_component<'a>(
                     hex_value(bytes[cursor + 2]).ok_or(ParseError::InvalidPercentEncoding {
                         index: offset + cursor,
                     })?;
-                scratch.push((hi << 4) | lo);
+                let decoded = (hi << 4) | lo;
+                if decoded <= 0x1F || decoded == 0x7F {
+                    return Err(ParseError::InvalidCharacter {
+                        character: decoded as char,
+                        index: offset + cursor,
+                    });
+                }
+                scratch.push(decoded);
                 cursor += 3;
             }
             b'+' if space_as_plus => {
@@ -155,22 +174,7 @@ fn decode_component<'a>(
     let decoded_bytes = std::mem::take(scratch);
     let decoded = String::from_utf8(decoded_bytes).map_err(|_| ParseError::InvalidUtf8)?;
     scratch.reserve(decoded.len());
-    validate_decoded(&decoded, offset)?;
     Ok(Cow::Owned(decoded))
-}
-
-fn validate_decoded(decoded: &str, offset: usize) -> ParseResult<()> {
-    if let Some(control) = decoded
-        .chars()
-        .find(|ch| matches!(ch, '\u{0000}'..='\u{001F}' | '\u{007F}'))
-    {
-        return Err(ParseError::InvalidCharacter {
-            character: control,
-            index: offset,
-        });
-    }
-
-    Ok(())
 }
 
 fn validate_brackets(key: &str, max_depth: Option<usize>, diagnostics: bool) -> ParseResult<()> {
@@ -255,96 +259,117 @@ fn preflight<'a>(raw: &'a str, runtime: &ParseRuntime) -> ParseResult<(&'a str, 
     Ok((trimmed, offset))
 }
 
-fn parse_query_map_impl(
+fn with_arena_query_map<R, F>(
     trimmed: &str,
     offset: usize,
     runtime: &ParseRuntime,
-) -> ParseResult<QueryMap> {
-    let mut map = QueryMap::new();
+    finalize: F,
+) -> ParseResult<R>
+where
+    F: for<'arena> FnOnce(&'arena ParseArena, &ArenaQueryMap<'arena>) -> ParseResult<R>,
+{
+    let arena_capacity = trimmed.len().saturating_mul(2);
+    let arena = ParseArena::with_capacity(arena_capacity);
+    let estimated_pairs = estimate_param_capacity(trimmed);
+    let mut arena_map = ArenaQueryMap::with_capacity(&arena, estimated_pairs);
     let mut pattern_state = PatternState::default();
     let mut pairs = 0usize;
     let mut decode_scratch = acquire_bytes();
     let bytes = trimmed.as_bytes();
-    let len = bytes.len();
-    let mut idx = 0usize;
-    let mut segment_start = 0usize;
-    let mut eq_index: Option<usize> = None;
+    let mut cursor = 0usize;
 
-    while idx <= len {
-        let at_separator = idx == len || bytes[idx] == b'&';
-
-        if at_separator {
-            if idx > segment_start {
-                pairs += 1;
-                if let Some(limit) = runtime.max_params
-                    && pairs > limit
-                {
-                    return Err(ParseError::TooManyParameters {
-                        limit,
-                        actual: pairs,
-                    });
-                }
-
-                let (raw_key, raw_value) = match eq_index {
-                    Some(eq_idx) => (&trimmed[segment_start..eq_idx], &trimmed[eq_idx + 1..idx]),
-                    None => (&trimmed[segment_start..idx], ""),
-                };
-
-                let key_start = offset + segment_start;
-                let key = decode_component(
-                    raw_key,
-                    runtime.space_as_plus,
-                    key_start,
-                    decode_scratch.as_mut(),
-                )?;
-                validate_brackets(key.as_ref(), runtime.max_depth, runtime.diagnostics)?;
-
-                let value_offset = match eq_index {
-                    Some(eq_idx) => offset + eq_idx + 1,
-                    None => offset + segment_start + raw_key.len(),
-                };
-                let value = decode_component(
-                    raw_value,
-                    runtime.space_as_plus,
-                    value_offset,
-                    decode_scratch.as_mut(),
-                )?;
-
-                if !key.is_empty() && !key.contains('[') {
-                    if map.contains_key(key.as_ref()) {
-                        let label = duplicate_key_label(runtime, key.as_ref());
-                        return Err(ParseError::DuplicateKey { key: label });
-                    }
-                    map.insert(key.into_owned(), Value::String(value.into_owned()));
-                } else {
-                    let key_segments = parse_key_path(key.as_ref());
-                    insert_nested_value(
-                        &mut map,
-                        &key_segments,
-                        value.into_owned(),
-                        &mut pattern_state,
-                        runtime.diagnostics,
-                    )?;
-                }
+    for segment_end in memchr_iter(b'&', bytes).chain(std::iter::once(bytes.len())) {
+        if segment_end > cursor {
+            pairs += 1;
+            if let Some(limit) = runtime.max_params
+                && pairs > limit
+            {
+                return Err(ParseError::TooManyParameters {
+                    limit,
+                    actual: pairs,
+                });
             }
 
-            if idx == len {
-                break;
-            }
+            let eq_relative = memchr(b'=', &bytes[cursor..segment_end]);
+            let eq_index = eq_relative.map(|rel| cursor + rel);
 
-            idx += 1;
-            segment_start = idx;
-            eq_index = None;
-            continue;
+            let raw_key_end = eq_index.unwrap_or(segment_end);
+            let raw_key = &trimmed[cursor..raw_key_end];
+            let raw_value = eq_index
+                .map(|idx| &trimmed[idx + 1..segment_end])
+                .unwrap_or("");
+
+            let key_start = offset + cursor;
+            let key = decode_component(
+                raw_key,
+                runtime.space_as_plus,
+                key_start,
+                decode_scratch.as_mut(),
+            )?;
+            validate_brackets(key.as_ref(), runtime.max_depth, runtime.diagnostics)?;
+
+            let value_offset = eq_index
+                .map(|idx| offset + idx + 1)
+                .unwrap_or(offset + cursor + raw_key.len());
+            let value = decode_component(
+                raw_value,
+                runtime.space_as_plus,
+                value_offset,
+                decode_scratch.as_mut(),
+            )?;
+
+            insert_pair_arena(
+                &arena,
+                &mut arena_map,
+                &mut pattern_state,
+                runtime,
+                key,
+                value,
+            )?;
         }
 
-        if bytes[idx] == b'=' && eq_index.is_none() {
-            eq_index = Some(idx);
-        }
-
-        idx += 1;
+        cursor = segment_end.saturating_add(1);
     }
-    Ok(map)
+
+    finalize(&arena, &arena_map)
+}
+
+fn insert_pair_arena<'arena>(
+    arena: &'arena ParseArena,
+    map: &mut ArenaQueryMap<'arena>,
+    pattern_state: &mut PatternState,
+    runtime: &ParseRuntime,
+    key: Cow<'_, str>,
+    value: Cow<'_, str>,
+) -> ParseResult<()> {
+    if !key.is_empty() && !key.contains('[') {
+        let key_str = key.as_ref();
+        let value_ref = arena.alloc_str(value.as_ref());
+        map.try_insert_str(arena, key_str, ArenaValue::string(value_ref))
+            .map_err(|_| ParseError::DuplicateKey {
+                key: duplicate_key_label(runtime, key_str),
+            })?;
+        return Ok(());
+    }
+
+    let key_segments = parse_key_path(key.as_ref());
+    let value_ref = arena.alloc_str(value.as_ref());
+    insert_nested_value_arena(
+        arena,
+        map,
+        &key_segments,
+        value_ref,
+        pattern_state,
+        runtime.diagnostics,
+    )
+}
+
+fn estimate_param_capacity(input: &str) -> usize {
+    if input.is_empty() {
+        return 0;
+    }
+
+    memchr_iter(b'&', input.as_bytes()).count() + 1
 }
 
 fn duplicate_key_label(runtime: &ParseRuntime, key: &str) -> String {
@@ -368,12 +393,16 @@ where
     }
 
     let bytes = trimmed.as_bytes();
-    if bytes.iter().any(|b| matches!(b, b'[' | b']' | b'%' | b'+')) {
+    if bytes.iter().any(|b| matches!(b, b'[' | b']' | b'%')) {
+        return None;
+    }
+
+    if !runtime.space_as_plus && bytes.contains(&b'+') {
         return None;
     }
 
     let mut pairs = 0usize;
-    let mut seen = HashSet::new();
+    let mut seen: AHashSet<&str> = AHashSet::with_capacity(estimate_param_capacity(trimmed));
 
     for segment in trimmed.split('&') {
         if segment.is_empty() {

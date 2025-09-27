@@ -1,9 +1,9 @@
 mod scenarios;
 
-use bunner_qs::{parse_with, set_global_serde_fastpath, stringify_with};
+// use bunner_qs::{parse_with, stringify_with};
+use bunner_qs::parse_with;
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
 use serde_json::Value;
-use std::sync::Once;
 
 use scenarios::{
     Scenario, max_bracket_depth, scenario_extreme, scenario_high, scenario_medium, scenario_simple,
@@ -24,7 +24,7 @@ fn bench_parse_high(c: &mut Criterion) {
 fn bench_parse_extreme(c: &mut Criterion) {
     run_parse_bench(c, "parse/extreme_struct", scenario_extreme());
 }
-
+/*
 fn bench_stringify_simple(c: &mut Criterion) {
     run_stringify_bench(c, "stringify/simple_struct", scenario_simple());
 }
@@ -40,17 +40,18 @@ fn bench_stringify_high(c: &mut Criterion) {
 fn bench_stringify_extreme(c: &mut Criterion) {
     run_stringify_bench(c, "stringify/extreme_struct", scenario_extreme());
 }
-
+ */
 fn run_parse_bench(c: &mut Criterion, name: &str, scenario: Scenario) {
-    enable_fast_path();
-
     let Scenario {
         payload,
         query,
         parse_options,
-        stringify_options: _,
+        stringify_options,
         max_depth,
     } = scenario;
+
+    // 유지한 stringify 옵션 필드는 현재 벤치에서 사용하지 않지만, 구조체 필드 생존을 위해 참조만 남겨둔다.
+    let _stringify_options = stringify_options;
 
     let baseline: Value =
         parse_with(&query, &parse_options).expect("baseline parse should succeed");
@@ -78,10 +79,8 @@ fn run_parse_bench(c: &mut Criterion, name: &str, scenario: Scenario) {
         });
     });
 }
-
+/*
 fn run_stringify_bench(c: &mut Criterion, name: &str, scenario: Scenario) {
-    enable_fast_path();
-
     let Scenario {
         payload,
         query,
@@ -118,23 +117,17 @@ fn run_stringify_bench(c: &mut Criterion, name: &str, scenario: Scenario) {
         });
     });
 }
-
+ */
 criterion_group!(
     benches,
     bench_parse_simple,
     bench_parse_medium,
     bench_parse_high,
     bench_parse_extreme,
-    bench_stringify_simple,
-    bench_stringify_medium,
-    bench_stringify_high,
-    bench_stringify_extreme
+    /*     bench_stringify_simple,
+       bench_stringify_medium,
+       bench_stringify_high,
+       bench_stringify_extreme
+    */
 );
 criterion_main!(benches);
-
-fn enable_fast_path() {
-    static ONCE: Once = Once::new();
-    ONCE.call_once(|| {
-        set_global_serde_fastpath(true);
-    });
-}

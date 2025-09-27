@@ -1,4 +1,4 @@
-use crate::ordered_map::{OrderedMap, new_map};
+use crate::ordered_map::{OrderedMap, new_map, with_capacity};
 use crate::serde_bridge::{SerdeQueryError, from_query_map, to_query_map};
 use indexmap::map::{IntoIter, Iter, IterMut};
 use serde::{Serialize, de::DeserializeOwned};
@@ -28,6 +28,14 @@ pub(crate) struct QueryMap(OrderedMap<String, Value>);
 impl QueryMap {
     pub(crate) fn new() -> Self {
         Self(new_map())
+    }
+
+    pub(crate) fn with_capacity(capacity: usize) -> Self {
+        if capacity == 0 {
+            Self::new()
+        } else {
+            Self(with_capacity(capacity))
+        }
     }
 }
 
@@ -106,6 +114,7 @@ impl QueryMap {
         to_query_map(data)
     }
 
+    #[allow(dead_code)]
     pub(crate) fn to_struct<T>(&self) -> Result<T, SerdeQueryError>
     where
         T: DeserializeOwned + Default,

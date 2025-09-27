@@ -1,13 +1,9 @@
-#![allow(dead_code)]
-
-use crate::ordered_map::OrderedMap;
-use crate::value::Value;
+use crate::arena::{ArenaQueryMap, ArenaValue};
+use crate::serde_impl::de::DeserializeError;
 use serde::de::{
     self, DeserializeOwned, DeserializeSeed, IntoDeserializer, MapAccess, SeqAccess, Visitor,
 };
 use std::collections::HashSet;
-use std::fmt::Display;
-use thiserror::Error;
 
 fn format_expected(fields: &'static [&'static str]) -> String {
     if fields.is_empty() {
@@ -17,84 +13,52 @@ fn format_expected(fields: &'static [&'static str]) -> String {
     }
 }
 
-#[derive(Debug, Error)]
-pub enum DeserializeError {
-    #[error("{0}")]
-    Message(String),
-    #[error("expected an object for struct `{struct_name}`, found {found}")]
-    ExpectedObject {
-        struct_name: &'static str,
-        found: &'static str,
-    },
-    #[error("unknown field `{field}`; expected one of: {expected}")]
-    UnknownField { field: String, expected: String },
-    #[error("duplicate field `{field}` encountered during deserialization")]
-    DuplicateField { field: String },
-    #[error("expected string value, found {found}")]
-    ExpectedString { found: &'static str },
-    #[error("invalid boolean literal `{value}`")]
-    InvalidBool { value: String },
-    #[error("invalid number literal `{value}`")]
-    InvalidNumber { value: String },
-    #[error("expected {expected}, found {found}")]
-    UnexpectedType {
-        expected: &'static str,
-        found: &'static str,
-    },
-}
-
-impl de::Error for DeserializeError {
-    fn custom<T: Display>(msg: T) -> Self {
-        DeserializeError::Message(msg.to_string())
-    }
-}
-
-pub(crate) fn deserialize_from_query_map<T: DeserializeOwned>(
-    map: &OrderedMap<String, Value>,
+pub(crate) fn deserialize_from_arena_map<T: DeserializeOwned>(
+    map: &ArenaQueryMap<'_>,
 ) -> Result<T, DeserializeError> {
-    T::deserialize(ValueDeserializer {
-        value: ValueRef::Object(map),
+    T::deserialize(ArenaValueDeserializer {
+        value: ArenaValueRef::Map(map.entries_slice()),
     })
 }
 
 #[derive(Clone, Copy)]
-enum ValueRef<'de> {
+enum ArenaValueRef<'de> {
     String(&'de str),
-    Array(&'de [Value]),
-    Object(&'de OrderedMap<String, Value>),
+    Seq(&'de [ArenaValue<'de>]),
+    Map(&'de [(&'de str, ArenaValue<'de>)]),
 }
 
-impl<'de> ValueRef<'de> {
-    fn from_value(value: &'de Value) -> Self {
+impl<'de> ArenaValueRef<'de> {
+    fn from_value(value: &'de ArenaValue<'de>) -> Self {
         match value {
-            Value::String(s) => ValueRef::String(s),
-            Value::Array(items) => ValueRef::Array(items),
-            Value::Object(map) => ValueRef::Object(map),
+            ArenaValue::String(s) => ArenaValueRef::String(s),
+            ArenaValue::Seq(_) => ArenaValueRef::Seq(value.as_seq_slice().unwrap()),
+            ArenaValue::Map { .. } => ArenaValueRef::Map(value.as_map_slice().unwrap()),
         }
     }
 }
 
-struct ValueDeserializer<'de> {
-    value: ValueRef<'de>,
+struct ArenaValueDeserializer<'de> {
+    value: ArenaValueRef<'de>,
 }
 
-impl<'de> ValueDeserializer<'de> {
+impl<'de> ArenaValueDeserializer<'de> {
     fn unexpected(&self) -> &'static str {
         match self.value {
-            ValueRef::String(_) => "string",
-            ValueRef::Array(_) => "array",
-            ValueRef::Object(_) => "object",
+            ArenaValueRef::String(_) => "string",
+            ArenaValueRef::Seq(_) => "array",
+            ArenaValueRef::Map(_) => "object",
         }
     }
 
     fn as_str(&self) -> Result<&'de str, DeserializeError> {
         match self.value {
-            ValueRef::String(s) => Ok(s),
+            ArenaValueRef::String(s) => Ok(s),
             other => Err(DeserializeError::ExpectedString {
                 found: match other {
-                    ValueRef::Array(_) => "array",
-                    ValueRef::Object(_) => "object",
-                    ValueRef::String(_) => unreachable!(),
+                    ArenaValueRef::Seq(_) => "array",
+                    ArenaValueRef::Map(_) => "object",
+                    ArenaValueRef::String(_) => unreachable!(),
                 },
             }),
         }
@@ -121,7 +85,7 @@ impl<'de> ValueDeserializer<'de> {
     }
 }
 
-impl<'de> de::Deserializer<'de> for ValueDeserializer<'de> {
+impl<'de> de::Deserializer<'de> for ArenaValueDeserializer<'de> {
     type Error = DeserializeError;
 
     fn deserialize_any<V>(self, visitor: V) -> Result<V::Value, Self::Error>
@@ -129,9 +93,9 @@ impl<'de> de::Deserializer<'de> for ValueDeserializer<'de> {
         V: Visitor<'de>,
     {
         match self.value {
-            ValueRef::String(_) => self.deserialize_str(visitor),
-            ValueRef::Array(_) => self.deserialize_seq(visitor),
-            ValueRef::Object(_) => self.deserialize_map(visitor),
+            ArenaValueRef::String(_) => self.deserialize_str(visitor),
+            ArenaValueRef::Seq(_) => self.deserialize_seq(visitor),
+            ArenaValueRef::Map(_) => self.deserialize_map(visitor),
         }
     }
 
@@ -311,7 +275,7 @@ impl<'de> de::Deserializer<'de> for ValueDeserializer<'de> {
         V: Visitor<'de>,
     {
         match self.value {
-            ValueRef::String("") => visitor.visit_unit(),
+            ArenaValueRef::String("") => visitor.visit_unit(),
             _ => Err(DeserializeError::UnexpectedType {
                 expected: name,
                 found: self.unexpected(),
@@ -335,7 +299,9 @@ impl<'de> de::Deserializer<'de> for ValueDeserializer<'de> {
         V: Visitor<'de>,
     {
         match self.value {
-            ValueRef::Array(items) => visitor.visit_seq(SequenceAccess { iter: items.iter() }),
+            ArenaValueRef::Seq(items) => {
+                visitor.visit_seq(ArenaSequenceAccess { iter: items.iter() })
+            }
             _ => Err(DeserializeError::UnexpectedType {
                 expected: "array",
                 found: self.unexpected(),
@@ -367,8 +333,8 @@ impl<'de> de::Deserializer<'de> for ValueDeserializer<'de> {
         V: Visitor<'de>,
     {
         match self.value {
-            ValueRef::Object(map) => visitor.visit_map(MapDeserializer {
-                iter: map.iter(),
+            ArenaValueRef::Map(entries) => visitor.visit_map(ArenaMapDeserializer {
+                iter: entries.iter(),
                 value: None,
             }),
             _ => Err(DeserializeError::UnexpectedType {
@@ -388,11 +354,11 @@ impl<'de> de::Deserializer<'de> for ValueDeserializer<'de> {
         V: Visitor<'de>,
     {
         match self.value {
-            ValueRef::Object(map) => visitor.visit_map(StructDeserializer {
-                iter: map.iter(),
+            ArenaValueRef::Map(entries) => visitor.visit_map(ArenaStructDeserializer {
+                iter: entries.iter(),
                 value: None,
                 allowed: fields,
-                seen: HashSet::with_capacity(map.len()),
+                seen: HashSet::with_capacity(entries.len()),
             }),
             _ => Err(DeserializeError::ExpectedObject {
                 struct_name: name,
@@ -431,11 +397,11 @@ impl<'de> de::Deserializer<'de> for ValueDeserializer<'de> {
     }
 }
 
-struct SequenceAccess<'de> {
-    iter: std::slice::Iter<'de, Value>,
+struct ArenaSequenceAccess<'de> {
+    iter: std::slice::Iter<'de, ArenaValue<'de>>,
 }
 
-impl<'de> SeqAccess<'de> for SequenceAccess<'de> {
+impl<'de> SeqAccess<'de> for ArenaSequenceAccess<'de> {
     type Error = DeserializeError;
 
     fn next_element_seed<T>(&mut self, seed: T) -> Result<Option<T::Value>, Self::Error>
@@ -443,8 +409,8 @@ impl<'de> SeqAccess<'de> for SequenceAccess<'de> {
         T: DeserializeSeed<'de>,
     {
         if let Some(value) = self.iter.next() {
-            let deserializer = ValueDeserializer {
-                value: ValueRef::from_value(value),
+            let deserializer = ArenaValueDeserializer {
+                value: ArenaValueRef::from_value(value),
             };
             seed.deserialize(deserializer).map(Some)
         } else {
@@ -453,12 +419,12 @@ impl<'de> SeqAccess<'de> for SequenceAccess<'de> {
     }
 }
 
-struct MapDeserializer<'de> {
-    iter: indexmap::map::Iter<'de, String, Value>,
-    value: Option<&'de Value>,
+struct ArenaMapDeserializer<'de> {
+    iter: std::slice::Iter<'de, (&'de str, ArenaValue<'de>)>,
+    value: Option<&'de ArenaValue<'de>>,
 }
 
-impl<'de> MapAccess<'de> for MapDeserializer<'de> {
+impl<'de> MapAccess<'de> for ArenaMapDeserializer<'de> {
     type Error = DeserializeError;
 
     fn next_key_seed<K>(&mut self, seed: K) -> Result<Option<K::Value>, Self::Error>
@@ -467,7 +433,7 @@ impl<'de> MapAccess<'de> for MapDeserializer<'de> {
     {
         if let Some((key, value)) = self.iter.next() {
             self.value = Some(value);
-            let key_deser = key.as_str().into_deserializer();
+            let key_deser = (*key).into_deserializer();
             seed.deserialize(key_deser).map(Some)
         } else {
             Ok(None)
@@ -482,20 +448,20 @@ impl<'de> MapAccess<'de> for MapDeserializer<'de> {
             .value
             .take()
             .ok_or_else(|| DeserializeError::Message("value missing for map entry".into()))?;
-        seed.deserialize(ValueDeserializer {
-            value: ValueRef::from_value(value),
+        seed.deserialize(ArenaValueDeserializer {
+            value: ArenaValueRef::from_value(value),
         })
     }
 }
 
-struct StructDeserializer<'de> {
-    iter: indexmap::map::Iter<'de, String, Value>,
-    value: Option<&'de Value>,
+struct ArenaStructDeserializer<'de> {
+    iter: std::slice::Iter<'de, (&'de str, ArenaValue<'de>)>,
+    value: Option<&'de ArenaValue<'de>>,
     allowed: &'static [&'static str],
     seen: HashSet<&'de str>,
 }
 
-impl<'de> MapAccess<'de> for StructDeserializer<'de> {
+impl<'de> MapAccess<'de> for ArenaStructDeserializer<'de> {
     type Error = DeserializeError;
 
     fn next_key_seed<K>(&mut self, seed: K) -> Result<Option<K::Value>, Self::Error>
@@ -503,7 +469,7 @@ impl<'de> MapAccess<'de> for StructDeserializer<'de> {
         K: DeserializeSeed<'de>,
     {
         if let Some((key, value)) = self.iter.next() {
-            let key_str = key.as_str();
+            let key_str = *key;
             if !self.allowed.contains(&key_str) {
                 return Err(DeserializeError::UnknownField {
                     field: key_str.to_string(),
@@ -531,8 +497,8 @@ impl<'de> MapAccess<'de> for StructDeserializer<'de> {
             .value
             .take()
             .ok_or_else(|| DeserializeError::Message("value missing for struct field".into()))?;
-        seed.deserialize(ValueDeserializer {
-            value: ValueRef::from_value(value),
+        seed.deserialize(ArenaValueDeserializer {
+            value: ArenaValueRef::from_value(value),
         })
     }
 }

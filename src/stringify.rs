@@ -159,6 +159,15 @@ fn write_pair(
     space_as_plus: bool,
     first_pair: &mut bool,
 ) {
+    let base_len = key.len() + value.len();
+    let separators = if *first_pair { 1 } else { 2 };
+    let available = output.capacity() - output.len();
+    let conservative_need = separators + base_len;
+    if available < conservative_need {
+        let worst_case = separators + base_len.saturating_mul(3);
+        output.reserve(worst_case - available);
+    }
+
     if !*first_pair {
         output.push('&');
     } else {

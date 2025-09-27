@@ -1,3 +1,4 @@
+mod arena;
 mod buffer_pool;
 mod encoding;
 mod error;

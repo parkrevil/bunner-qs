@@ -114,6 +114,13 @@ fn register_parse_benches(c: &mut Criterion, label: &str, scenario: Scenario) {
     let serde_qs_baseline_value: Value = serde_qs_baseline.into();
     assert_eq!(serde_qs_baseline_value, payload, "serde_qs baseline value");
 
+    let serde_urlencoded_baseline: Vec<(String, String)> =
+        serde_urlencoded::from_str(&query).expect("serde_urlencoded baseline parse");
+    assert!(
+        !serde_urlencoded_baseline.is_empty(),
+        "serde_urlencoded baseline should produce pairs"
+    );
+
     let bunner_query = query.clone();
     let bunner_opts = parse_options.clone();
     c.bench_function(&format!("bunner_qs/parse/{}", label), move |b| {
@@ -124,13 +131,23 @@ fn register_parse_benches(c: &mut Criterion, label: &str, scenario: Scenario) {
         });
     });
 
-    let serde_qs_query = query;
+    let serde_qs_query = query.clone();
     c.bench_function(&format!("serde_qs/parse/{}", label), move |b| {
         let cfg = serde_qs_config(depth_limit);
         b.iter(|| {
             let parsed: QsRoot = cfg
                 .deserialize_str(black_box(serde_qs_query.as_str()))
                 .expect("parse");
+            black_box(parsed);
+        });
+    });
+
+    let serde_urlencoded_query = query;
+    c.bench_function(&format!("serde_urlencoded/parse/{}", label), move |b| {
+        b.iter(|| {
+            let parsed: Vec<(String, String)> =
+                serde_urlencoded::from_str(black_box(serde_urlencoded_query.as_str()))
+                    .expect("parse");
             black_box(parsed);
         });
     });
@@ -170,6 +187,15 @@ fn register_stringify_benches(c: &mut Criterion, label: &str, scenario: Scenario
         "serde_qs roundtrip value"
     );
 
+    let serde_urlencoded_pairs: Vec<(String, String)> =
+        serde_urlencoded::from_str(&query).expect("serde_urlencoded baseline pairs");
+    let serde_urlencoded_encoded =
+        serde_urlencoded::to_string(&serde_urlencoded_pairs).expect("serde_urlencoded encode");
+    assert_eq!(
+        serde_urlencoded_encoded, query,
+        "serde_urlencoded baseline encode should match query"
+    );
+
     let bunner_payload = payload.clone();
     let bunner_opts = stringify_options.clone();
     c.bench_function(&format!("bunner_qs/stringify/{}", label), move |b| {
@@ -180,10 +206,19 @@ fn register_stringify_benches(c: &mut Criterion, label: &str, scenario: Scenario
         });
     });
 
-    let serde_qs_payload = payload;
+    let serde_qs_payload = payload.clone();
     c.bench_function(&format!("serde_qs/stringify/{}", label), move |b| {
         b.iter(|| {
             let encoded = serde_qs::to_string(black_box(&serde_qs_payload)).expect("stringify");
+            black_box(encoded);
+        });
+    });
+
+    let serde_urlencoded_pairs_for_bench = serde_urlencoded_pairs;
+    c.bench_function(&format!("serde_urlencoded/stringify/{}", label), move |b| {
+        b.iter(|| {
+            let encoded = serde_urlencoded::to_string(black_box(&serde_urlencoded_pairs_for_bench))
+                .expect("stringify");
             black_box(encoded);
         });
     });
