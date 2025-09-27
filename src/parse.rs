@@ -2,13 +2,16 @@ use crate::arena::{ArenaQueryMap, ArenaValue, ParseArena};
 use crate::buffer_pool::acquire_bytes;
 use crate::nested::{PatternState, insert_nested_value_arena, parse_key_path};
 use crate::options::{ParseOptions, global_parse_diagnostics, global_serde_fastpath};
-use crate::serde_bridge::from_arena_query_map;
+use crate::serde_bridge::{arena_map_to_json_value, from_arena_query_map};
 use crate::value::QueryMap;
 use crate::{ParseError, ParseResult};
 use ahash::AHashSet;
 use memchr::{memchr, memchr_iter};
 use serde::de::DeserializeOwned;
+use serde_json::Value as JsonValue;
+use std::any::TypeId;
 use std::borrow::Cow;
+use std::mem::ManuallyDrop;
 
 #[derive(Clone, Copy)]
 struct ParseRuntime {
@@ -35,14 +38,14 @@ impl ParseRuntime {
 
 pub fn parse<T>(input: impl AsRef<str>) -> ParseResult<T>
 where
-    T: DeserializeOwned + Default,
+    T: DeserializeOwned + Default + 'static,
 {
     parse_with(input, &ParseOptions::default())
 }
 
 pub fn parse_with<T>(input: impl AsRef<str>, options: &ParseOptions) -> ParseResult<T>
 where
-    T: DeserializeOwned + Default,
+    T: DeserializeOwned + Default + 'static,
 {
     let raw = input.as_ref();
     let runtime = ParseRuntime::new(options);
@@ -60,6 +63,14 @@ where
         if arena_map.len() == 0 {
             Ok(T::default())
         } else {
+            if runtime.serde_fastpath && TypeId::of::<T>() == TypeId::of::<JsonValue>() {
+                let json_value = arena_map_to_json_value(arena_map);
+                let json_value = ManuallyDrop::new(json_value);
+                let ptr = (&*json_value) as *const JsonValue as *const T;
+                // SAFETY: TypeId equality guarantees T is exactly JsonValue.
+                let value = unsafe { ptr.read() };
+                return Ok(value);
+            }
             from_arena_query_map::<T>(arena_map).map_err(ParseError::from)
         }
     })

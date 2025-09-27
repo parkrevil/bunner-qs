@@ -73,7 +73,7 @@ fn canonicalize_query_value(value: &Value) -> Value {
 
 pub fn roundtrip_via_public_api<T>(value: &T) -> Result<T, RoundtripError>
 where
-    T: Serialize + DeserializeOwned + Default,
+    T: Serialize + DeserializeOwned + Default + 'static,
 {
     let encoded = stringify(value).map_err(RoundtripError::from_stringify)?;
     let parsed = parse(&encoded).map_err(RoundtripError::from_parse)?;
