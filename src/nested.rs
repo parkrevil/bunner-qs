@@ -235,9 +235,7 @@ fn set_nested_value(
                     });
                 }
 
-                if idx < arr.len()
-                    && matches!(&arr[idx], Value::String(s) if !s.is_empty())
-                {
+                if idx < arr.len() && matches!(&arr[idx], Value::String(s) if !s.is_empty()) {
                     return Err(ParseError::DuplicateKey {
                         key: root_key.to_string(),
                     });
