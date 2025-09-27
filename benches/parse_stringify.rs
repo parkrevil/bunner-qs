@@ -1,7 +1,6 @@
 mod scenarios;
 
-// use bunner_qs::{parse_with, stringify_with};
-use bunner_qs::parse_with;
+use bunner_qs::{parse_with, stringify_with};
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
 use serde_json::Value;
 
@@ -24,7 +23,6 @@ fn bench_parse_high(c: &mut Criterion) {
 fn bench_parse_extreme(c: &mut Criterion) {
     run_parse_bench(c, "parse/extreme_struct", scenario_extreme());
 }
-/*
 fn bench_stringify_simple(c: &mut Criterion) {
     run_stringify_bench(c, "stringify/simple_struct", scenario_simple());
 }
@@ -40,7 +38,6 @@ fn bench_stringify_high(c: &mut Criterion) {
 fn bench_stringify_extreme(c: &mut Criterion) {
     run_stringify_bench(c, "stringify/extreme_struct", scenario_extreme());
 }
- */
 fn run_parse_bench(c: &mut Criterion, name: &str, scenario: Scenario) {
     let Scenario {
         payload,
@@ -79,7 +76,6 @@ fn run_parse_bench(c: &mut Criterion, name: &str, scenario: Scenario) {
         });
     });
 }
-/*
 fn run_stringify_bench(c: &mut Criterion, name: &str, scenario: Scenario) {
     let Scenario {
         payload,
@@ -117,17 +113,15 @@ fn run_stringify_bench(c: &mut Criterion, name: &str, scenario: Scenario) {
         });
     });
 }
- */
 criterion_group!(
     benches,
     bench_parse_simple,
     bench_parse_medium,
     bench_parse_high,
     bench_parse_extreme,
-    /*     bench_stringify_simple,
-       bench_stringify_medium,
-       bench_stringify_high,
-       bench_stringify_extreme
-    */
+    bench_stringify_simple,
+    bench_stringify_medium,
+    bench_stringify_high,
+    bench_stringify_extreme
 );
 criterion_main!(benches);

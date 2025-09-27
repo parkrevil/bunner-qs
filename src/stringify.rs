@@ -4,6 +4,7 @@ use crate::error::{SerdeStringifyError, SerdeStringifyResult, StringifyError, St
 use crate::options::StringifyOptions;
 use crate::value::{QueryMap, Value};
 use serde::Serialize;
+use smallvec::SmallVec;
 
 #[derive(Clone, Copy)]
 struct StringifyRuntime {
@@ -46,7 +47,7 @@ pub(crate) fn stringify_query_map_with(
     let mut key_guard = acquire_string();
     let key_buffer = key_guard.as_mut();
     let mut first_pair = true;
-    let mut stack = Vec::with_capacity(map.len().max(1));
+    let mut stack: SmallVec<[StackItem<'_>; 96]> = SmallVec::with_capacity(map.len().min(96));
 
     for (key, value) in map.iter().rev() {
         ensure_no_control(key).map_err(|_| StringifyError::InvalidKey { key: key.clone() })?;
@@ -144,12 +145,32 @@ fn append_segment(buffer: &mut String, segment: Segment<'_>) {
             buffer.push(']');
         }
         Segment::Array(index) => {
-            use std::fmt::Write as _;
             buffer.push('[');
-            let _ = write!(buffer, "{}", index);
+            push_usize_decimal(buffer, index);
             buffer.push(']');
         }
     }
+}
+
+fn push_usize_decimal(buffer: &mut String, mut value: usize) {
+    if value == 0 {
+        buffer.push('0');
+        return;
+    }
+
+    const MAX_DIGITS: usize = 39; // Enough for 128-bit usize values
+    let mut digits = [0u8; MAX_DIGITS];
+    let mut pos = MAX_DIGITS;
+
+    while value > 0 {
+        pos -= 1;
+        digits[pos] = b'0' + (value % 10) as u8;
+        value /= 10;
+    }
+
+    let slice = &digits[pos..];
+    // SAFETY: slice contains only ASCII digit bytes written above.
+    buffer.push_str(unsafe { std::str::from_utf8_unchecked(slice) });
 }
 
 fn write_pair(

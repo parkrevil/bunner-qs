@@ -1,12 +1,14 @@
 use crate::arena::{ArenaQueryMap, ArenaValue, ParseArena, ParseArenaGuard, acquire_parse_arena};
 use crate::buffer_pool::acquire_bytes;
-use crate::nested::{PatternState, acquire_pattern_state, insert_nested_value_arena, parse_key_path};
+use crate::nested::{
+    PatternState, acquire_pattern_state, insert_nested_value_arena, parse_key_path,
+};
 use crate::options::{ParseOptions, global_parse_diagnostics, global_serde_fastpath};
 use crate::serde_bridge::{arena_map_to_json_value, from_arena_query_map};
 use crate::value::QueryMap;
 use crate::{ParseError, ParseResult};
 use ahash::AHashSet;
-use memchr::{memchr, memchr_iter};
+use memchr::{memchr, memchr2, memchr_iter};
 use serde::de::DeserializeOwned;
 use serde_json::Value as JsonValue;
 use std::any::TypeId;
@@ -102,14 +104,14 @@ fn decode_component<'a>(
     }
 
     let bytes = raw.as_bytes();
-    let needs_percent = memchr(b'%', bytes).is_some();
-    let needs_plus = space_as_plus && memchr(b'+', bytes).is_some();
+    let special_pos = if space_as_plus {
+        memchr2(b'%', b'+', bytes)
+    } else {
+        memchr(b'%', bytes)
+    };
 
-    if !needs_percent && !needs_plus {
-        if let Some(idx) = bytes
-            .iter()
-            .position(|&byte| byte <= 0x1F || byte == 0x7F)
-        {
+    if special_pos.is_none() {
+        if let Some(idx) = bytes.iter().position(|&byte| byte <= 0x1F || byte == 0x7F) {
             return Err(ParseError::InvalidCharacter {
                 character: bytes[idx] as char,
                 index: offset + idx,
@@ -162,16 +164,29 @@ fn decode_component<'a>(
                 if byte < 0x80 {
                     let start = cursor;
                     cursor += 1;
-                    while cursor < bytes.len() {
-                        let next = bytes[cursor];
-                        if next == b'%' || (next == b'+' && space_as_plus) {
-                            break;
+
+                    let ascii_rest = &bytes[cursor..];
+                    if !ascii_rest.is_empty() {
+                        let mut advance = ascii_rest.len();
+
+                        if space_as_plus {
+                            if let Some(pos) = memchr2(b'%', b'+', ascii_rest) {
+                                advance = advance.min(pos);
+                            }
+                        } else if let Some(pos) = memchr(b'%', ascii_rest) {
+                            advance = advance.min(pos);
                         }
-                        if next <= 0x1F || next == 0x7F || next >= 0x80 {
-                            break;
+
+                        if let Some(pos) = ascii_rest
+                            .iter()
+                            .position(|&b| b >= 0x80 || b <= 0x1F || b == 0x7F)
+                        {
+                            advance = advance.min(pos);
                         }
-                        cursor += 1;
+
+                        cursor += advance;
                     }
+
                     scratch.extend_from_slice(&bytes[start..cursor]);
                 } else {
                     let slice = &raw[cursor..];
@@ -280,7 +295,7 @@ fn preflight<'a>(raw: &'a str, runtime: &ParseRuntime) -> ParseResult<(&'a str, 
     Ok((trimmed, offset))
 }
 
-const ARENA_REUSE_UPPER_BOUND: usize = 32 * 1024;
+const ARENA_REUSE_UPPER_BOUND: usize = 256 * 1024;
 
 fn with_arena_query_map<R, F>(
     trimmed: &str,

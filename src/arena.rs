@@ -1,8 +1,10 @@
 #![allow(dead_code)]
 
-use ahash::AHashMap;
+use ahash::RandomState;
 use bumpalo::Bump;
 use bumpalo::collections::Vec as BumpVec;
+use hashbrown::hash_map::RawEntryMut;
+use hashbrown::HashMap;
 use std::cell::RefCell;
 use std::ops::{Deref, DerefMut};
 
@@ -127,16 +129,18 @@ pub(crate) fn acquire_parse_arena(min_capacity: usize) -> ParseArenaGuard {
 
 pub(crate) type ArenaVec<'arena, T> = BumpVec<'arena, T>;
 
+type FastMap<K, V> = HashMap<K, V, RandomState>;
+
 pub(crate) struct ArenaQueryMap<'arena> {
     entries: ArenaVec<'arena, (&'arena str, ArenaValue<'arena>)>,
-    index: AHashMap<&'arena str, usize>,
+    index: FastMap<&'arena str, usize>,
 }
 
 impl<'arena> ArenaQueryMap<'arena> {
     pub(crate) fn new(arena: &'arena ParseArena) -> Self {
         Self {
             entries: ArenaVec::new_in(arena.bump()),
-            index: AHashMap::new(),
+            index: FastMap::default(),
         }
     }
 
@@ -146,9 +150,9 @@ impl<'arena> ArenaQueryMap<'arena> {
             entries.reserve(capacity);
         }
         let index = if capacity > 0 {
-            AHashMap::with_capacity(capacity)
+            FastMap::with_capacity_and_hasher(capacity, RandomState::new())
         } else {
-            AHashMap::new()
+            FastMap::default()
         };
 
         Self { entries, index }
@@ -175,13 +179,16 @@ impl<'arena> ArenaQueryMap<'arena> {
         key: &str,
         value: ArenaValue<'arena>,
     ) -> Result<(), ()> {
-        if self.contains_key(key) {
-            return Err(());
+        match self.index.raw_entry_mut().from_key(key) {
+            RawEntryMut::Occupied(_) => Err(()),
+            RawEntryMut::Vacant(vacant) => {
+                let key_ref = arena.alloc_str(key);
+                let idx = self.entries.len();
+                self.entries.push((key_ref, value));
+                vacant.insert(key_ref, idx);
+                Ok(())
+            }
         }
-
-        let key_ref = arena.alloc_str(key);
-        self.push_allocated(key_ref, value);
-        Ok(())
     }
 
     pub(crate) fn push_allocated(&mut self, key: &'arena str, value: ArenaValue<'arena>) {
@@ -212,7 +219,7 @@ pub(crate) enum ArenaValue<'arena> {
     Seq(ArenaVec<'arena, ArenaValue<'arena>>),
     Map {
         entries: ArenaVec<'arena, (&'arena str, ArenaValue<'arena>)>,
-        index: AHashMap<&'arena str, usize>,
+        index: FastMap<&'arena str, usize>,
     },
 }
 
@@ -228,7 +235,7 @@ impl<'arena> ArenaValue<'arena> {
     pub(crate) fn map(arena: &'arena ParseArena) -> Self {
         ArenaValue::Map {
             entries: ArenaVec::new_in(arena.bump()),
-            index: AHashMap::new(),
+            index: FastMap::default(),
         }
     }
 
@@ -237,7 +244,7 @@ impl<'arena> ArenaValue<'arena> {
         entries.reserve(capacity);
         ArenaValue::Map {
             entries,
-            index: AHashMap::with_capacity(capacity),
+            index: FastMap::with_capacity_and_hasher(capacity, RandomState::new()),
         }
     }
 
