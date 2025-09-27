@@ -1,8 +1,9 @@
 mod scenarios;
 
-use bunner_qs::{parse_with, stringify_with};
+use bunner_qs::{parse_with, set_global_serde_fastpath, stringify_with};
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
 use serde_json::Value;
+use std::sync::Once;
 
 use scenarios::{
     Scenario, max_bracket_depth, scenario_extreme, scenario_high, scenario_medium, scenario_simple,
@@ -41,6 +42,8 @@ fn bench_stringify_extreme(c: &mut Criterion) {
 }
 
 fn run_parse_bench(c: &mut Criterion, name: &str, scenario: Scenario) {
+    enable_fast_path();
+
     let Scenario {
         payload,
         query,
@@ -77,6 +80,8 @@ fn run_parse_bench(c: &mut Criterion, name: &str, scenario: Scenario) {
 }
 
 fn run_stringify_bench(c: &mut Criterion, name: &str, scenario: Scenario) {
+    enable_fast_path();
+
     let Scenario {
         payload,
         query,
@@ -126,3 +131,10 @@ criterion_group!(
     bench_stringify_extreme
 );
 criterion_main!(benches);
+
+fn enable_fast_path() {
+    static ONCE: Once = Once::new();
+    ONCE.call_once(|| {
+        set_global_serde_fastpath(true);
+    });
+}

@@ -1,7 +1,7 @@
 use crate::ordered_map::new_map;
 use crate::value::{QueryMap, Value};
 use crate::{ParseError, ParseResult};
-use std::collections::HashMap;
+use ahash::AHashMap;
 
 pub fn parse_key_path(key: &str) -> Vec<String> {
     let mut segments = Vec::new();
@@ -43,6 +43,7 @@ pub(crate) fn insert_nested_value(
     segments: &[String],
     value: String,
     state: &mut PatternState,
+    diagnostics: bool,
 ) -> ParseResult<()> {
     if segments.is_empty() {
         return Ok(());
@@ -66,7 +67,7 @@ pub(crate) fn insert_nested_value(
 
     let resolved_segments = resolve_segments(state, segments)?;
 
-    build_nested_path(map, &resolved_segments, value, state)
+    build_nested_path(map, &resolved_segments, value, state, diagnostics)
 }
 
 fn build_nested_path(
@@ -74,12 +75,12 @@ fn build_nested_path(
     segments: &[String],
     final_value: String,
     state: &PatternState,
+    diagnostics: bool,
 ) -> ParseResult<()> {
     let root_key = &segments[0];
 
-    let container_path = vec![root_key.clone()];
     let container_type = state
-        .container_type(&container_path)
+        .container_type(&segments[..1])
         .unwrap_or(ContainerType::Object);
 
     if map.contains_key(root_key) {
@@ -89,13 +90,15 @@ fn build_nested_path(
         map.insert(root_key.clone(), initial_container(container_type));
     }
 
+    let root_value = map.get_mut(root_key).unwrap();
     set_nested_value(
-        map.get_mut(root_key).unwrap(),
-        &segments[1..],
+        root_value,
+        segments,
+        1,
         final_value,
         state,
         root_key,
-        container_path,
+        diagnostics,
     )
 }
 
@@ -137,50 +140,54 @@ fn ensure_container(value: &mut Value, expected: ContainerType, root_key: &str) 
 
 fn set_nested_value(
     current: &mut Value,
-    path: &[String],
+    segments: &[String],
+    mut depth: usize,
     final_value: String,
     state: &PatternState,
     root_key: &str,
-    current_path: Vec<String>,
+    diagnostics: bool,
 ) -> ParseResult<()> {
-    if path.is_empty() {
+    if depth >= segments.len() {
         return Ok(());
     }
 
     let mut node = current;
-    let mut depth = 0usize;
-    let mut cursor_path = current_path;
+    let mut final_value = Some(final_value);
 
     loop {
-        if let Some(expected) = state.container_type(&cursor_path) {
+        if let Some(expected) = state.container_type(&segments[..depth]) {
             ensure_container(node, expected, root_key)?;
         }
 
         if matches!(node, Value::String(_)) {
             *node = initial_container(
                 state
-                    .container_type(&cursor_path)
+                    .container_type(&segments[..depth])
                     .unwrap_or(ContainerType::Object),
             );
             continue;
         }
 
-        let segment = &path[depth];
-        let is_last = depth == path.len() - 1;
+        let segment = &segments[depth];
+        let is_last = depth == segments.len() - 1;
 
         match node {
             Value::Object(obj) => {
                 if is_last {
                     if obj.contains_key(segment) {
                         return Err(ParseError::DuplicateKey {
-                            key: segment.clone(),
+                            key: if diagnostics {
+                                segment.clone()
+                            } else {
+                                root_key.to_string()
+                            },
                         });
                     }
-                    obj.insert(segment.clone(), Value::String(final_value));
+                    obj.insert(segment.clone(), Value::String(final_value.take().unwrap()));
                     return Ok(());
                 }
 
-                let next_is_numeric = path[depth + 1].chars().all(|c| c.is_ascii_digit());
+                let next_is_numeric = segments[depth + 1].chars().all(|c| c.is_ascii_digit());
                 let entry = obj.entry(segment.clone()).or_insert_with(|| {
                     if next_is_numeric {
                         Value::Array(Vec::new())
@@ -189,13 +196,6 @@ fn set_nested_value(
                     }
                 });
 
-                let mut next_path = cursor_path.clone();
-                next_path.push(segment.clone());
-                if let Some(expected) = state.container_type(&next_path) {
-                    ensure_container(entry, expected, root_key)?;
-                }
-
-                cursor_path = next_path;
                 node = entry;
                 depth += 1;
             }
@@ -214,18 +214,22 @@ fn set_nested_value(
 
                 if is_last {
                     if idx == arr.len() {
-                        arr.push(Value::String(final_value));
+                        arr.push(Value::String(final_value.take().unwrap()));
                     } else if !is_placeholder(&arr[idx]) {
                         return Err(ParseError::DuplicateKey {
-                            key: segment.clone(),
+                            key: if diagnostics {
+                                segment.clone()
+                            } else {
+                                root_key.to_string()
+                            },
                         });
                     } else {
-                        arr[idx] = Value::String(final_value);
+                        arr[idx] = Value::String(final_value.take().unwrap());
                     }
                     return Ok(());
                 }
 
-                let next_is_numeric = path[depth + 1].chars().all(|c| c.is_ascii_digit());
+                let next_is_numeric = segments[depth + 1].chars().all(|c| c.is_ascii_digit());
 
                 if idx == arr.len() {
                     arr.push(if next_is_numeric {
@@ -241,21 +245,7 @@ fn set_nested_value(
                     });
                 }
 
-                let mut next_path = cursor_path.clone();
-                next_path.push(segment.clone());
-
-                let entry = if idx == arr.len() - 1 {
-                    arr.last_mut().unwrap()
-                } else {
-                    &mut arr[idx]
-                };
-
-                if let Some(expected) = state.container_type(&next_path) {
-                    ensure_container(entry, expected, root_key)?;
-                }
-
-                cursor_path = next_path;
-                node = entry;
+                node = &mut arr[idx];
                 depth += 1;
             }
             Value::String(_) => unreachable!(),
@@ -280,11 +270,43 @@ impl SegmentKind {
             SegmentKind::Other
         }
     }
+
+    fn container_type(self) -> ContainerType {
+        match self {
+            SegmentKind::Empty | SegmentKind::Numeric => ContainerType::Array,
+            SegmentKind::Other => ContainerType::Object,
+        }
+    }
 }
 
 #[derive(Debug, Default)]
 pub(crate) struct PatternState {
-    containers: HashMap<Vec<String>, ContainerState>,
+    root: PathNode,
+}
+
+#[derive(Debug, Default)]
+struct PathNode {
+    kind: Option<SegmentKind>,
+    next_index: usize,
+    children: AHashMap<String, PathNode>,
+}
+
+impl PathNode {
+    fn descend_mut(&mut self, path: &[String]) -> &mut PathNode {
+        let mut node = self;
+        for segment in path {
+            node = node.children.entry(segment.clone()).or_default();
+        }
+        node
+    }
+
+    fn descend(&self, path: &[String]) -> Option<&PathNode> {
+        let mut node = self;
+        for segment in path {
+            node = node.children.get(segment)?;
+        }
+        Some(node)
+    }
 }
 
 impl PatternState {
@@ -294,56 +316,37 @@ impl PatternState {
         segment: &str,
         root_key: &str,
     ) -> ParseResult<String> {
+        let node = self.root.descend_mut(container_path);
         let kind = SegmentKind::classify(segment);
-        let entry = self
-            .containers
-            .entry(container_path.to_vec())
-            .or_insert_with(|| ContainerState::new(kind));
 
-        if entry.kind != kind {
-            return Err(ParseError::DuplicateKey {
-                key: root_key.to_string(),
-            });
+        match node.kind {
+            Some(existing) if existing != kind => {
+                return Err(ParseError::DuplicateKey {
+                    key: root_key.to_string(),
+                });
+            }
+            Some(_) => {}
+            None => node.kind = Some(kind),
         }
 
-        Ok(match kind {
+        let resolved = match kind {
             SegmentKind::Empty => {
-                let current = entry.next_index;
-                entry.next_index += 1;
-                current.to_string()
+                let idx = node.next_index;
+                node.next_index += 1;
+                idx.to_string()
             }
             _ => segment.to_string(),
-        })
-    }
-}
+        };
 
-#[derive(Debug, Clone, Copy)]
-struct ContainerState {
-    kind: SegmentKind,
-    next_index: usize,
-}
+        node.children.entry(resolved.clone()).or_default();
 
-impl ContainerState {
-    fn new(kind: SegmentKind) -> Self {
-        Self {
-            kind,
-            next_index: 0,
-        }
+        Ok(resolved)
     }
 
-    fn container_type(&self) -> ContainerType {
-        match self.kind {
-            SegmentKind::Empty | SegmentKind::Numeric => ContainerType::Array,
-            SegmentKind::Other => ContainerType::Object,
-        }
-    }
-}
-
-impl PatternState {
     fn container_type(&self, path: &[String]) -> Option<ContainerType> {
-        self.containers
-            .get(path)
-            .map(|state| state.container_type())
+        self.root
+            .descend(path)
+            .and_then(|node| node.kind.map(|kind| kind.container_type()))
     }
 }
 
