@@ -3,9 +3,11 @@ use crate::{ParseError, ParseResult};
 use ahash::AHashMap;
 use smallvec::SmallVec;
 use std::borrow::Cow;
+use std::cell::RefCell;
+use std::ops::{Deref, DerefMut};
 
-pub fn parse_key_path(key: &str) -> Vec<&str> {
-    let mut segments = Vec::with_capacity(4);
+pub fn parse_key_path(key: &str) -> SmallVec<[&str; 8]> {
+    let mut segments: SmallVec<[&str; 8]> = SmallVec::new();
     let mut start = 0usize;
     let mut in_brackets = false;
 
@@ -81,13 +83,13 @@ pub(crate) fn insert_nested_value_arena<'arena>(
 fn arena_build_nested_path<'arena>(
     arena: &'arena ParseArena,
     map: &mut ArenaQueryMap<'arena>,
-    segments: &[Cow<'_, str>],
+    segments: &[ResolvedSegment<'_>],
     final_value: &'arena str,
     state: &PatternState,
     root_key: &str,
     diagnostics: bool,
 ) -> ParseResult<()> {
-    let root_segment = segments[0].as_ref();
+    let root_segment = segments[0].as_str();
     let root_path = [root_segment];
 
     let container_type = state
@@ -164,7 +166,7 @@ fn arena_ensure_container<'arena>(
 fn arena_set_nested_value<'arena>(
     ctx: &ArenaSetContext<'arena, '_>,
     current: &mut ArenaValue<'arena>,
-    segments: &[Cow<'_, str>],
+    segments: &[ResolvedSegment<'_>],
     mut depth: usize,
     final_value: &'arena str,
 ) -> ParseResult<()> {
@@ -175,7 +177,7 @@ fn arena_set_nested_value<'arena>(
     let mut node = current;
     let mut value_to_set = Some(final_value);
     let mut path: SmallVec<[&str; 8]> = SmallVec::with_capacity(segments.len().min(8));
-    path.extend(segments[..depth].iter().map(|segment| segment.as_ref()));
+    path.extend(segments[..depth].iter().map(|segment| segment.as_str()));
 
     loop {
         let container_hint = ctx.state.container_type(&path);
@@ -189,7 +191,7 @@ fn arena_set_nested_value<'arena>(
             continue;
         }
 
-        let segment = segments[depth].as_ref();
+    let segment = segments[depth].as_str();
         let is_last = depth == segments.len() - 1;
 
         match node {
@@ -212,9 +214,8 @@ fn arena_set_nested_value<'arena>(
                     return Ok(());
                 }
 
-                let next_kind = SegmentKind::classify(segments[depth + 1].as_ref());
-                let next_is_numeric =
-                    matches!(next_kind, SegmentKind::Numeric | SegmentKind::Empty);
+                let next_kind = segments[depth + 1].kind;
+                let next_is_numeric = matches!(next_kind, SegmentKind::Numeric | SegmentKind::Empty);
                 let entry_index = if let Some(&idx) = index.get(segment) {
                     idx
                 } else {
@@ -237,11 +238,18 @@ fn arena_set_nested_value<'arena>(
                 path.push(segment);
             }
             ArenaValue::Seq(items) => {
-                let idx = segment
-                    .parse::<usize>()
-                    .map_err(|_| ParseError::DuplicateKey {
-                        key: ctx.root_key.to_string(),
-                    })?;
+                let idx = match segments[depth].kind {
+                    SegmentKind::Numeric | SegmentKind::Empty => segment
+                        .parse::<usize>()
+                        .map_err(|_| ParseError::DuplicateKey {
+                            key: ctx.root_key.to_string(),
+                        })?,
+                    SegmentKind::Other => {
+                        return Err(ParseError::DuplicateKey {
+                            key: ctx.root_key.to_string(),
+                        })
+                    }
+                };
 
                 if idx > items.len() {
                     return Err(ParseError::DuplicateKey {
@@ -267,9 +275,8 @@ fn arena_set_nested_value<'arena>(
                     }
                 }
 
-                let next_kind = SegmentKind::classify(segments[depth + 1].as_ref());
-                let next_is_numeric =
-                    matches!(next_kind, SegmentKind::Numeric | SegmentKind::Empty);
+                let next_kind = segments[depth + 1].kind;
+                let next_is_numeric = matches!(next_kind, SegmentKind::Numeric | SegmentKind::Empty);
 
                 if idx == items.len() {
                     let child = if next_is_numeric {
@@ -302,6 +309,77 @@ enum SegmentKind {
     Empty,
     Numeric,
     Other,
+}
+
+struct ResolvedSegment<'a> {
+    text: Cow<'a, str>,
+    kind: SegmentKind,
+}
+
+impl<'a> ResolvedSegment<'a> {
+    fn new(text: Cow<'a, str>) -> Self {
+        let kind = SegmentKind::classify(text.as_ref());
+        Self { text, kind }
+    }
+
+    fn as_str(&self) -> &str {
+        self.text.as_ref()
+    }
+}
+
+thread_local! {
+    static PATTERN_STATE_POOL: RefCell<PatternState> = RefCell::new(PatternState::default());
+}
+
+pub(crate) struct PatternStateGuard {
+    state: Option<PatternState>,
+}
+
+impl PatternStateGuard {
+    fn new(mut state: PatternState) -> Self {
+        state.reset();
+        Self { state: Some(state) }
+    }
+}
+
+impl Deref for PatternStateGuard {
+    type Target = PatternState;
+
+    fn deref(&self) -> &Self::Target {
+        self.state.as_ref().expect("pattern state already released")
+    }
+}
+
+impl DerefMut for PatternStateGuard {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.state.as_mut().expect("pattern state already released")
+    }
+}
+
+impl Drop for PatternStateGuard {
+    fn drop(&mut self) {
+        if let Some(mut state) = self.state.take() {
+            state.reset();
+            PATTERN_STATE_POOL.with(|cell| {
+                if let Ok(mut slot) = cell.try_borrow_mut() {
+                    *slot = state;
+                }
+            });
+        }
+    }
+}
+
+pub(crate) fn acquire_pattern_state() -> PatternStateGuard {
+    PATTERN_STATE_POOL.with(|cell| {
+        match cell.try_borrow_mut() {
+            Ok(mut stored) => {
+                let mut state = std::mem::take(&mut *stored);
+                state.reset();
+                PatternStateGuard::new(state)
+            }
+            Err(_) => PatternStateGuard::new(PatternState::default()),
+        }
+    })
 }
 
 impl SegmentKind {
@@ -355,9 +433,22 @@ impl PathNode {
         }
         Some(node)
     }
+
+    fn reset(&mut self) {
+        self.kind = None;
+        self.next_index = 0;
+        for child in self.children.values_mut() {
+            child.reset();
+        }
+        self.children.clear();
+    }
 }
 
 impl PatternState {
+    fn reset(&mut self) {
+        self.root.reset();
+    }
+
     fn resolve<'a>(
         &mut self,
         container_path: &[&str],
@@ -411,31 +502,33 @@ enum ContainerType {
 fn resolve_segments<'a>(
     state: &mut PatternState,
     original: &[&'a str],
-) -> ParseResult<Vec<Cow<'a, str>>> {
+) -> ParseResult<SmallVec<[ResolvedSegment<'a>; 8]>> {
     if original.len() <= 1 {
-        return Ok(original
-            .iter()
-            .map(|segment| Cow::Borrowed(*segment))
-            .collect());
+        let mut out: SmallVec<[ResolvedSegment<'a>; 8]> = SmallVec::with_capacity(original.len());
+        for segment in original {
+            out.push(ResolvedSegment::new(Cow::Borrowed(*segment)));
+        }
+        return Ok(out);
     }
 
-    let mut resolved: Vec<Cow<'a, str>> = Vec::with_capacity(original.len());
-    let mut path_indices: SmallVec<[usize; 8]> = SmallVec::with_capacity(original.len().min(8));
+    let mut resolved: SmallVec<[ResolvedSegment<'a>; 8]> =
+        SmallVec::with_capacity(original.len());
+    let mut path_indices: SmallVec<[usize; 8]> = SmallVec::with_capacity(original.len());
 
-    resolved.push(Cow::Borrowed(original[0]));
+    resolved.push(ResolvedSegment::new(Cow::Borrowed(original[0])));
     path_indices.push(0);
 
     for &segment in &original[1..] {
         let resolved_segment = {
             let mut path_refs: SmallVec<[&str; 8]> = SmallVec::with_capacity(path_indices.len());
             for &idx in &path_indices {
-                path_refs.push(resolved[idx].as_ref());
+                path_refs.push(resolved[idx].as_str());
             }
 
             state.resolve(&path_refs, segment, original[0])?
         };
 
-        resolved.push(resolved_segment);
+        resolved.push(ResolvedSegment::new(resolved_segment));
         path_indices.push(resolved.len() - 1);
     }
 

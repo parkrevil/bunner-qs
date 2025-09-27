@@ -1,6 +1,6 @@
 use crate::arena::{ArenaQueryMap, ArenaValue, ParseArena, ParseArenaGuard, acquire_parse_arena};
 use crate::buffer_pool::acquire_bytes;
-use crate::nested::{PatternState, insert_nested_value_arena, parse_key_path};
+use crate::nested::{PatternState, acquire_pattern_state, insert_nested_value_arena, parse_key_path};
 use crate::options::{ParseOptions, global_parse_diagnostics, global_serde_fastpath};
 use crate::serde_bridge::{arena_map_to_json_value, from_arena_query_map};
 use crate::value::QueryMap;
@@ -106,19 +106,20 @@ fn decode_component<'a>(
     let needs_plus = space_as_plus && memchr(b'+', bytes).is_some();
 
     if !needs_percent && !needs_plus {
-        for (idx, byte) in bytes.iter().enumerate() {
-            if *byte <= 0x1F || *byte == 0x7F {
-                return Err(ParseError::InvalidCharacter {
-                    character: *byte as char,
-                    index: offset + idx,
-                });
-            }
+        if let Some(idx) = bytes
+            .iter()
+            .position(|&byte| byte <= 0x1F || byte == 0x7F)
+        {
+            return Err(ParseError::InvalidCharacter {
+                character: bytes[idx] as char,
+                index: offset + idx,
+            });
         }
         return Ok(Cow::Borrowed(raw));
     }
 
     scratch.clear();
-    scratch.reserve(raw.len());
+    scratch.reserve(bytes.len());
 
     let mut cursor = 0usize;
     while cursor < bytes.len() {
@@ -152,7 +153,7 @@ fn decode_component<'a>(
                 cursor += 1;
             }
             byte => {
-                if byte <= 0x20 || byte == 0x7F {
+                if byte <= 0x1F || byte == 0x7F {
                     return Err(ParseError::InvalidCharacter {
                         character: byte as char,
                         index: offset + cursor,
@@ -166,7 +167,7 @@ fn decode_component<'a>(
                         if next == b'%' || (next == b'+' && space_as_plus) {
                             break;
                         }
-                        if next <= 0x20 || next == 0x7F || next >= 0x80 {
+                        if next <= 0x1F || next == 0x7F || next >= 0x80 {
                             break;
                         }
                         cursor += 1;
@@ -183,10 +184,18 @@ fn decode_component<'a>(
         }
     }
 
+    let decoded_len = scratch.len();
     let decoded_bytes = std::mem::take(scratch);
-    let decoded = String::from_utf8(decoded_bytes).map_err(|_| ParseError::InvalidUtf8)?;
-    scratch.reserve(decoded.len());
-    Ok(Cow::Owned(decoded))
+    match String::from_utf8(decoded_bytes) {
+        Ok(decoded) => {
+            scratch.reserve(decoded_len);
+            Ok(Cow::Owned(decoded))
+        }
+        Err(err) => {
+            *scratch = err.into_bytes();
+            Err(ParseError::InvalidUtf8)
+        }
+    }
 }
 
 fn validate_brackets(key: &str, max_depth: Option<usize>, diagnostics: bool) -> ParseResult<()> {
@@ -291,7 +300,7 @@ where
     let arena: &ParseArena = &arena_lease;
     let estimated_pairs = estimate_param_capacity(trimmed);
     let mut arena_map = ArenaQueryMap::with_capacity(arena, estimated_pairs);
-    let mut pattern_state = PatternState::default();
+    let mut pattern_state = acquire_pattern_state();
     let mut pairs = 0usize;
     let mut decode_scratch = acquire_bytes();
     let bytes = trimmed.as_bytes();
