@@ -1,6 +1,6 @@
+use crate::ordered_map::new_map;
 use crate::value::{QueryMap, Value};
 use crate::{ParseError, ParseResult};
-use indexmap::IndexMap;
 use std::collections::HashMap;
 
 pub fn parse_key_path(key: &str) -> Vec<String> {
@@ -102,7 +102,7 @@ fn build_nested_path(
 fn initial_container(container_type: ContainerType) -> Value {
     match container_type {
         ContainerType::Array => Value::Array(Vec::new()),
-        ContainerType::Object => Value::Object(IndexMap::new()),
+        ContainerType::Object => Value::Object(new_map()),
     }
 }
 
@@ -124,7 +124,7 @@ fn ensure_container(value: &mut Value, expected: ContainerType, root_key: &str) 
             if matches!(value, Value::Object(_)) {
                 Ok(())
             } else if matches!(value, Value::Array(_)) {
-                *value = Value::Object(IndexMap::new());
+                *value = Value::Object(new_map());
                 Ok(())
             } else {
                 Err(ParseError::DuplicateKey {
@@ -147,124 +147,120 @@ fn set_nested_value(
         return Ok(());
     }
 
-    if let Some(expected) = state.container_type(&current_path) {
-        ensure_container(current, expected, root_key)?;
-    }
+    let mut node = current;
+    let mut depth = 0usize;
+    let mut cursor_path = current_path;
 
-    if path.len() == 1 {
-        let segment = &path[0];
-        match current {
+    loop {
+        if let Some(expected) = state.container_type(&cursor_path) {
+            ensure_container(node, expected, root_key)?;
+        }
+
+        if matches!(node, Value::String(_)) {
+            *node = initial_container(
+                state
+                    .container_type(&cursor_path)
+                    .unwrap_or(ContainerType::Object),
+            );
+            continue;
+        }
+
+        let segment = &path[depth];
+        let is_last = depth == path.len() - 1;
+
+        match node {
             Value::Object(obj) => {
-                if obj.contains_key(segment) {
-                    return Err(ParseError::DuplicateKey {
-                        key: segment.clone(),
-                    });
-                }
-                obj.insert(segment.clone(), Value::String(final_value));
-            }
-            Value::Array(arr) => {
-                if let Ok(idx) = segment.parse::<usize>() {
-                    if idx > arr.len() {
-                        return Err(ParseError::DuplicateKey {
-                            key: root_key.to_string(),
-                        });
-                    }
-
-                    if idx == arr.len() {
-                        arr.push(Value::String(String::new()));
-                    } else if !is_placeholder(&arr[idx]) {
+                if is_last {
+                    if obj.contains_key(segment) {
                         return Err(ParseError::DuplicateKey {
                             key: segment.clone(),
                         });
                     }
-
-                    arr[idx] = Value::String(final_value);
-                } else {
-                    return Err(ParseError::DuplicateKey {
-                        key: root_key.to_string(),
-                    });
-                }
-            }
-            Value::String(_) => {
-                *current = Value::Object(IndexMap::new());
-                if let Value::Object(obj) = current {
                     obj.insert(segment.clone(), Value::String(final_value));
+                    return Ok(());
                 }
-            }
-        }
-        return Ok(());
-    }
 
-    let segment = &path[0];
-    let remaining_path = &path[1..];
-    let mut next_path = current_path.clone();
-    next_path.push(segment.clone());
+                let next_is_numeric = path[depth + 1].chars().all(|c| c.is_ascii_digit());
+                let entry = obj.entry(segment.clone()).or_insert_with(|| {
+                    if next_is_numeric {
+                        Value::Array(Vec::new())
+                    } else {
+                        Value::Object(new_map())
+                    }
+                });
 
-    let next_is_numeric = remaining_path
-        .first()
-        .map(|s| s.chars().all(|c| c.is_ascii_digit()))
-        .unwrap_or(false);
-
-    match current {
-        Value::Object(obj) => {
-            let entry = obj.entry(segment.clone()).or_insert_with(|| {
-                if next_is_numeric {
-                    Value::Array(Vec::new())
-                } else {
-                    Value::Object(IndexMap::new())
+                let mut next_path = cursor_path.clone();
+                next_path.push(segment.clone());
+                if let Some(expected) = state.container_type(&next_path) {
+                    ensure_container(entry, expected, root_key)?;
                 }
-            });
-            if let Some(expected) = state.container_type(&next_path) {
-                ensure_container(entry, expected, root_key)?;
+
+                cursor_path = next_path;
+                node = entry;
+                depth += 1;
             }
-            set_nested_value(
-                entry,
-                remaining_path,
-                final_value,
-                state,
-                root_key,
-                next_path,
-            )
-        }
-        Value::Array(arr) => {
-            if let Ok(idx) = segment.parse::<usize>() {
+            Value::Array(arr) => {
+                let idx = segment
+                    .parse::<usize>()
+                    .map_err(|_| ParseError::DuplicateKey {
+                        key: root_key.to_string(),
+                    })?;
+
                 if idx > arr.len() {
                     return Err(ParseError::DuplicateKey {
                         key: root_key.to_string(),
                     });
                 }
 
+                if is_last {
+                    if idx == arr.len() {
+                        arr.push(Value::String(final_value));
+                    } else if !is_placeholder(&arr[idx]) {
+                        return Err(ParseError::DuplicateKey {
+                            key: segment.clone(),
+                        });
+                    } else {
+                        arr[idx] = Value::String(final_value);
+                    }
+                    return Ok(());
+                }
+
+                let next_is_numeric = path[depth + 1].chars().all(|c| c.is_ascii_digit());
+
                 if idx == arr.len() {
                     arr.push(if next_is_numeric {
                         Value::Array(Vec::new())
                     } else {
-                        Value::Object(IndexMap::new())
+                        Value::Object(new_map())
                     });
                 }
-                if let Some(expected) = state.container_type(&next_path) {
-                    ensure_container(&mut arr[idx], expected, root_key)?;
+
+                if idx < arr.len()
+                    && matches!(&arr[idx], Value::String(s) if !s.is_empty())
+                {
+                    return Err(ParseError::DuplicateKey {
+                        key: root_key.to_string(),
+                    });
                 }
-                set_nested_value(
-                    &mut arr[idx],
-                    remaining_path,
-                    final_value,
-                    state,
-                    root_key,
-                    next_path,
-                )
-            } else {
-                Err(ParseError::DuplicateKey {
-                    key: root_key.to_string(),
-                })
+
+                let mut next_path = cursor_path.clone();
+                next_path.push(segment.clone());
+
+                let entry = if idx == arr.len() - 1 {
+                    arr.last_mut().unwrap()
+                } else {
+                    &mut arr[idx]
+                };
+
+                if let Some(expected) = state.container_type(&next_path) {
+                    ensure_container(entry, expected, root_key)?;
+                }
+
+                cursor_path = next_path;
+                node = entry;
+                depth += 1;
             }
-        }
-        Value::String(_) => {
-            *current = initial_container(
-                state
-                    .container_type(&current_path)
-                    .unwrap_or(ContainerType::Object),
-            );
-            set_nested_value(current, path, final_value, state, root_key, current_path)
+            Value::String(_) => unreachable!(),
         }
     }
 }

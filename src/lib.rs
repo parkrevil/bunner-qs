@@ -1,7 +1,9 @@
+mod buffer_pool;
 mod encoding;
 mod error;
 mod nested;
 mod options;
+mod ordered_map;
 mod parse;
 mod serde_bridge;
 mod serde_impl;

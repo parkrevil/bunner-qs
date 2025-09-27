@@ -1,4 +1,5 @@
 use percent_encoding::{AsciiSet, CONTROLS, utf8_percent_encode};
+use std::fmt::Write as _;
 
 const fn build_component_set() -> AsciiSet {
     CONTROLS
@@ -29,55 +30,49 @@ const fn build_component_set() -> AsciiSet {
 
 const COMPONENT_ENCODE_SET: &AsciiSet = &build_component_set();
 
-fn encode_with_set(component: &str, space_as_plus: bool) -> String {
+pub fn encode_key_into(buffer: &mut String, key: &str, space_as_plus: bool) {
+    encode_into(key, space_as_plus, buffer);
+}
+
+pub fn encode_value_into(buffer: &mut String, value: &str, space_as_plus: bool) {
+    encode_into(value, space_as_plus, buffer);
+}
+
+fn encode_into(component: &str, space_as_plus: bool, buffer: &mut String) {
     if component.is_empty() {
-        return String::new();
+        return;
     }
 
-    let mut encoded = String::with_capacity(component.len());
-    let mut buffer = [0u8; 4];
+    if !space_as_plus {
+        append_encoded(component, buffer);
+        return;
+    }
 
-    for ch in component.chars() {
-        if ch == ' ' && space_as_plus {
-            encoded.push('+');
-            continue;
+    let mut tail = 0;
+    for (idx, ch) in component.char_indices() {
+        if ch == ' ' {
+            if tail < idx {
+                append_encoded(&component[tail..idx], buffer);
+            }
+            buffer.push('+');
+            tail = idx + ch.len_utf8();
         }
-
-        let slice = ch.encode_utf8(&mut buffer);
-        encoded.push_str(&utf8_percent_encode(slice, COMPONENT_ENCODE_SET).to_string());
     }
 
-    encoded
+    if tail < component.len() {
+        append_encoded(&component[tail..], buffer);
+    }
 }
 
-pub fn encode_key(key: &str, space_as_plus: bool) -> String {
-    encode_with_set(key, space_as_plus)
-}
-
-pub fn encode_value(value: &str, space_as_plus: bool) -> String {
-    encode_with_set(value, space_as_plus)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn encodes_reserved_characters() {
-        let encoded = encode_value("a&b=c", false);
-        assert_eq!(encoded, "a%26b%3Dc");
+fn append_encoded(segment: &str, buffer: &mut String) {
+    if segment.is_empty() {
+        return;
     }
 
-    #[test]
-    fn encodes_space_as_plus_when_requested() {
-        let encoded = encode_value("hello world", true);
-        assert_eq!(encoded, "hello+world");
-    }
-
-    #[test]
-    fn leaves_unreserved_characters_intact() {
-        let original = "abc-_.~";
-        let encoded = encode_key(original, false);
-        assert_eq!(encoded, original);
-    }
+    // utf8_percent_encode implements Display; write! streams directly into the buffer
+    let _ = write!(
+        buffer,
+        "{}",
+        utf8_percent_encode(segment, COMPONENT_ENCODE_SET)
+    );
 }

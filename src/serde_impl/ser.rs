@@ -1,5 +1,5 @@
+use crate::ordered_map::{OrderedMap, new_map, with_capacity};
 use crate::value::Value;
-use indexmap::IndexMap;
 use serde::ser::{self, Impossible, Serialize, SerializeMap, SerializeSeq, SerializeStruct};
 use std::fmt::Display;
 use thiserror::Error;
@@ -24,153 +24,115 @@ impl ser::Error for SerializeError {
     }
 }
 
-#[derive(Debug)]
-enum FormValue {
-    String(String),
-    Array(Vec<FormValue>),
-    Object(IndexMap<String, FormValue>),
-    Skip,
-}
-
 pub(crate) fn serialize_to_query_map<T: Serialize>(
     data: &T,
-) -> Result<IndexMap<String, Value>, SerializeError> {
-    match data.serialize(FormSerializer)? {
-        FormValue::Object(map) => map_into_value(map),
-        other => Err(SerializeError::TopLevel(describe_form_value(&other))),
+) -> Result<OrderedMap<String, Value>, SerializeError> {
+    match data.serialize(ValueSerializer)? {
+        Some(Value::Object(map)) => Ok(map),
+        Some(other) => Err(SerializeError::TopLevel(describe_value(&other))),
+        None => Err(SerializeError::UnexpectedSkip),
     }
 }
 
-fn map_into_value(
-    map: IndexMap<String, FormValue>,
-) -> Result<IndexMap<String, Value>, SerializeError> {
-    let mut output = IndexMap::with_capacity(map.len());
-    for (key, value) in map {
-        let converted = form_value_to_value(value)?;
-        output.insert(key, converted);
-    }
-    Ok(output)
-}
-
-fn form_value_to_value(value: FormValue) -> Result<Value, SerializeError> {
+fn describe_value(value: &Value) -> String {
     match value {
-        FormValue::String(s) => Ok(Value::String(s)),
-        FormValue::Array(items) => {
-            let mut out = Vec::with_capacity(items.len());
-            for item in items {
-                match form_value_to_value(item)? {
-                    Value::String(s) => out.push(Value::String(s)),
-                    Value::Array(arr) => out.push(Value::Array(arr)),
-                    Value::Object(obj) => out.push(Value::Object(obj)),
-                }
-            }
-            Ok(Value::Array(out))
-        }
-        FormValue::Object(map) => map_into_value(map).map(Value::Object),
-        FormValue::Skip => Err(SerializeError::UnexpectedSkip),
+        Value::String(_) => "string".into(),
+        Value::Array(_) => "array".into(),
+        Value::Object(_) => "object".into(),
     }
 }
 
-fn describe_form_value(value: &FormValue) -> String {
-    match value {
-        FormValue::String(_) => "string".into(),
-        FormValue::Array(_) => "array".into(),
-        FormValue::Object(_) => "object".into(),
-        FormValue::Skip => "skip".into(),
-    }
-}
+struct ValueSerializer;
 
-struct FormSerializer;
-
-impl ser::Serializer for FormSerializer {
-    type Ok = FormValue;
+impl ser::Serializer for ValueSerializer {
+    type Ok = Option<Value>;
     type Error = SerializeError;
-    type SerializeSeq = FormSeqSerializer;
-    type SerializeTuple = FormSeqSerializer;
-    type SerializeTupleStruct = FormSeqSerializer;
-    type SerializeTupleVariant = FormSeqSerializer;
-    type SerializeMap = FormMapSerializer;
-    type SerializeStruct = FormStructSerializer;
-    type SerializeStructVariant = Impossible<FormValue, SerializeError>;
+    type SerializeSeq = ValueSeqSerializer;
+    type SerializeTuple = ValueSeqSerializer;
+    type SerializeTupleStruct = ValueSeqSerializer;
+    type SerializeTupleVariant = ValueSeqSerializer;
+    type SerializeMap = ValueMapSerializer;
+    type SerializeStruct = ValueStructSerializer;
+    type SerializeStructVariant = Impossible<Option<Value>, SerializeError>;
 
     fn serialize_bool(self, v: bool) -> Result<Self::Ok, Self::Error> {
-        Ok(FormValue::String(v.to_string()))
+        Ok(Some(Value::String(v.to_string())))
     }
 
     fn serialize_i8(self, v: i8) -> Result<Self::Ok, Self::Error> {
-        Ok(FormValue::String(v.to_string()))
+        Ok(Some(Value::String(v.to_string())))
     }
 
     fn serialize_i16(self, v: i16) -> Result<Self::Ok, Self::Error> {
-        Ok(FormValue::String(v.to_string()))
+        Ok(Some(Value::String(v.to_string())))
     }
 
     fn serialize_i32(self, v: i32) -> Result<Self::Ok, Self::Error> {
-        Ok(FormValue::String(v.to_string()))
+        Ok(Some(Value::String(v.to_string())))
     }
 
     fn serialize_i64(self, v: i64) -> Result<Self::Ok, Self::Error> {
-        Ok(FormValue::String(v.to_string()))
+        Ok(Some(Value::String(v.to_string())))
     }
 
     fn serialize_i128(self, v: i128) -> Result<Self::Ok, Self::Error> {
-        Ok(FormValue::String(v.to_string()))
+        Ok(Some(Value::String(v.to_string())))
     }
 
     fn serialize_u8(self, v: u8) -> Result<Self::Ok, Self::Error> {
-        Ok(FormValue::String(v.to_string()))
+        Ok(Some(Value::String(v.to_string())))
     }
 
     fn serialize_u16(self, v: u16) -> Result<Self::Ok, Self::Error> {
-        Ok(FormValue::String(v.to_string()))
+        Ok(Some(Value::String(v.to_string())))
     }
 
     fn serialize_u32(self, v: u32) -> Result<Self::Ok, Self::Error> {
-        Ok(FormValue::String(v.to_string()))
+        Ok(Some(Value::String(v.to_string())))
     }
 
     fn serialize_u64(self, v: u64) -> Result<Self::Ok, Self::Error> {
-        Ok(FormValue::String(v.to_string()))
+        Ok(Some(Value::String(v.to_string())))
     }
 
     fn serialize_u128(self, v: u128) -> Result<Self::Ok, Self::Error> {
-        Ok(FormValue::String(v.to_string()))
+        Ok(Some(Value::String(v.to_string())))
     }
 
     fn serialize_f32(self, v: f32) -> Result<Self::Ok, Self::Error> {
-        Ok(FormValue::String(v.to_string()))
+        Ok(Some(Value::String(v.to_string())))
     }
 
     fn serialize_f64(self, v: f64) -> Result<Self::Ok, Self::Error> {
-        Ok(FormValue::String(v.to_string()))
+        Ok(Some(Value::String(v.to_string())))
     }
 
     fn serialize_char(self, v: char) -> Result<Self::Ok, Self::Error> {
-        Ok(FormValue::String(v.to_string()))
+        Ok(Some(Value::String(v.to_string())))
     }
 
     fn serialize_str(self, v: &str) -> Result<Self::Ok, Self::Error> {
-        Ok(FormValue::String(v.to_string()))
+        Ok(Some(Value::String(v.to_string())))
     }
 
     fn serialize_bytes(self, v: &[u8]) -> Result<Self::Ok, Self::Error> {
-        Ok(FormValue::String(String::from_utf8_lossy(v).into_owned()))
+        Ok(Some(Value::String(String::from_utf8_lossy(v).into_owned())))
     }
 
     fn serialize_none(self) -> Result<Self::Ok, Self::Error> {
-        Ok(FormValue::Skip)
+        Ok(None)
     }
 
     fn serialize_some<T: ?Sized + Serialize>(self, value: &T) -> Result<Self::Ok, Self::Error> {
-        value.serialize(FormSerializer)
+        value.serialize(ValueSerializer)
     }
 
     fn serialize_unit(self) -> Result<Self::Ok, Self::Error> {
-        Ok(FormValue::String(String::new()))
+        Ok(Some(Value::String(String::new())))
     }
 
     fn serialize_unit_struct(self, _name: &'static str) -> Result<Self::Ok, Self::Error> {
-        Ok(FormValue::String(String::new()))
+        Ok(Some(Value::String(String::new())))
     }
 
     fn serialize_unit_variant(
@@ -179,7 +141,7 @@ impl ser::Serializer for FormSerializer {
         _variant_index: u32,
         variant: &'static str,
     ) -> Result<Self::Ok, Self::Error> {
-        Ok(FormValue::String(variant.to_string()))
+        Ok(Some(Value::String(variant.to_string())))
     }
 
     fn serialize_newtype_struct<T: ?Sized + Serialize>(
@@ -187,7 +149,7 @@ impl ser::Serializer for FormSerializer {
         _name: &'static str,
         value: &T,
     ) -> Result<Self::Ok, Self::Error> {
-        value.serialize(FormSerializer)
+        value.serialize(ValueSerializer)
     }
 
     fn serialize_newtype_variant<T: ?Sized + Serialize>(
@@ -201,7 +163,7 @@ impl ser::Serializer for FormSerializer {
     }
 
     fn serialize_seq(self, len: Option<usize>) -> Result<Self::SerializeSeq, Self::Error> {
-        Ok(FormSeqSerializer {
+        Ok(ValueSeqSerializer {
             items: Vec::with_capacity(len.unwrap_or(0)),
         })
     }
@@ -229,8 +191,14 @@ impl ser::Serializer for FormSerializer {
     }
 
     fn serialize_map(self, len: Option<usize>) -> Result<Self::SerializeMap, Self::Error> {
-        Ok(FormMapSerializer {
-            entries: IndexMap::with_capacity(len.unwrap_or(0)),
+        let capacity = len.unwrap_or(0);
+        let entries = if capacity == 0 {
+            new_map()
+        } else {
+            with_capacity::<String, Value>(capacity)
+        };
+        Ok(ValueMapSerializer {
+            entries,
             next_key: None,
         })
     }
@@ -240,9 +208,12 @@ impl ser::Serializer for FormSerializer {
         _name: &'static str,
         len: usize,
     ) -> Result<Self::SerializeStruct, Self::Error> {
-        Ok(FormStructSerializer {
-            entries: IndexMap::with_capacity(len),
-        })
+        let entries = if len == 0 {
+            new_map()
+        } else {
+            with_capacity::<String, Value>(len)
+        };
+        Ok(ValueStructSerializer { entries })
     }
 
     fn serialize_struct_variant(
@@ -256,31 +227,28 @@ impl ser::Serializer for FormSerializer {
     }
 }
 
-struct FormSeqSerializer {
-    items: Vec<FormValue>,
+struct ValueSeqSerializer {
+    items: Vec<Value>,
 }
 
-impl SerializeSeq for FormSeqSerializer {
-    type Ok = FormValue;
+impl SerializeSeq for ValueSeqSerializer {
+    type Ok = Option<Value>;
     type Error = SerializeError;
 
     fn serialize_element<T: ?Sized + Serialize>(&mut self, value: &T) -> Result<(), Self::Error> {
-        match value.serialize(FormSerializer)? {
-            FormValue::Skip => Ok(()),
-            other => {
-                self.items.push(other);
-                Ok(())
-            }
+        if let Some(serialized) = value.serialize(ValueSerializer)? {
+            self.items.push(serialized);
         }
+        Ok(())
     }
 
     fn end(self) -> Result<Self::Ok, Self::Error> {
-        Ok(FormValue::Array(self.items))
+        Ok(Some(Value::Array(self.items)))
     }
 }
 
-impl serde::ser::SerializeTuple for FormSeqSerializer {
-    type Ok = FormValue;
+impl serde::ser::SerializeTuple for ValueSeqSerializer {
+    type Ok = Option<Value>;
     type Error = SerializeError;
 
     fn serialize_element<T: ?Sized + Serialize>(&mut self, value: &T) -> Result<(), Self::Error> {
@@ -292,8 +260,8 @@ impl serde::ser::SerializeTuple for FormSeqSerializer {
     }
 }
 
-impl serde::ser::SerializeTupleStruct for FormSeqSerializer {
-    type Ok = FormValue;
+impl serde::ser::SerializeTupleStruct for ValueSeqSerializer {
+    type Ok = Option<Value>;
     type Error = SerializeError;
 
     fn serialize_field<T: ?Sized + Serialize>(&mut self, value: &T) -> Result<(), Self::Error> {
@@ -305,8 +273,8 @@ impl serde::ser::SerializeTupleStruct for FormSeqSerializer {
     }
 }
 
-impl serde::ser::SerializeTupleVariant for FormSeqSerializer {
-    type Ok = FormValue;
+impl serde::ser::SerializeTupleVariant for ValueSeqSerializer {
+    type Ok = Option<Value>;
     type Error = SerializeError;
 
     fn serialize_field<T: ?Sized + Serialize>(&mut self, _value: &T) -> Result<(), Self::Error> {
@@ -318,13 +286,13 @@ impl serde::ser::SerializeTupleVariant for FormSeqSerializer {
     }
 }
 
-struct FormMapSerializer {
-    entries: IndexMap<String, FormValue>,
+struct ValueMapSerializer {
+    entries: OrderedMap<String, Value>,
     next_key: Option<String>,
 }
 
-impl SerializeMap for FormMapSerializer {
-    type Ok = FormValue;
+impl SerializeMap for ValueMapSerializer {
+    type Ok = Option<Value>;
     type Error = SerializeError;
 
     fn serialize_key<T: ?Sized + Serialize>(&mut self, key: &T) -> Result<(), Self::Error> {
@@ -337,26 +305,23 @@ impl SerializeMap for FormMapSerializer {
         let key = self.next_key.take().ok_or_else(|| {
             SerializeError::Message("serialize_value called before serialize_key".into())
         })?;
-        match value.serialize(FormSerializer)? {
-            FormValue::Skip => Ok(()),
-            other => {
-                self.entries.insert(key, other);
-                Ok(())
-            }
+        if let Some(serialized) = value.serialize(ValueSerializer)? {
+            self.entries.insert(key, serialized);
         }
+        Ok(())
     }
 
     fn end(self) -> Result<Self::Ok, Self::Error> {
-        Ok(FormValue::Object(self.entries))
+        Ok(Some(Value::Object(self.entries)))
     }
 }
 
-struct FormStructSerializer {
-    entries: IndexMap<String, FormValue>,
+struct ValueStructSerializer {
+    entries: OrderedMap<String, Value>,
 }
 
-impl SerializeStruct for FormStructSerializer {
-    type Ok = FormValue;
+impl SerializeStruct for ValueStructSerializer {
+    type Ok = Option<Value>;
     type Error = SerializeError;
 
     fn serialize_field<T: ?Sized + Serialize>(
@@ -364,17 +329,14 @@ impl SerializeStruct for FormStructSerializer {
         key: &'static str,
         value: &T,
     ) -> Result<(), Self::Error> {
-        match value.serialize(FormSerializer)? {
-            FormValue::Skip => Ok(()),
-            other => {
-                self.entries.insert(key.to_string(), other);
-                Ok(())
-            }
+        if let Some(serialized) = value.serialize(ValueSerializer)? {
+            self.entries.insert(key.to_string(), serialized);
         }
+        Ok(())
     }
 
     fn end(self) -> Result<Self::Ok, Self::Error> {
-        Ok(FormValue::Object(self.entries))
+        Ok(Some(Value::Object(self.entries)))
     }
 }
 

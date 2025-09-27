@@ -1,8 +1,28 @@
+use crate::buffer_pool::acquire_bytes;
 use crate::nested::{PatternState, insert_nested_value, parse_key_path};
 use crate::value::QueryMap;
 use crate::{ParseError, ParseOptions, ParseResult};
 
 use serde::de::DeserializeOwned;
+
+#[derive(Clone, Copy)]
+struct ParseRuntime {
+    space_as_plus: bool,
+    max_params: Option<usize>,
+    max_length: Option<usize>,
+    max_depth: Option<usize>,
+}
+
+impl ParseRuntime {
+    fn new(options: &ParseOptions) -> Self {
+        Self {
+            space_as_plus: options.space_as_plus,
+            max_params: options.max_params,
+            max_length: options.max_length,
+            max_depth: options.max_depth,
+        }
+    }
+}
 
 pub fn parse<T>(input: impl AsRef<str>) -> ParseResult<T>
 where
@@ -24,9 +44,10 @@ where
 }
 
 pub(crate) fn parse_query_map(input: &str, options: &ParseOptions) -> ParseResult<QueryMap> {
+    let runtime = ParseRuntime::new(options);
     let raw = input;
 
-    if let Some(limit) = options.max_length
+    if let Some(limit) = runtime.max_length
         && raw.len() > limit
     {
         return Err(ParseError::InputTooLong { limit });
@@ -58,66 +79,99 @@ pub(crate) fn parse_query_map(input: &str, options: &ParseOptions) -> ParseResul
     let mut map = QueryMap::new();
     let mut pattern_state = PatternState::default();
     let mut pairs = 0usize;
-    let mut start = 0;
-    let len = trimmed.len();
+    let mut decode_scratch = acquire_bytes();
+    let bytes = trimmed.as_bytes();
+    let len = bytes.len();
+    let mut idx = 0usize;
+    let mut segment_start = 0usize;
+    let mut eq_index: Option<usize> = None;
 
-    while start <= len {
-        let end = match trimmed[start..].find('&') {
-            Some(pos) => start + pos,
-            None => len,
-        };
-        let segment = &trimmed[start..end];
+    while idx <= len {
+        let at_separator = idx == len || bytes[idx] == b'&';
 
-        if !segment.is_empty() {
-            pairs += 1;
-            if let Some(limit) = options.max_params
-                && pairs > limit
-            {
-                return Err(ParseError::TooManyParameters {
-                    limit,
-                    actual: pairs,
-                });
+        if at_separator {
+            if idx > segment_start {
+                pairs += 1;
+                if let Some(limit) = runtime.max_params
+                    && pairs > limit
+                {
+                    return Err(ParseError::TooManyParameters {
+                        limit,
+                        actual: pairs,
+                    });
+                }
+
+                let (raw_key, raw_value) = match eq_index {
+                    Some(eq_idx) => (&trimmed[segment_start..eq_idx], &trimmed[eq_idx + 1..idx]),
+                    None => (&trimmed[segment_start..idx], ""),
+                };
+
+                let key_start = offset + segment_start;
+                let key = decode_component(
+                    raw_key,
+                    runtime.space_as_plus,
+                    key_start,
+                    decode_scratch.as_mut(),
+                )?;
+                validate_brackets(&key, runtime.max_depth)?;
+
+                let value_offset = match eq_index {
+                    Some(eq_idx) => offset + eq_idx + 1,
+                    None => offset + segment_start + raw_key.len(),
+                };
+                let value = decode_component(
+                    raw_value,
+                    runtime.space_as_plus,
+                    value_offset,
+                    decode_scratch.as_mut(),
+                )?;
+
+                let key_segments = parse_key_path(&key);
+                insert_nested_value(&mut map, &key_segments, value, &mut pattern_state)?;
             }
 
-            let eq_index = segment.find('=');
-            let (raw_key, raw_value) = match eq_index {
-                Some(idx) => (&segment[..idx], &segment[idx + 1..]),
-                None => (segment, ""),
-            };
+            if idx == len {
+                break;
+            }
 
-            let key_start = offset + start;
-            let key = decode_component(raw_key, options, key_start)?;
-            validate_brackets(&key, options)?;
-
-            let value_offset = match eq_index {
-                Some(idx) => offset + start + idx + 1,
-                None => offset + start + raw_key.len(),
-            };
-            let value = decode_component(raw_value, options, value_offset)?;
-
-            let key_segments = parse_key_path(&key);
-            insert_nested_value(&mut map, &key_segments, value, &mut pattern_state)?;
+            idx += 1;
+            segment_start = idx;
+            eq_index = None;
+            continue;
         }
 
-        if end == len {
-            break;
+        if bytes[idx] == b'=' && eq_index.is_none() {
+            eq_index = Some(idx);
         }
 
-        start = end + 1;
+        idx += 1;
     }
-
     Ok(map)
 }
 
-fn decode_component(raw: &str, options: &ParseOptions, offset: usize) -> ParseResult<String> {
+fn decode_component(
+    raw: &str,
+    space_as_plus: bool,
+    offset: usize,
+    scratch: &mut Vec<u8>,
+) -> ParseResult<String> {
     if raw.is_empty() {
         return Ok(String::new());
     }
 
     let bytes = raw.as_bytes();
-    let mut cursor = 0usize;
-    let mut decoded = Vec::with_capacity(raw.len());
+    let needs_percent = bytes.contains(&b'%');
+    let needs_plus = space_as_plus && bytes.contains(&b'+');
 
+    if !needs_percent && !needs_plus {
+        validate_decoded(raw, offset)?;
+        return Ok(raw.to_string());
+    }
+
+    scratch.clear();
+    scratch.reserve(raw.len());
+
+    let mut cursor = 0usize;
     while cursor < bytes.len() {
         match bytes[cursor] {
             b'%' => {
@@ -134,11 +188,11 @@ fn decode_component(raw: &str, options: &ParseOptions, offset: usize) -> ParseRe
                     hex_value(bytes[cursor + 2]).ok_or(ParseError::InvalidPercentEncoding {
                         index: offset + cursor,
                     })?;
-                decoded.push((hi << 4) | lo);
+                scratch.push((hi << 4) | lo);
                 cursor += 3;
             }
-            b'+' if options.space_as_plus => {
-                decoded.push(b' ');
+            b'+' if space_as_plus => {
+                scratch.push(b' ');
                 cursor += 1;
             }
             byte => {
@@ -151,15 +205,21 @@ fn decode_component(raw: &str, options: &ParseOptions, offset: usize) -> ParseRe
                 let slice = &raw[cursor..];
                 let ch = slice.chars().next().unwrap();
                 let len = ch.len_utf8();
-                decoded.extend_from_slice(&bytes[cursor..cursor + len]);
+                scratch.extend_from_slice(&bytes[cursor..cursor + len]);
                 cursor += len;
             }
         }
     }
 
-    let result = String::from_utf8(decoded).map_err(|_| ParseError::InvalidUtf8)?;
+    let decoded = String::from_utf8(scratch.clone()).map_err(|_| ParseError::InvalidUtf8)?;
+    scratch.clear();
+    scratch.reserve(decoded.len());
+    validate_decoded(&decoded, offset)?;
+    Ok(decoded)
+}
 
-    if let Some(control) = result
+fn validate_decoded(decoded: &str, offset: usize) -> ParseResult<()> {
+    if let Some(control) = decoded
         .chars()
         .find(|ch| matches!(ch, '\u{0000}'..='\u{001F}' | '\u{007F}'))
     {
@@ -169,10 +229,10 @@ fn decode_component(raw: &str, options: &ParseOptions, offset: usize) -> ParseRe
         });
     }
 
-    Ok(result)
+    Ok(())
 }
 
-fn validate_brackets(key: &str, options: &ParseOptions) -> ParseResult<()> {
+fn validate_brackets(key: &str, max_depth: Option<usize>) -> ParseResult<()> {
     let mut open = 0usize;
     let mut total_pairs = 0usize;
 
@@ -200,7 +260,7 @@ fn validate_brackets(key: &str, options: &ParseOptions) -> ParseResult<()> {
         });
     }
 
-    if let Some(limit) = options.max_depth
+    if let Some(limit) = max_depth
         && total_pairs > limit
     {
         return Err(ParseError::DepthExceeded {

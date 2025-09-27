@@ -1,5 +1,5 @@
+use crate::ordered_map::OrderedMap;
 use crate::value::Value;
-use indexmap::IndexMap;
 use serde::de::{
     self, DeserializeOwned, DeserializeSeed, IntoDeserializer, MapAccess, SeqAccess, Visitor,
 };
@@ -48,33 +48,51 @@ impl de::Error for DeserializeError {
 }
 
 pub(crate) fn deserialize_from_query_map<T: DeserializeOwned>(
-    map: &IndexMap<String, Value>,
+    map: &OrderedMap<String, Value>,
 ) -> Result<T, DeserializeError> {
-    let value = Value::Object(map.clone());
-    T::deserialize(ValueDeserializer { value: &value })
+    T::deserialize(ValueDeserializer {
+        value: ValueRef::Object(map),
+    })
+}
+
+#[derive(Clone, Copy)]
+enum ValueRef<'de> {
+    String(&'de str),
+    Array(&'de [Value]),
+    Object(&'de OrderedMap<String, Value>),
+}
+
+impl<'de> ValueRef<'de> {
+    fn from_value(value: &'de Value) -> Self {
+        match value {
+            Value::String(s) => ValueRef::String(s),
+            Value::Array(items) => ValueRef::Array(items),
+            Value::Object(map) => ValueRef::Object(map),
+        }
+    }
 }
 
 struct ValueDeserializer<'de> {
-    value: &'de Value,
+    value: ValueRef<'de>,
 }
 
 impl<'de> ValueDeserializer<'de> {
     fn unexpected(&self) -> &'static str {
         match self.value {
-            Value::String(_) => "string",
-            Value::Array(_) => "array",
-            Value::Object(_) => "object",
+            ValueRef::String(_) => "string",
+            ValueRef::Array(_) => "array",
+            ValueRef::Object(_) => "object",
         }
     }
 
     fn as_str(&self) -> Result<&'de str, DeserializeError> {
         match self.value {
-            Value::String(s) => Ok(s),
+            ValueRef::String(s) => Ok(s),
             other => Err(DeserializeError::ExpectedString {
                 found: match other {
-                    Value::Array(_) => "array",
-                    Value::Object(_) => "object",
-                    Value::String(_) => unreachable!(),
+                    ValueRef::Array(_) => "array",
+                    ValueRef::Object(_) => "object",
+                    ValueRef::String(_) => unreachable!(),
                 },
             }),
         }
@@ -109,9 +127,9 @@ impl<'de> de::Deserializer<'de> for ValueDeserializer<'de> {
         V: Visitor<'de>,
     {
         match self.value {
-            Value::String(_) => self.deserialize_str(visitor),
-            Value::Array(_) => self.deserialize_seq(visitor),
-            Value::Object(_) => self.deserialize_map(visitor),
+            ValueRef::String(_) => self.deserialize_str(visitor),
+            ValueRef::Array(_) => self.deserialize_seq(visitor),
+            ValueRef::Object(_) => self.deserialize_map(visitor),
         }
     }
 
@@ -233,7 +251,7 @@ impl<'de> de::Deserializer<'de> for ValueDeserializer<'de> {
         V: Visitor<'de>,
     {
         let s = self.as_str()?;
-        visitor.visit_str(s)
+        visitor.visit_borrowed_str(s)
     }
 
     fn deserialize_string<V>(self, visitor: V) -> Result<V::Value, Self::Error>
@@ -249,7 +267,7 @@ impl<'de> de::Deserializer<'de> for ValueDeserializer<'de> {
         V: Visitor<'de>,
     {
         let s = self.as_str()?;
-        visitor.visit_bytes(s.as_bytes())
+        visitor.visit_borrowed_bytes(s.as_bytes())
     }
 
     fn deserialize_byte_buf<V>(self, visitor: V) -> Result<V::Value, Self::Error>
@@ -291,7 +309,7 @@ impl<'de> de::Deserializer<'de> for ValueDeserializer<'de> {
         V: Visitor<'de>,
     {
         match self.value {
-            Value::String(s) if s.is_empty() => visitor.visit_unit(),
+            ValueRef::String("") => visitor.visit_unit(),
             _ => Err(DeserializeError::UnexpectedType {
                 expected: name,
                 found: self.unexpected(),
@@ -315,7 +333,7 @@ impl<'de> de::Deserializer<'de> for ValueDeserializer<'de> {
         V: Visitor<'de>,
     {
         match self.value {
-            Value::Array(items) => visitor.visit_seq(SequenceAccess { iter: items.iter() }),
+            ValueRef::Array(items) => visitor.visit_seq(SequenceAccess { iter: items.iter() }),
             _ => Err(DeserializeError::UnexpectedType {
                 expected: "array",
                 found: self.unexpected(),
@@ -347,7 +365,7 @@ impl<'de> de::Deserializer<'de> for ValueDeserializer<'de> {
         V: Visitor<'de>,
     {
         match self.value {
-            Value::Object(map) => visitor.visit_map(MapDeserializer {
+            ValueRef::Object(map) => visitor.visit_map(MapDeserializer {
                 iter: map.iter(),
                 value: None,
             }),
@@ -368,7 +386,7 @@ impl<'de> de::Deserializer<'de> for ValueDeserializer<'de> {
         V: Visitor<'de>,
     {
         match self.value {
-            Value::Object(map) => visitor.visit_map(StructDeserializer {
+            ValueRef::Object(map) => visitor.visit_map(StructDeserializer {
                 iter: map.iter(),
                 value: None,
                 allowed: fields,
@@ -423,7 +441,9 @@ impl<'de> SeqAccess<'de> for SequenceAccess<'de> {
         T: DeserializeSeed<'de>,
     {
         if let Some(value) = self.iter.next() {
-            let deserializer = ValueDeserializer { value };
+            let deserializer = ValueDeserializer {
+                value: ValueRef::from_value(value),
+            };
             seed.deserialize(deserializer).map(Some)
         } else {
             Ok(None)
@@ -460,7 +480,9 @@ impl<'de> MapAccess<'de> for MapDeserializer<'de> {
             .value
             .take()
             .ok_or_else(|| DeserializeError::Message("value missing for map entry".into()))?;
-        seed.deserialize(ValueDeserializer { value })
+        seed.deserialize(ValueDeserializer {
+            value: ValueRef::from_value(value),
+        })
     }
 }
 
@@ -507,6 +529,8 @@ impl<'de> MapAccess<'de> for StructDeserializer<'de> {
             .value
             .take()
             .ok_or_else(|| DeserializeError::Message("value missing for struct field".into()))?;
-        seed.deserialize(ValueDeserializer { value })
+        seed.deserialize(ValueDeserializer {
+            value: ValueRef::from_value(value),
+        })
     }
 }

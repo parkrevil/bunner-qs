@@ -1,8 +1,22 @@
-use crate::encoding::{encode_key, encode_value};
+use crate::buffer_pool::acquire_string;
+use crate::encoding::{encode_key_into, encode_value_into};
 use crate::error::{SerdeStringifyError, SerdeStringifyResult, StringifyError, StringifyResult};
 use crate::options::StringifyOptions;
 use crate::value::{QueryMap, Value};
 use serde::Serialize;
+
+#[derive(Clone, Copy)]
+struct StringifyRuntime {
+    space_as_plus: bool,
+}
+
+impl StringifyRuntime {
+    fn new(options: &StringifyOptions) -> Self {
+        Self {
+            space_as_plus: options.space_as_plus,
+        }
+    }
+}
 
 pub fn stringify<T>(data: &T) -> SerdeStringifyResult<String>
 where
@@ -27,46 +41,74 @@ pub(crate) fn stringify_query_map_with(
         return Ok(String::new());
     }
 
-    let mut pairs = Vec::new();
+    let runtime = StringifyRuntime::new(options);
+    let mut output = String::with_capacity(map.len().saturating_mul(16));
+    let mut key_guard = acquire_string();
+    let key_buffer = key_guard.as_mut();
+    let mut first_pair = true;
+    let mut stack = Vec::with_capacity(map.len().max(1));
 
-    for (key, value) in map.iter() {
+    for (key, value) in map.iter().rev() {
         ensure_no_control(key).map_err(|_| StringifyError::InvalidKey { key: key.clone() })?;
-
-        flatten_value(key, value, &mut pairs, options.space_as_plus)?;
+        stack.push(StackItem {
+            parent_len: 0,
+            segment: Segment::Root(key),
+            value,
+        });
     }
 
-    Ok(pairs.join("&"))
-}
+    while let Some(item) = stack.pop() {
+        let StackItem {
+            parent_len,
+            segment,
+            value,
+        } = item;
 
-fn flatten_value(
-    base_key: &str,
-    value: &Value,
-    pairs: &mut Vec<String>,
-    space_as_plus: bool,
-) -> StringifyResult<()> {
-    match value {
-        Value::String(s) => {
-            ensure_no_control(s).map_err(|_| StringifyError::InvalidValue {
-                key: base_key.to_string(),
-            })?;
-            let encoded_key = encode_key(base_key, space_as_plus);
-            let encoded_value = encode_value(s, space_as_plus);
-            pairs.push(format!("{}={}", encoded_key, encoded_value));
-        }
-        Value::Array(arr) => {
-            for (idx, item) in arr.iter().enumerate() {
-                let key = format!("{}[{}]", base_key, idx);
-                flatten_value(&key, item, pairs, space_as_plus)?;
+        key_buffer.truncate(parent_len);
+        append_segment(key_buffer, segment);
+
+        match value {
+            Value::String(s) => {
+                ensure_no_control(s).map_err(|_| StringifyError::InvalidValue {
+                    key: key_buffer.clone(),
+                })?;
+                write_pair(
+                    &mut output,
+                    key_buffer,
+                    s,
+                    runtime.space_as_plus,
+                    &mut first_pair,
+                );
             }
-        }
-        Value::Object(obj) => {
-            for (sub_key, sub_value) in obj.iter() {
-                let key = format!("{}[{}]", base_key, sub_key);
-                flatten_value(&key, sub_value, pairs, space_as_plus)?;
+            Value::Array(arr) => {
+                let current_len = key_buffer.len();
+                for idx in (0..arr.len()).rev() {
+                    stack.push(StackItem {
+                        parent_len: current_len,
+                        segment: Segment::Array(idx),
+                        value: &arr[idx],
+                    });
+                }
+            }
+            Value::Object(obj) => {
+                let current_len = key_buffer.len();
+                for (sub_key, sub_value) in obj.iter().rev() {
+                    if ensure_no_control(sub_key).is_err() {
+                        return Err(StringifyError::InvalidKey {
+                            key: format!("{}[{}]", key_buffer, sub_key),
+                        });
+                    }
+                    stack.push(StackItem {
+                        parent_len: current_len,
+                        segment: Segment::Object(sub_key),
+                        value: sub_value,
+                    });
+                }
             }
         }
     }
-    Ok(())
+
+    Ok(output)
 }
 
 fn ensure_no_control(value: &str) -> Result<(), ()> {
@@ -78,4 +120,52 @@ fn ensure_no_control(value: &str) -> Result<(), ()> {
     } else {
         Ok(())
     }
+}
+
+struct StackItem<'a> {
+    parent_len: usize,
+    segment: Segment<'a>,
+    value: &'a Value,
+}
+
+#[derive(Clone, Copy)]
+enum Segment<'a> {
+    Root(&'a str),
+    Object(&'a str),
+    Array(usize),
+}
+
+fn append_segment(buffer: &mut String, segment: Segment<'_>) {
+    match segment {
+        Segment::Root(key) => buffer.push_str(key),
+        Segment::Object(sub_key) => {
+            buffer.push('[');
+            buffer.push_str(sub_key);
+            buffer.push(']');
+        }
+        Segment::Array(index) => {
+            use std::fmt::Write as _;
+            buffer.push('[');
+            let _ = write!(buffer, "{}", index);
+            buffer.push(']');
+        }
+    }
+}
+
+fn write_pair(
+    output: &mut String,
+    key: &str,
+    value: &str,
+    space_as_plus: bool,
+    first_pair: &mut bool,
+) {
+    if !*first_pair {
+        output.push('&');
+    } else {
+        *first_pair = false;
+    }
+
+    encode_key_into(output, key, space_as_plus);
+    output.push('=');
+    encode_value_into(output, value, space_as_plus);
 }
