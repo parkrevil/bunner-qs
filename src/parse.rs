@@ -1,4 +1,4 @@
-use crate::arena::{ArenaQueryMap, ArenaValue, ParseArena};
+use crate::arena::{ArenaQueryMap, ArenaValue, ParseArena, ParseArenaGuard, acquire_parse_arena};
 use crate::buffer_pool::acquire_bytes;
 use crate::nested::{PatternState, insert_nested_value_arena, parse_key_path};
 use crate::options::{ParseOptions, global_parse_diagnostics, global_serde_fastpath};
@@ -12,6 +12,7 @@ use serde_json::Value as JsonValue;
 use std::any::TypeId;
 use std::borrow::Cow;
 use std::mem::ManuallyDrop;
+use std::ops::{Deref, DerefMut};
 
 #[derive(Clone, Copy)]
 struct ParseRuntime {
@@ -270,6 +271,8 @@ fn preflight<'a>(raw: &'a str, runtime: &ParseRuntime) -> ParseResult<(&'a str, 
     Ok((trimmed, offset))
 }
 
+const ARENA_REUSE_UPPER_BOUND: usize = 32 * 1024;
+
 fn with_arena_query_map<R, F>(
     trimmed: &str,
     offset: usize,
@@ -280,9 +283,14 @@ where
     F: for<'arena> FnOnce(&'arena ParseArena, &ArenaQueryMap<'arena>) -> ParseResult<R>,
 {
     let arena_capacity = trimmed.len().saturating_mul(2);
-    let arena = ParseArena::with_capacity(arena_capacity);
+    let arena_lease = if arena_capacity <= ARENA_REUSE_UPPER_BOUND {
+        ArenaLease::Guard(acquire_parse_arena(arena_capacity))
+    } else {
+        ArenaLease::Owned(ParseArena::with_capacity(arena_capacity))
+    };
+    let arena: &ParseArena = &arena_lease;
     let estimated_pairs = estimate_param_capacity(trimmed);
-    let mut arena_map = ArenaQueryMap::with_capacity(&arena, estimated_pairs);
+    let mut arena_map = ArenaQueryMap::with_capacity(arena, estimated_pairs);
     let mut pattern_state = PatternState::default();
     let mut pairs = 0usize;
     let mut decode_scratch = acquire_bytes();
@@ -330,7 +338,7 @@ where
             )?;
 
             insert_pair_arena(
-                &arena,
+                arena,
                 &mut arena_map,
                 &mut pattern_state,
                 runtime,
@@ -342,7 +350,32 @@ where
         cursor = segment_end.saturating_add(1);
     }
 
-    finalize(&arena, &arena_map)
+    finalize(arena, &arena_map)
+}
+
+enum ArenaLease {
+    Guard(ParseArenaGuard),
+    Owned(ParseArena),
+}
+
+impl Deref for ArenaLease {
+    type Target = ParseArena;
+
+    fn deref(&self) -> &Self::Target {
+        match self {
+            ArenaLease::Guard(guard) => guard,
+            ArenaLease::Owned(arena) => arena,
+        }
+    }
+}
+
+impl DerefMut for ArenaLease {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        match self {
+            ArenaLease::Guard(guard) => guard,
+            ArenaLease::Owned(arena) => arena,
+        }
+    }
 }
 
 fn insert_pair_arena<'arena>(

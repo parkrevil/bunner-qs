@@ -3,23 +3,33 @@
 use ahash::AHashMap;
 use bumpalo::Bump;
 use bumpalo::collections::Vec as BumpVec;
+use std::cell::RefCell;
+use std::ops::{Deref, DerefMut};
 
 use crate::value::{QueryMap, Value};
 
 /// Arena allocator used during parsing to reduce per-node allocations.
-#[derive(Default)]
 pub(crate) struct ParseArena {
     bump: Bump,
+    capacity_hint: usize,
 }
 
 impl ParseArena {
     pub(crate) fn new() -> Self {
-        Self { bump: Bump::new() }
+        Self {
+            bump: Bump::new(),
+            capacity_hint: 0,
+        }
     }
 
     pub(crate) fn with_capacity(bytes: usize) -> Self {
-        Self {
-            bump: Bump::with_capacity(bytes),
+        if bytes == 0 {
+            Self::new()
+        } else {
+            Self {
+                bump: Bump::with_capacity(bytes),
+                capacity_hint: bytes,
+            }
         }
     }
 
@@ -42,6 +52,77 @@ impl ParseArena {
     pub(crate) fn bump(&self) -> &Bump {
         &self.bump
     }
+
+    #[inline]
+    pub(crate) fn reset(&mut self) {
+        self.bump.reset();
+    }
+
+    #[inline]
+    pub(crate) fn prepare(&mut self, min_capacity: usize) {
+        if min_capacity == 0 {
+            self.reset();
+        } else if min_capacity > self.capacity_hint {
+            *self = ParseArena::with_capacity(min_capacity);
+        } else {
+            self.reset();
+        }
+    }
+}
+
+impl Default for ParseArena {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+thread_local! {
+    static PARSE_ARENA_POOL: RefCell<ParseArena> = RefCell::new(ParseArena::new());
+}
+
+pub(crate) struct ParseArenaGuard {
+    arena: Option<ParseArena>,
+}
+
+impl ParseArenaGuard {
+    fn new(mut arena: ParseArena) -> Self {
+        arena.reset();
+        Self { arena: Some(arena) }
+    }
+}
+
+impl Deref for ParseArenaGuard {
+    type Target = ParseArena;
+
+    fn deref(&self) -> &Self::Target {
+        self.arena.as_ref().expect("arena already released")
+    }
+}
+
+impl DerefMut for ParseArenaGuard {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.arena.as_mut().expect("arena already released")
+    }
+}
+
+impl Drop for ParseArenaGuard {
+    fn drop(&mut self) {
+        if let Some(mut arena) = self.arena.take() {
+            arena.reset();
+            PARSE_ARENA_POOL.with(|cell| {
+                *cell.borrow_mut() = arena;
+            });
+        }
+    }
+}
+
+pub(crate) fn acquire_parse_arena(min_capacity: usize) -> ParseArenaGuard {
+    PARSE_ARENA_POOL.with(|cell| {
+        let mut stored = cell.borrow_mut();
+        let mut arena = std::mem::take(&mut *stored);
+        arena.prepare(min_capacity);
+        ParseArenaGuard::new(arena)
+    })
 }
 
 pub(crate) type ArenaVec<'arena, T> = BumpVec<'arena, T>;
