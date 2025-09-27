@@ -357,10 +357,54 @@ fn substring_ascii(input: &str, start: usize, len: usize) -> String {
 }
 
 pub fn max_bracket_depth(query: &str) -> usize {
-    let pairs: Vec<(String, String)> = serde_urlencoded::from_str(query).expect("decode query");
-    pairs
-        .into_iter()
-        .map(|(key, _)| key.matches('[').count())
+    query
+        .split('&')
+        .filter(|segment| !segment.is_empty())
+        .map(|segment| {
+            let key = segment.split_once('=').map(|(k, _)| k).unwrap_or(segment);
+            bracket_depth_for_key(key)
+        })
         .max()
         .unwrap_or(0)
+}
+
+fn bracket_depth_for_key(key: &str) -> usize {
+    let mut depth = 0;
+    let mut idx = 0;
+    let bytes = key.as_bytes();
+
+    while idx < bytes.len() {
+        match bytes[idx] {
+            b'[' => {
+                depth += 1;
+                idx += 1;
+            }
+            b'%' if idx + 2 < bytes.len() => {
+                if let Some('[') = decode_percent(&bytes[idx + 1..idx + 3]) {
+                    depth += 1;
+                }
+                idx += 3;
+            }
+            _ => {
+                idx += 1;
+            }
+        }
+    }
+
+    depth
+}
+
+fn decode_percent(hex: &[u8]) -> Option<char> {
+    fn from_hex(byte: u8) -> Option<u8> {
+        match byte {
+            b'0'..=b'9' => Some(byte - b'0'),
+            b'a'..=b'f' => Some(byte - b'a' + 10),
+            b'A'..=b'F' => Some(byte - b'A' + 10),
+            _ => None,
+        }
+    }
+
+    let hi = from_hex(*hex.first()?)?;
+    let lo = from_hex(*hex.get(1)?)?;
+    char::from_u32(((hi as u32) << 4) | (lo as u32))
 }

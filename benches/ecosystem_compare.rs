@@ -8,8 +8,6 @@ use std::collections::BTreeMap;
 
 use scenarios::{Scenario, scenario_extreme, scenario_high, scenario_medium, scenario_simple};
 
-type FlatMap = BTreeMap<String, Vec<String>>;
-
 type ScenarioFactory = fn() -> Scenario;
 
 #[derive(Clone, Debug, PartialEq, Deserialize)]
@@ -97,7 +95,6 @@ fn register_parse_benches(c: &mut Criterion, label: &str, scenario: Scenario) {
         max_depth,
     } = scenario;
 
-    let expected_flat = flat_map_from_str(&query);
     let depth_limit = max_depth + 2;
     let serde_qs_cfg = serde_qs_config(depth_limit);
 
@@ -106,14 +103,6 @@ fn register_parse_benches(c: &mut Criterion, label: &str, scenario: Scenario) {
     assert_eq!(
         bunner_baseline, payload,
         "bunner baseline should equal payload"
-    );
-
-    let serde_baseline_pairs: Vec<(String, String)> =
-        serde_urlencoded::from_str(&query).expect("serde_urlencoded baseline parse");
-    let serde_baseline_flat = pairs_to_flat_map(serde_baseline_pairs);
-    assert_eq!(
-        serde_baseline_flat, expected_flat,
-        "serde baseline flat map"
     );
 
     let serde_qs_baseline: QsRoot = serde_qs_cfg
@@ -129,15 +118,6 @@ fn register_parse_benches(c: &mut Criterion, label: &str, scenario: Scenario) {
             let parsed: Value =
                 parse_with(black_box(bunner_query.as_str()), &bunner_opts).expect("parse");
             black_box(parsed);
-        });
-    });
-
-    let serde_query = query.clone();
-    c.bench_function(&format!("serde_urlencoded/parse/{}", label), move |b| {
-        b.iter(|| {
-            let pairs: Vec<(String, String)> =
-                serde_urlencoded::from_str(black_box(serde_query.as_str())).expect("parse");
-            black_box(pairs);
         });
     });
 
@@ -162,9 +142,6 @@ fn register_stringify_benches(c: &mut Criterion, label: &str, scenario: Scenario
         max_depth,
     } = scenario;
 
-    let expected_flat = flat_map_from_str(&query);
-    let serde_pairs: Vec<(String, String)> =
-        serde_urlencoded::from_str(&query).expect("serde pair baseline");
     let depth_limit = max_depth + 2;
     let serde_qs_cfg = serde_qs_config(depth_limit);
 
@@ -177,10 +154,6 @@ fn register_stringify_benches(c: &mut Criterion, label: &str, scenario: Scenario
     let bunner_roundtrip: Value =
         parse_with(&bunner_encoded, &parse_options).expect("bunner roundtrip parse");
     assert_eq!(bunner_roundtrip, payload, "bunner roundtrip value");
-
-    let serde_encoded = serde_urlencoded::to_string(&serde_pairs).expect("serde encode");
-    let serde_roundtrip_flat = flat_map_from_str(&serde_encoded);
-    assert_eq!(serde_roundtrip_flat, expected_flat, "serde roundtrip flat");
 
     let serde_qs_encoded = serde_qs::to_string(&payload).expect("serde_qs encode");
     let serde_qs_roundtrip: QsRoot = serde_qs_cfg
@@ -202,15 +175,6 @@ fn register_stringify_benches(c: &mut Criterion, label: &str, scenario: Scenario
         });
     });
 
-    let serde_pairs_owned = serde_pairs.clone();
-    c.bench_function(&format!("serde_urlencoded/stringify/{}", label), move |b| {
-        b.iter(|| {
-            let encoded =
-                serde_urlencoded::to_string(black_box(&serde_pairs_owned)).expect("stringify");
-            black_box(encoded);
-        });
-    });
-
     let serde_qs_payload = payload;
     c.bench_function(&format!("serde_qs/stringify/{}", label), move |b| {
         b.iter(|| {
@@ -218,20 +182,6 @@ fn register_stringify_benches(c: &mut Criterion, label: &str, scenario: Scenario
             black_box(encoded);
         });
     });
-}
-
-fn pairs_to_flat_map(pairs: Vec<(String, String)>) -> FlatMap {
-    let mut map: FlatMap = BTreeMap::new();
-    for (key, value) in pairs {
-        map.entry(key).or_default().push(value);
-    }
-    map
-}
-
-fn flat_map_from_str(input: &str) -> FlatMap {
-    let pairs: Vec<(String, String)> =
-        serde_urlencoded::from_str(input).expect("parse urlencoded pairs");
-    pairs_to_flat_map(pairs)
 }
 
 criterion_group!(ecosystem, bench_parse_compare, bench_stringify_compare);

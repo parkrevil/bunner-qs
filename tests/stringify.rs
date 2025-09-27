@@ -272,21 +272,6 @@ fn stringify_options_builder_configures_flags() {
 }
 
 #[test]
-fn stringify_matches_serde_urlencoded_for_simple_map() {
-    use std::collections::BTreeMap;
-
-    let mut data = BTreeMap::new();
-    data.insert("name".to_string(), "Alice".to_string());
-    data.insert("city".to_string(), "서울".to_string());
-    data.insert("emoji".to_string(), "😀".to_string());
-
-    let ours = stringify(&data).expect("bunner_qs should stringify map");
-    let reference =
-        serde_urlencoded::to_string(&data).expect("serde_urlencoded should stringify map");
-    assert_eq!(ours, reference);
-}
-
-#[test]
 fn stringify_skips_none_option_fields_by_default() {
     #[derive(Serialize)]
     struct OptionalFields<'a> {

@@ -372,15 +372,3 @@ fn parse_options_builder_produces_expected_configuration() {
     assert_eq!(options.max_length, Some(128));
     assert_eq!(options.max_depth, Some(2));
 }
-
-#[test]
-fn parse_matches_serde_urlencoded_for_simple_kv_pairs() {
-    use std::collections::BTreeMap;
-
-    let query = "name=alice&count=3&city=서울";
-    let ours: BTreeMap<String, String> =
-        parse(query).expect("bunner_qs should parse simple key-value pairs");
-    let reference: BTreeMap<String, String> =
-        serde_urlencoded::from_str(query).expect("serde_urlencoded should parse query");
-    assert_eq!(ours, reference);
-}
