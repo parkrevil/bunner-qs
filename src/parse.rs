@@ -8,7 +8,7 @@ use crate::serde_bridge::{arena_map_to_json_value, from_arena_query_map};
 use crate::value::QueryMap;
 use crate::{ParseError, ParseResult};
 use ahash::AHashSet;
-use memchr::{memchr, memchr2, memchr_iter};
+use memchr::{memchr, memchr_iter, memchr2};
 use serde::de::DeserializeOwned;
 use serde_json::Value as JsonValue;
 use std::any::TypeId;

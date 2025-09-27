@@ -3,8 +3,8 @@
 use ahash::RandomState;
 use bumpalo::Bump;
 use bumpalo::collections::Vec as BumpVec;
-use hashbrown::hash_map::RawEntryMut;
 use hashbrown::HashMap;
+use hashbrown::hash_map::RawEntryMut;
 use std::cell::RefCell;
 use std::ops::{Deref, DerefMut};
 

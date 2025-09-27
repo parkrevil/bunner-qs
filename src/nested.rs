@@ -206,15 +206,13 @@ fn arena_set_nested_value<'arena>(
                                 } else {
                                     ctx.root_key.to_string()
                                 },
-                            })
+                            });
                         }
                         RawEntryMut::Vacant(vacant) => {
                             let key_ref = ctx.arena.alloc_str(segment);
                             let idx = entries.len();
-                            entries.push((
-                                key_ref,
-                                ArenaValue::string(value_to_set.take().unwrap()),
-                            ));
+                            entries
+                                .push((key_ref, ArenaValue::string(value_to_set.take().unwrap())));
                             vacant.insert(key_ref, idx);
                             return Ok(());
                         }
@@ -222,7 +220,8 @@ fn arena_set_nested_value<'arena>(
                 }
 
                 let next_kind = segments[depth + 1].kind;
-                let next_is_numeric = matches!(next_kind, SegmentKind::Numeric | SegmentKind::Empty);
+                let next_is_numeric =
+                    matches!(next_kind, SegmentKind::Numeric | SegmentKind::Empty);
 
                 let entry_index = match index.raw_entry_mut().from_key(segment) {
                     RawEntryMut::Occupied(entry) => *entry.get(),
@@ -247,18 +246,19 @@ fn arena_set_nested_value<'arena>(
                 path.push(segment);
             }
             ArenaValue::Seq(items) => {
-                let idx = match segments[depth].kind {
-                    SegmentKind::Numeric | SegmentKind::Empty => segment
-                        .parse::<usize>()
-                        .map_err(|_| ParseError::DuplicateKey {
-                            key: ctx.root_key.to_string(),
-                        })?,
-                    SegmentKind::Other => {
-                        return Err(ParseError::DuplicateKey {
-                            key: ctx.root_key.to_string(),
-                        })
-                    }
-                };
+                let idx =
+                    match segments[depth].kind {
+                        SegmentKind::Numeric | SegmentKind::Empty => segment
+                            .parse::<usize>()
+                            .map_err(|_| ParseError::DuplicateKey {
+                                key: ctx.root_key.to_string(),
+                            })?,
+                        SegmentKind::Other => {
+                            return Err(ParseError::DuplicateKey {
+                                key: ctx.root_key.to_string(),
+                            });
+                        }
+                    };
 
                 if idx > items.len() {
                     return Err(ParseError::DuplicateKey {
@@ -285,7 +285,8 @@ fn arena_set_nested_value<'arena>(
                 }
 
                 let next_kind = segments[depth + 1].kind;
-                let next_is_numeric = matches!(next_kind, SegmentKind::Numeric | SegmentKind::Empty);
+                let next_is_numeric =
+                    matches!(next_kind, SegmentKind::Numeric | SegmentKind::Empty);
 
                 if idx == items.len() {
                     let child = if next_is_numeric {
@@ -367,7 +368,7 @@ impl DerefMut for PatternStateGuard {
 
 impl Drop for PatternStateGuard {
     fn drop(&mut self) {
-    if let Some(state) = self.state.take() {
+        if let Some(state) = self.state.take() {
             PATTERN_STATE_POOL.with(|cell| {
                 if let Ok(mut slot) = cell.try_borrow_mut() {
                     *slot = state;
@@ -378,14 +379,12 @@ impl Drop for PatternStateGuard {
 }
 
 pub(crate) fn acquire_pattern_state() -> PatternStateGuard {
-    PATTERN_STATE_POOL.with(|cell| {
-        match cell.try_borrow_mut() {
-            Ok(mut stored) => {
-                let state = std::mem::take(&mut *stored);
-                PatternStateGuard::new(state)
-            }
-            Err(_) => PatternStateGuard::new(PatternState::default()),
+    PATTERN_STATE_POOL.with(|cell| match cell.try_borrow_mut() {
+        Ok(mut stored) => {
+            let state = std::mem::take(&mut *stored);
+            PatternStateGuard::new(state)
         }
+        Err(_) => PatternStateGuard::new(PatternState::default()),
     })
 }
 
@@ -463,9 +462,7 @@ impl PatternState {
         }
 
         let idx = self.alloc_node();
-        self.nodes[parent_idx]
-            .children
-            .insert(key.to_string(), idx);
+        self.nodes[parent_idx].children.insert(key.to_string(), idx);
         idx
     }
 
@@ -542,9 +539,7 @@ impl PatternState {
 
     fn container_type(&self, path: &[&str]) -> Option<ContainerType> {
         let idx = self.descend_index(path)?;
-        self.nodes[idx]
-            .kind
-            .map(|kind| kind.container_type())
+        self.nodes[idx].kind.map(|kind| kind.container_type())
     }
 }
 
@@ -559,15 +554,14 @@ fn resolve_segments<'a>(
     original: &[&'a str],
 ) -> ParseResult<SmallVec<[ResolvedSegment<'a>; 16]>> {
     if original.len() <= 1 {
-    let mut out: SmallVec<[ResolvedSegment<'a>; 16]> = SmallVec::with_capacity(original.len());
+        let mut out: SmallVec<[ResolvedSegment<'a>; 16]> = SmallVec::with_capacity(original.len());
         for segment in original {
             out.push(ResolvedSegment::new(Cow::Borrowed(*segment)));
         }
         return Ok(out);
     }
 
-    let mut resolved: SmallVec<[ResolvedSegment<'a>; 16]> =
-        SmallVec::with_capacity(original.len());
+    let mut resolved: SmallVec<[ResolvedSegment<'a>; 16]> = SmallVec::with_capacity(original.len());
 
     resolved.push(ResolvedSegment::new(Cow::Borrowed(original[0])));
 
