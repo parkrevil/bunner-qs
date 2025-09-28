@@ -5,7 +5,6 @@ mod error;
 mod memory;
 mod model;
 mod nested;
-#[path = "parse.rs"]
 mod parsing;
 mod serde_adapter;
 pub mod serde_bridge;
