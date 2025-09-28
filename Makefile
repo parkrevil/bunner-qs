@@ -24,6 +24,15 @@ format:
 test:
 	INSTA_UPDATE=always RUSTFLAGS="-A dead_code" cargo nextest run --package $(PACKAGE); \
 
+## Benchmarking
+.PHONY: bench bench-compare
+
+bench:
+	cargo bench --bench bunner_qs_rs
+
+bench-compare:
+	cargo bench --bench ecosystem_compare -- --save-baseline current
+
 ## Docs
 .PHONY: doc doc-open
 
