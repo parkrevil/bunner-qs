@@ -1,4 +1,4 @@
-use crate::parse_impl::arena::{ArenaQueryMap, ArenaValue, ParseArena};
+use crate::parsing::arena::{ArenaQueryMap, ArenaValue, ParseArena};
 use crate::{ParseError, ParseResult};
 use ahash::AHashMap;
 use hashbrown::hash_map::RawEntryMut;

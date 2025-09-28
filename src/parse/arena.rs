@@ -9,7 +9,7 @@ use std::cell::RefCell;
 use std::ops::{Deref, DerefMut};
 use std::sync::OnceLock;
 
-use crate::core::{QueryMap, Value};
+use crate::model::{QueryMap, Value};
 
 pub(crate) struct ParseArena {
     bump: Bump,

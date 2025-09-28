@@ -1,27 +1,25 @@
-pub mod api;
 pub mod prelude;
 
-mod buffer_pool;
-mod core;
-mod encoding;
+mod config;
 mod error;
+mod memory;
+mod model;
 mod nested;
-mod ordered_map;
 #[path = "parse.rs"]
-mod parse_impl;
-mod serde;
-mod serde_bridge;
-mod serde_impl;
+mod parsing;
+mod serde_adapter;
+pub mod serde_bridge;
 mod stringify;
-mod value;
 
-pub(crate) use parse_impl as parse;
-
-pub use api::{
-    ParseError, ParseOptions, ParseOptionsBuilder, ParseResult, SerdeStringifyError,
-    SerdeStringifyResult, StringifyError, StringifyOptions, StringifyOptionsBuilder,
-    StringifyResult, parse, parse_with, set_global_parse_diagnostics, set_global_serde_fastpath,
-    stringify, stringify_with,
+pub use config::{
+    ParseOptions, ParseOptionsBuilder, StringifyOptions, StringifyOptionsBuilder,
+    set_global_parse_diagnostics, set_global_serde_fastpath,
 };
+pub use error::{
+    ParseError, ParseResult, SerdeStringifyError, SerdeStringifyResult, StringifyError,
+    StringifyResult,
+};
+pub use serde_adapter::{SerdeQueryError, from_query_map, to_query_map};
+pub use stringify::{stringify, stringify_with};
 
-pub use serde::SerdeQueryError;
+pub use parsing::{parse, parse_with};

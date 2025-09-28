@@ -1,8 +1,11 @@
-use crate::buffer_pool::acquire_string;
-use crate::core::StringifyOptions;
-use crate::encoding::{encode_key_into, encode_value_into};
+mod encode;
+
+use self::encode::{encode_key_into, encode_value_into};
+use crate::config::StringifyOptions;
 use crate::error::{SerdeStringifyError, SerdeStringifyResult, StringifyError, StringifyResult};
-use crate::value::{QueryMap, Value};
+use crate::memory::acquire_string;
+use crate::model::{QueryMap, Value};
+use crate::serde_adapter::to_query_map;
 use serde::Serialize;
 use smallvec::SmallVec;
 
@@ -30,7 +33,7 @@ pub fn stringify_with<T>(data: &T, options: &StringifyOptions) -> SerdeStringify
 where
     T: Serialize,
 {
-    let map = QueryMap::from_struct(data).map_err(SerdeStringifyError::from)?;
+    let map = to_query_map(data).map_err(SerdeStringifyError::from)?;
     stringify_query_map_with(&map, options).map_err(SerdeStringifyError::from)
 }
 
@@ -50,7 +53,9 @@ pub(crate) fn stringify_query_map_with(
     let mut stack: SmallVec<[StackItem<'_>; 96]> = SmallVec::with_capacity(map.len().min(96));
 
     for (key, value) in map.iter().rev() {
-        ensure_no_control(key).map_err(|_| StringifyError::InvalidKey { key: key.clone() })?;
+        ensure_no_control(key).map_err(|_| StringifyError::InvalidKey {
+            key: key.to_owned(),
+        })?;
         stack.push(StackItem {
             parent_len: 0,
             segment: Segment::Root(key),
