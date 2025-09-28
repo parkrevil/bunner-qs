@@ -92,8 +92,7 @@ fn treats_flag_without_value_as_empty_string() {
 
 #[test]
 fn space_as_plus_option_controls_plus_handling() {
-    let relaxed =
-        try_build_parse_options(|builder| builder.space_as_plus(true)).expect(BUILD_OK);
+    let relaxed = try_build_parse_options(|builder| builder.space_as_plus(true)).expect(BUILD_OK);
     let relaxed: Value = parse_with("note=one+two", &relaxed).expect("plus should become space");
     assert_str_path(&relaxed, &["note"], "one two");
 
@@ -250,8 +249,7 @@ fn detects_unmatched_brackets_and_depth_overflow() {
         }
     );
 
-    let options =
-        try_build_parse_options(|builder| builder.max_depth(1)).expect(BUILD_OK);
+    let options = try_build_parse_options(|builder| builder.max_depth(1)).expect(BUILD_OK);
     asserts::assert_err_matches!(
         parse_with::<Value>("a[b][c]=1", &options),
         ParseError::DepthExceeded { key, limit } => |error_message| {
@@ -265,8 +263,7 @@ fn detects_unmatched_brackets_and_depth_overflow() {
 
 #[test]
 fn enforces_parameter_and_length_limits() {
-    let param_limited =
-        try_build_parse_options(|builder| builder.max_params(1)).expect(BUILD_OK);
+    let param_limited = try_build_parse_options(|builder| builder.max_params(1)).expect(BUILD_OK);
     asserts::assert_err_matches!(
         parse_with::<Value>("a=1&b=2", &param_limited),
         ParseError::TooManyParameters { limit, actual } => |error_message| {
@@ -279,8 +276,7 @@ fn enforces_parameter_and_length_limits() {
         }
     );
 
-    let length_limited =
-        try_build_parse_options(|builder| builder.max_length(5)).expect(BUILD_OK);
+    let length_limited = try_build_parse_options(|builder| builder.max_length(5)).expect(BUILD_OK);
     asserts::assert_err_matches!(
         parse_with::<Value>("toolong=1", &length_limited),
         ParseError::InputTooLong { limit } => |error_message| {

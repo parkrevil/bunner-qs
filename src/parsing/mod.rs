@@ -16,7 +16,7 @@ use serde::de::DeserializeOwned;
 use serde_json::Value as JsonValue;
 
 use crate::config::ParseOptions;
-use crate::serde_adapter::{arena_map_to_json_value, deserialize_from_arena_map, SerdeQueryError};
+use crate::serde_adapter::{SerdeQueryError, arena_map_to_json_value, deserialize_from_arena_map};
 
 use builder::with_arena_query_map;
 use preflight::preflight;

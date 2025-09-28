@@ -120,12 +120,7 @@ fn decode_pair<'a>(
     options: &ParseOptions,
     decode_scratch: &mut Vec<u8>,
 ) -> ParseResult<(Cow<'a, str>, Cow<'a, str>)> {
-    let key = decode_component(
-        raw_key,
-        options.space_as_plus,
-        key_start,
-        decode_scratch,
-    )?;
+    let key = decode_component(raw_key, options.space_as_plus, key_start, decode_scratch)?;
     validate_brackets(key.as_ref(), options.max_depth)?;
 
     let value = decode_component(

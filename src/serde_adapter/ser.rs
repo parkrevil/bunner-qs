@@ -128,7 +128,7 @@ impl ser::Serializer for ValueSerializer {
     ) -> Result<Self::Ok, Self::Error> {
         debug_assert!(!name.is_empty(), "enum should have a name");
         debug_assert!(variant_index < u32::MAX, "variant index should be finite");
-    Ok(Some(string_value(variant)))
+        Ok(Some(string_value(variant)))
     }
 
     fn serialize_newtype_struct<T: ?Sized + Serialize>(

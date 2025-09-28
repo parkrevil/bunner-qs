@@ -28,7 +28,10 @@ fn check_character(ch: char, index: usize) -> Result<(), ParseError> {
         return Err(ParseError::UnexpectedQuestionMark { index });
     }
     if is_disallowed_control(ch) {
-        return Err(ParseError::InvalidCharacter { character: ch, index });
+        return Err(ParseError::InvalidCharacter {
+            character: ch,
+            index,
+        });
     }
     Ok(())
 }

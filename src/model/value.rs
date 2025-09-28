@@ -33,7 +33,10 @@ impl QueryMap {
         if capacity == 0 {
             Self::new()
         } else {
-            Self(OrderedMap::with_capacity_and_hasher(capacity, RandomState::default()))
+            Self(OrderedMap::with_capacity_and_hasher(
+                capacity,
+                RandomState::default(),
+            ))
         }
     }
 }
