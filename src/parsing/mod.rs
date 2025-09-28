@@ -3,7 +3,6 @@ mod decoder;
 mod errors;
 mod key_path;
 mod preflight;
-mod runtime;
 mod state;
 
 pub(crate) mod arena;
@@ -17,11 +16,10 @@ use serde::de::DeserializeOwned;
 use serde_json::Value as JsonValue;
 
 use crate::config::ParseOptions;
-use crate::serde_adapter::{arena_map_to_json_value, from_arena_query_map};
+use crate::serde_adapter::{arena_map_to_json_value, deserialize_from_arena_map, SerdeQueryError};
 
 use builder::with_arena_query_map;
 use preflight::preflight;
-use runtime::ParseRuntime;
 
 pub type ParseResult<T> = Result<T, ParseError>;
 
@@ -37,14 +35,13 @@ where
     T: DeserializeOwned + Default + 'static,
 {
     let raw = input.as_ref();
-    let runtime = ParseRuntime::new(options);
-    let (trimmed, offset) = preflight(raw, &runtime)?;
+    let (trimmed, offset) = preflight(raw, options)?;
 
     if trimmed.is_empty() {
         return Ok(T::default());
     }
 
-    with_arena_query_map(trimmed, offset, &runtime, |_, arena_map| {
+    with_arena_query_map(trimmed, offset, options, |_, arena_map| {
         if arena_map.len() == 0 {
             Ok(T::default())
         } else {
@@ -56,7 +53,9 @@ where
                 let value = unsafe { ptr.read() };
                 return Ok(value);
             }
-            from_arena_query_map::<T>(arena_map).map_err(ParseError::from)
+            deserialize_from_arena_map::<T>(arena_map)
+                .map_err(SerdeQueryError::Deserialize)
+                .map_err(ParseError::from)
         }
     })
 }

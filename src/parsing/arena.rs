@@ -130,16 +130,6 @@ fn shared_random_state() -> RandomState {
         .clone()
 }
 
-#[inline]
-fn fast_map_with_capacity<K, V>(capacity: usize) -> FastMap<K, V> {
-    FastMap::with_capacity_and_hasher(capacity, shared_random_state())
-}
-
-#[inline]
-fn fast_map<K, V>() -> FastMap<K, V> {
-    FastMap::with_capacity_and_hasher(0, shared_random_state())
-}
-
 pub(crate) struct ArenaQueryMap<'arena> {
     entries: ArenaVec<'arena, (&'arena str, ArenaValue<'arena>)>,
     index: FastMap<&'arena str, usize>,
@@ -152,9 +142,9 @@ impl<'arena> ArenaQueryMap<'arena> {
             entries.reserve(capacity);
         }
         let index = if capacity > 0 {
-            fast_map_with_capacity(capacity)
+            FastMap::with_capacity_and_hasher(capacity, shared_random_state())
         } else {
-            fast_map()
+            FastMap::with_capacity_and_hasher(0, shared_random_state())
         };
 
         Self { entries, index }
@@ -219,7 +209,7 @@ impl<'arena> ArenaValue<'arena> {
     pub(crate) fn map(arena: &'arena ParseArena) -> Self {
         ArenaValue::Map {
             entries: ArenaVec::new_in(arena.bump()),
-            index: fast_map(),
+            index: FastMap::with_capacity_and_hasher(0, shared_random_state()),
         }
     }
 
@@ -231,7 +221,7 @@ impl<'arena> ArenaValue<'arena> {
         entries.reserve(capacity);
         ArenaValue::Map {
             entries,
-            index: fast_map_with_capacity(capacity),
+            index: FastMap::with_capacity_and_hasher(capacity, shared_random_state()),
         }
     }
 

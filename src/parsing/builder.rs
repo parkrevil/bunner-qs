@@ -1,5 +1,6 @@
 use std::borrow::Cow;
 
+use crate::config::ParseOptions;
 use crate::memory::acquire_bytes;
 use crate::nested::{
     insertion::insert_nested_value_arena,
@@ -12,13 +13,12 @@ use memchr::{memchr, memchr_iter};
 use super::arena::{ArenaQueryMap, ArenaValue, ParseArena};
 use super::decoder::decode_component;
 use super::key_path::{duplicate_key_label, estimate_param_capacity, validate_brackets};
-use super::runtime::ParseRuntime;
 use super::state::ArenaLease;
 
 pub(crate) fn with_arena_query_map<R, F>(
     trimmed: &str,
     offset: usize,
-    runtime: &ParseRuntime,
+    options: &ParseOptions,
     finalize: F,
 ) -> ParseResult<R>
 where
@@ -38,50 +38,104 @@ where
     for segment_end in memchr_iter(b'&', bytes).chain(std::iter::once(bytes.len())) {
         if segment_end > cursor {
             pairs += 1;
-            if let Some(limit) = runtime.max_params
-                && pairs > limit
-            {
-                return Err(ParseError::TooManyParameters {
-                    limit,
-                    actual: pairs,
-                });
-            }
+            check_param_limit(options.max_params, pairs)?;
 
-            let eq_relative = memchr(b'=', &bytes[cursor..segment_end]);
-            let eq_index = eq_relative.map(|rel| cursor + rel);
-
-            let raw_key_end = eq_index.unwrap_or(segment_end);
-            let raw_key = &trimmed[cursor..raw_key_end];
-            let raw_value = eq_index
-                .map(|idx| &trimmed[idx + 1..segment_end])
-                .unwrap_or("");
-
-            let key_start = offset + cursor;
-            let key = decode_component(
-                raw_key,
-                runtime.space_as_plus,
-                key_start,
+            process_segment(
+                arena,
+                &mut arena_map,
+                &mut pattern_state,
+                options,
                 decode_scratch.as_mut(),
+                trimmed,
+                bytes,
+                offset,
+                cursor,
+                segment_end,
             )?;
-            validate_brackets(key.as_ref(), runtime.max_depth)?;
-
-            let value_offset = eq_index
-                .map(|idx| offset + idx + 1)
-                .unwrap_or(offset + cursor + raw_key.len());
-            let value = decode_component(
-                raw_value,
-                runtime.space_as_plus,
-                value_offset,
-                decode_scratch.as_mut(),
-            )?;
-
-            insert_pair_arena(arena, &mut arena_map, &mut pattern_state, key, value)?;
         }
 
         cursor = segment_end.saturating_add(1);
     }
 
     finalize(arena, &arena_map)
+}
+
+fn check_param_limit(limit: Option<usize>, current: usize) -> ParseResult<()> {
+    if let Some(limit) = limit
+        && current > limit
+    {
+        Err(ParseError::TooManyParameters {
+            limit,
+            actual: current,
+        })
+    } else {
+        Ok(())
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn process_segment<'arena>(
+    arena: &'arena ParseArena,
+    arena_map: &mut ArenaQueryMap<'arena>,
+    pattern_state: &mut PatternState,
+    options: &ParseOptions,
+    decode_scratch: &mut Vec<u8>,
+    trimmed: &str,
+    bytes: &[u8],
+    offset: usize,
+    cursor: usize,
+    segment_end: usize,
+) -> ParseResult<()> {
+    let eq_relative = memchr(b'=', &bytes[cursor..segment_end]);
+    let eq_index = eq_relative.map(|rel| cursor + rel);
+
+    let raw_key_end = eq_index.unwrap_or(segment_end);
+    let raw_key = &trimmed[cursor..raw_key_end];
+    let raw_value = eq_index
+        .map(|idx| &trimmed[idx + 1..segment_end])
+        .unwrap_or("");
+
+    let key_start = offset + cursor;
+    let value_offset = eq_index
+        .map(|idx| offset + idx + 1)
+        .unwrap_or(offset + cursor + raw_key.len());
+
+    let (key, value) = decode_pair(
+        raw_key,
+        raw_value,
+        key_start,
+        value_offset,
+        options,
+        decode_scratch,
+    )?;
+
+    insert_pair_arena(arena, arena_map, pattern_state, key, value)
+}
+
+fn decode_pair<'a>(
+    raw_key: &'a str,
+    raw_value: &'a str,
+    key_start: usize,
+    value_offset: usize,
+    options: &ParseOptions,
+    decode_scratch: &mut Vec<u8>,
+) -> ParseResult<(Cow<'a, str>, Cow<'a, str>)> {
+    let key = decode_component(
+        raw_key,
+        options.space_as_plus,
+        key_start,
+        decode_scratch,
+    )?;
+    validate_brackets(key.as_ref(), options.max_depth)?;
+
+    let value = decode_component(
+        raw_value,
+        options.space_as_plus,
+        value_offset,
+        decode_scratch,
+    )?;
+
+    Ok((key, value))
 }
 
 fn insert_pair_arena<'arena>(

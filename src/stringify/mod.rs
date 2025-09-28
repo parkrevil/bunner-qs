@@ -6,7 +6,8 @@ mod walker;
 mod writer;
 
 use crate::config::StringifyOptions;
-use crate::serde_adapter::to_query_map;
+use crate::model::QueryMap;
+use crate::serde_adapter::{SerdeQueryError, serialize_to_query_map};
 
 pub use self::errors::{SerdeStringifyError, StringifyError};
 
@@ -29,6 +30,7 @@ pub fn stringify_with<T>(data: &T, options: &StringifyOptions) -> SerdeStringify
 where
     T: Serialize,
 {
-    let map = to_query_map(data).map_err(SerdeStringifyError::from)?;
-    stringify_query_map_with(&map, options).map_err(SerdeStringifyError::from)
+    let map = serialize_to_query_map(data).map_err(SerdeQueryError::from)?;
+    let query_map = QueryMap::from(map);
+    stringify_query_map_with(&query_map, options).map_err(SerdeStringifyError::from)
 }

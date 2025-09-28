@@ -14,14 +14,14 @@ use bunner_qs::{
     SerdeStringifyError, StringifyError, StringifyOptions, parse, stringify, stringify_with,
 };
 use json::json_from_pairs;
-use options::build_parse_options;
+use options::try_build_parse_options;
 use serde::Serialize;
 use serde_helpers::{
     assert_encoded_contains, assert_parse_roundtrip, assert_stringify_roundtrip,
     assert_stringify_roundtrip_with_options,
 };
 use serde_json::{Map, Value, json};
-use stringify_options::build_stringify_options;
+use stringify_options::try_build_stringify_options;
 
 fn build_nested_user_value() -> Value {
     json!({
@@ -35,6 +35,8 @@ fn build_nested_user_value() -> Value {
         }
     })
 }
+
+const STRINGIFY_BUILD_OK: &str = "stringify options builder should succeed";
 
 #[test]
 fn stringifies_basic_pairs() {
@@ -63,7 +65,8 @@ fn method_matches_function_output() {
 #[test]
 fn space_encoding_respects_option() {
     let map = json_from_pairs(&[("note", "hello world")]);
-    let plus = build_stringify_options(|builder| builder.space_as_plus(true));
+    let plus = try_build_stringify_options(|builder| builder.space_as_plus(true))
+        .expect(STRINGIFY_BUILD_OK);
     let encoded_plus = stringify_with(&map, &plus).expect("should encode spaces as plus");
     assert_eq!(encoded_plus, "note=hello+world");
 
@@ -200,8 +203,10 @@ fn round_trip_with_space_plus_option() {
         "msg": "one two"
     });
 
-    let options = build_stringify_options(|builder| builder.space_as_plus(true));
-    let parse_options = build_parse_options(|builder| builder.space_as_plus(true));
+    let options = try_build_stringify_options(|builder| builder.space_as_plus(true))
+        .expect(STRINGIFY_BUILD_OK);
+    let parse_options = try_build_parse_options(|builder| builder.space_as_plus(true))
+        .expect("parse options builder should succeed");
     let reparsed = assert_stringify_roundtrip_with_options(&map, &options, &parse_options);
     assert_str_path(&reparsed, &["msg"], "one two");
 }
@@ -267,7 +272,8 @@ fn array_of_objects_stringifies_cleanly() {
 
 #[test]
 fn stringify_options_builder_configures_flags() {
-    let options = build_stringify_options(|builder| builder.space_as_plus(true));
+    let options = try_build_stringify_options(|builder| builder.space_as_plus(true))
+        .expect(STRINGIFY_BUILD_OK);
     assert!(options.space_as_plus);
 }
 

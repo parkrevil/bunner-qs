@@ -7,7 +7,7 @@ mod serde_helpers;
 
 use asserts::{assert_str_path, assert_string_array_path};
 use bunner_qs::{ParseError, parse, parse_with};
-use options::build_parse_options;
+use options::try_build_parse_options;
 use serde_helpers::{assert_parse_roundtrip, assert_stringify_roundtrip};
 use serde_json::{Value, json};
 #[test]
@@ -141,10 +141,12 @@ fn rejects_non_contiguous_numeric_indexes() {
 fn respects_depth_limit_for_mixed_nested_structure() {
     let query = "profile[contacts][phones][0][number]=+44%20123";
 
-    let permissive = build_parse_options(|builder| builder.max_depth(4));
+    let permissive = try_build_parse_options(|builder| builder.max_depth(4))
+        .expect("parse options builder should succeed");
     parse_with::<Value>(query, &permissive).expect("depth of four should succeed");
 
-    let strict = build_parse_options(|builder| builder.max_depth(2));
+    let strict = try_build_parse_options(|builder| builder.max_depth(2))
+        .expect("parse options builder should succeed");
     asserts::assert_err_matches!(
         parse_with::<Value>(query, &strict),
         ParseError::DepthExceeded { key, limit } => |_message| {

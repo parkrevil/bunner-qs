@@ -10,13 +10,17 @@ mod stringify_options;
 use asserts::{assert_str_path, assert_string_array_path};
 use bunner_qs::{ParseError, ParseOptions, parse, parse_with, stringify_with};
 use json::json_from_pairs;
-use options::{build_parse_options, try_build_parse_options};
+use options::try_build_parse_options;
 use serde_json::Value;
-use stringify_options::build_stringify_options;
+use stringify_options::try_build_stringify_options;
+
+const BUILD_OK: &str = "parse options builder should succeed";
+const STRINGIFY_BUILD_OK: &str = "stringify options builder should succeed";
 
 #[test]
 fn parse_respects_max_params_limit() {
-    let options = build_parse_options(|builder| builder.max_params(2));
+    let options =
+        try_build_parse_options(|builder| builder.max_params(2)).expect(BUILD_OK);
 
     let ok: Value = parse_with("a=1&b=2", &options).expect("limit should allow two params");
     assert_str_path(&ok, &["a"], "1");
@@ -49,10 +53,12 @@ fn parse_enforces_zero_param_limit() {
 #[test]
 fn parse_respects_max_length_boundary() {
     let query = "token=abcdef"; // length 12
-    let allowed = build_parse_options(|builder| builder.max_length(query.len()));
+    let allowed =
+        try_build_parse_options(|builder| builder.max_length(query.len())).expect(BUILD_OK);
     parse_with::<Value>(query, &allowed).expect("length at limit should parse");
 
-    let blocked = build_parse_options(|builder| builder.max_length(query.len() - 1));
+    let blocked = try_build_parse_options(|builder| builder.max_length(query.len() - 1))
+        .expect(BUILD_OK);
     asserts::assert_err_matches!(
         parse_with::<Value>(query, &blocked),
         ParseError::InputTooLong { limit } => |_message| {
@@ -63,11 +69,11 @@ fn parse_respects_max_length_boundary() {
 
 #[test]
 fn parse_respects_max_depth_boundary() {
-    let within = build_parse_options(|builder| builder.max_depth(2));
+    let within = try_build_parse_options(|builder| builder.max_depth(2)).expect(BUILD_OK);
     let nested: Value = parse_with("a[b][c]=ok", &within).expect("depth 2 should succeed");
     assert_str_path(&nested, &["a", "b", "c"], "ok");
 
-    let over = build_parse_options(|builder| builder.max_depth(2));
+    let over = try_build_parse_options(|builder| builder.max_depth(2)).expect(BUILD_OK);
     asserts::assert_err_matches!(
         parse_with::<Value>("a[b][c][d]=fail", &over),
         ParseError::DepthExceeded { key, limit } => |_message| {
@@ -79,13 +85,14 @@ fn parse_respects_max_depth_boundary() {
 
 #[test]
 fn parse_options_builder_configures_all_fields() {
-    let options = build_parse_options(|builder| {
+    let options = try_build_parse_options(|builder| {
         builder
             .space_as_plus(true)
             .max_params(3)
             .max_length(64)
             .max_depth(4)
-    });
+    })
+    .expect(BUILD_OK);
 
     assert!(options.space_as_plus);
     assert_eq!(options.max_params, Some(3));
@@ -122,7 +129,8 @@ fn parse_options_builder_rejects_zero_limits() {
 
 #[test]
 fn parse_combined_limits_prioritize_length_check() {
-    let options = build_parse_options(|builder| builder.max_params(5).max_length(5));
+    let options = try_build_parse_options(|builder| builder.max_params(5).max_length(5))
+        .expect(BUILD_OK);
 
     asserts::assert_err_matches!(
         parse_with::<Value>("toolong=value", &options),
@@ -134,7 +142,8 @@ fn parse_combined_limits_prioritize_length_check() {
 
 #[test]
 fn parse_combined_limits_still_enforce_params() {
-    let options = build_parse_options(|builder| builder.max_params(1).max_length(64));
+    let options = try_build_parse_options(|builder| builder.max_params(1).max_length(64))
+        .expect(BUILD_OK);
 
     asserts::assert_err_matches!(
         parse_with::<Value>("a=1&b=2", &options),
@@ -147,7 +156,8 @@ fn parse_combined_limits_still_enforce_params() {
 
 #[test]
 fn parse_combined_limits_respect_depth_even_with_param_budget() {
-    let options = build_parse_options(|builder| builder.max_params(10).max_depth(1));
+    let options = try_build_parse_options(|builder| builder.max_params(10).max_depth(1))
+        .expect(BUILD_OK);
 
     asserts::assert_err_matches!(
         parse_with::<Value>("a[b][c]=1", &options),
@@ -160,12 +170,13 @@ fn parse_combined_limits_respect_depth_even_with_param_budget() {
 
 #[test]
 fn parse_handles_extremely_large_limits_without_overflow() {
-    let options = build_parse_options(|builder| {
+    let options = try_build_parse_options(|builder| {
         builder
             .max_params(usize::MAX)
             .max_length(usize::MAX)
             .max_depth(usize::MAX)
-    });
+    })
+    .expect(BUILD_OK);
 
     let parsed: Value = parse_with("a=1&b=2", &options).expect("extreme limits should still parse");
     assert_str_path(&parsed, &["a"], "1");
@@ -174,7 +185,7 @@ fn parse_handles_extremely_large_limits_without_overflow() {
 
 #[test]
 fn parse_options_builder_defaults_match_default() {
-    let built = build_parse_options(|builder| builder);
+    let built = try_build_parse_options(|builder| builder).expect(BUILD_OK);
     assert_eq!(built.space_as_plus, ParseOptions::default().space_as_plus);
     assert_eq!(built.max_params, ParseOptions::default().max_params);
     assert_eq!(built.max_length, ParseOptions::default().max_length);
@@ -183,7 +194,8 @@ fn parse_options_builder_defaults_match_default() {
 
 #[test]
 fn parse_with_builder_space_as_plus_decodes_plus() {
-    let options = build_parse_options(|builder| builder.space_as_plus(true));
+    let options =
+        try_build_parse_options(|builder| builder.space_as_plus(true)).expect(BUILD_OK);
 
     let parsed: Value =
         parse_with("msg=hello+world", &options).expect("plus should decode to space");
@@ -193,14 +205,18 @@ fn parse_with_builder_space_as_plus_decodes_plus() {
 #[test]
 fn parse_combines_space_as_plus_with_length_limit() {
     let query = "note=one+two+three";
-    let permissive =
-        build_parse_options(|builder| builder.space_as_plus(true).max_length(query.len()));
+    let permissive = try_build_parse_options(|builder| {
+        builder.space_as_plus(true).max_length(query.len())
+    })
+    .expect(BUILD_OK);
     let parsed: Value = parse_with(query, &permissive)
         .expect("length within limit should parse with space_as_plus");
     assert_str_path(&parsed, &["note"], "one two three");
 
-    let strict =
-        build_parse_options(|builder| builder.space_as_plus(true).max_length(query.len() - 1));
+    let strict = try_build_parse_options(|builder| {
+        builder.space_as_plus(true).max_length(query.len() - 1)
+    })
+    .expect(BUILD_OK);
     asserts::assert_err_matches!(
         parse_with::<Value>(query, &strict),
         ParseError::InputTooLong { limit } => |_message| {
@@ -212,7 +228,8 @@ fn parse_combines_space_as_plus_with_length_limit() {
 #[test]
 fn stringify_options_builder_controls_space_encoding() {
     let map = json_from_pairs(&[("greeting", "hello world")]);
-    let options = build_stringify_options(|builder| builder.space_as_plus(true));
+    let options =
+        try_build_stringify_options(|builder| builder.space_as_plus(true)).expect(STRINGIFY_BUILD_OK);
 
     let encoded = stringify_with(&map, &options).expect("should encode with plus");
     assert_eq!(encoded, "greeting=hello+world");

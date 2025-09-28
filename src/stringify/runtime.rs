@@ -1,6 +1,6 @@
 use super::{StringifyError, StringifyResult};
 use crate::config::StringifyOptions;
-use crate::memory::acquire_string;
+use crate::memory::{acquire_string, buffer::StringGuard};
 use crate::model::{QueryMap, Value};
 use smallvec::SmallVec;
 
@@ -29,12 +29,45 @@ pub(crate) fn stringify_query_map_with(
         return Ok(String::new());
     }
 
-    let runtime = StringifyRuntime::new(options);
-    let mut output = String::with_capacity(map.len().saturating_mul(16));
-    let mut key_guard = acquire_string();
-    let key_buffer = key_guard.as_mut();
+    let PreparedState {
+        runtime,
+        mut output,
+        mut key_guard,
+        mut stack,
+    } = prepare_stringify_state(map, options)?;
+
     let mut first_pair = true;
-    let mut stack: SmallVec<[StackItem<'_>; 96]> = SmallVec::with_capacity(map.len().min(96));
+    process_pairs(
+        runtime,
+        &mut stack,
+        key_guard.as_mut(),
+        &mut output,
+        &mut first_pair,
+    )?;
+
+    Ok(output)
+}
+
+struct PreparedState<'map> {
+    runtime: StringifyRuntime,
+    output: String,
+    key_guard: StringGuard,
+    stack: SmallVec<[StackItem<'map>; 96]>,
+}
+
+fn prepare_stringify_state<'map>(
+    map: &'map QueryMap,
+    options: &StringifyOptions,
+) -> StringifyResult<PreparedState<'map>> {
+    debug_assert!(
+        !map.is_empty(),
+        "prepare_stringify_state should not be called with an empty map",
+    );
+
+    let runtime = StringifyRuntime::new(options);
+    let output = String::with_capacity(map.len().saturating_mul(16));
+    let key_guard = acquire_string();
+    let mut stack: SmallVec<[StackItem<'map>; 96]> = SmallVec::with_capacity(map.len().min(96));
 
     for (key, value) in map.iter().rev() {
         ensure_no_control(key).map_err(|_| StringifyError::InvalidKey {
@@ -47,6 +80,21 @@ pub(crate) fn stringify_query_map_with(
         });
     }
 
+    Ok(PreparedState {
+        runtime,
+        output,
+        key_guard,
+        stack,
+    })
+}
+
+fn process_pairs(
+    runtime: StringifyRuntime,
+    stack: &mut SmallVec<[StackItem<'_>; 96]>,
+    key_buffer: &mut String,
+    output: &mut String,
+    first_pair: &mut bool,
+) -> StringifyResult<()> {
     while let Some(item) = stack.pop() {
         let StackItem {
             parent_len,
@@ -62,13 +110,7 @@ pub(crate) fn stringify_query_map_with(
                 ensure_no_control(s).map_err(|_| StringifyError::InvalidValue {
                     key: key_buffer.clone(),
                 })?;
-                write_pair(
-                    &mut output,
-                    key_buffer,
-                    s,
-                    runtime.space_as_plus,
-                    &mut first_pair,
-                );
+                write_pair(output, key_buffer, s, runtime.space_as_plus, first_pair);
             }
             Value::Array(arr) => {
                 let current_len = key_buffer.len();
@@ -98,5 +140,5 @@ pub(crate) fn stringify_query_map_with(
         }
     }
 
-    Ok(output)
+    Ok(())
 }

@@ -1,4 +1,5 @@
-use crate::model::{OrderedMap, new_map, with_capacity};
+use crate::model::OrderedMap;
+use ahash::RandomState;
 use indexmap::map::{IntoIter, Iter, IterMut};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -25,14 +26,14 @@ pub struct QueryMap(OrderedMap<String, Value>);
 
 impl QueryMap {
     pub fn new() -> Self {
-        Self(new_map())
+        Self(OrderedMap::with_hasher(RandomState::default()))
     }
 
     pub fn with_capacity(capacity: usize) -> Self {
         if capacity == 0 {
             Self::new()
         } else {
-            Self(with_capacity(capacity))
+            Self(OrderedMap::with_capacity_and_hasher(capacity, RandomState::default()))
         }
     }
 }

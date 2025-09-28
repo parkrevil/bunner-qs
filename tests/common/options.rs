@@ -8,10 +8,3 @@ where
         .build()
         .map_err(|err| err.to_string())
 }
-
-pub fn build_parse_options<F>(configure: F) -> ParseOptions
-where
-    F: FnOnce(ParseOptionsBuilder) -> ParseOptionsBuilder,
-{
-    try_build_parse_options(configure).expect("parse options builder should succeed")
-}

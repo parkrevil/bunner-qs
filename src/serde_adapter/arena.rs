@@ -1,13 +1,5 @@
-use super::{SerdeQueryError, deserialize_from_arena_map};
 use crate::parsing::arena::{ArenaQueryMap, ArenaValue};
-use serde::de::DeserializeOwned;
 use serde_json::{Map as JsonMap, Value as JsonValue};
-
-pub fn from_arena_query_map<T: DeserializeOwned>(
-    query_map: &ArenaQueryMap<'_>,
-) -> Result<T, SerdeQueryError> {
-    deserialize_from_arena_map(query_map).map_err(SerdeQueryError::from)
-}
 
 pub fn arena_map_to_json_value(query_map: &ArenaQueryMap<'_>) -> JsonValue {
     let mut object = JsonMap::with_capacity(query_map.len());

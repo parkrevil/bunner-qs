@@ -1,12 +1,11 @@
+use crate::config::ParseOptions;
 use crate::parsing::ParseError;
-
-use super::runtime::ParseRuntime;
 
 pub(crate) fn preflight<'a>(
     raw: &'a str,
-    runtime: &ParseRuntime,
+    options: &ParseOptions,
 ) -> Result<(&'a str, usize), ParseError> {
-    if let Some(limit) = runtime.max_length
+    if let Some(limit) = options.max_length
         && raw.len() > limit
     {
         return Err(ParseError::InputTooLong { limit });
@@ -18,22 +17,22 @@ pub(crate) fn preflight<'a>(
     };
 
     for (idx, ch) in trimmed.char_indices() {
-        if ch == '?' {
-            return Err(ParseError::UnexpectedQuestionMark {
-                index: offset + idx,
-            });
-        }
-        if is_disallowed_raw_char(ch) {
-            return Err(ParseError::InvalidCharacter {
-                character: ch,
-                index: offset + idx,
-            });
-        }
+        check_character(ch, offset + idx)?;
     }
 
     Ok((trimmed, offset))
 }
 
-fn is_disallowed_raw_char(ch: char) -> bool {
+fn check_character(ch: char, index: usize) -> Result<(), ParseError> {
+    if ch == '?' {
+        return Err(ParseError::UnexpectedQuestionMark { index });
+    }
+    if is_disallowed_control(ch) {
+        return Err(ParseError::InvalidCharacter { character: ch, index });
+    }
+    Ok(())
+}
+
+fn is_disallowed_control(ch: char) -> bool {
     matches!(ch, '\u{0000}'..='\u{001F}' | '\u{007F}') || ch == ' '
 }

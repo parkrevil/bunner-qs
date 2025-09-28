@@ -18,7 +18,7 @@ mod stringify_options;
 use asserts::{assert_str_path, assert_string_array_path, expect_path};
 use bunner_qs::{ParseError, SerdeQueryError, parse, parse_with, stringify, stringify_with};
 use json::json_from_pairs;
-use options::build_parse_options;
+use options::try_build_parse_options;
 use proptest::prelude::*;
 use proptest_profiles::{RandomProfileData, random_profile_strategy};
 use serde::{Deserialize, Serialize};
@@ -35,9 +35,11 @@ use serde_json::{Value, json};
 use std::borrow::Cow;
 use std::collections::BTreeMap;
 use std::error::Error;
-use stringify_options::build_stringify_options;
+use stringify_options::try_build_stringify_options;
 
 use serde_error_fixtures::{BoolField, NestedWrapper, UnitHolder};
+
+const STRINGIFY_BUILD_OK: &str = "stringify options builder should succeed";
 
 #[test]
 fn parse_into_struct_returns_default_for_empty_input() -> Result<(), Box<dyn Error>> {
@@ -328,7 +330,8 @@ fn stringify_shapes_nested_data_for_inspection() -> Result<(), Box<dyn Error>> {
 
 #[test]
 fn tighten_parse_options_detects_violations() {
-    let options = build_parse_options(|builder| builder.max_params(2));
+    let options = try_build_parse_options(|builder| builder.max_params(2))
+        .expect("parse options builder should succeed");
 
     let err = parse_with::<SimpleUser>("username=ada&age=36&active=true", &options).unwrap_err();
     assert!(matches!(err, ParseError::TooManyParameters { .. }));
@@ -337,7 +340,8 @@ fn tighten_parse_options_detects_violations() {
 #[test]
 fn stringify_options_control_space_encoding() -> Result<(), Box<dyn Error>> {
     let value = json_from_pairs(&[("note", "hello world")]);
-    let options = build_stringify_options(|builder| builder.space_as_plus(true));
+    let options = try_build_stringify_options(|builder| builder.space_as_plus(true))
+        .expect(STRINGIFY_BUILD_OK);
     let encoded = stringify_with(&value, &options)?;
     assert_eq!(encoded, "note=hello+world");
     Ok(())
@@ -463,14 +467,16 @@ fn deep_roundtrip_with_custom_options() -> Result<(), Box<dyn Error>> {
         nickname: Some("Cipher".into()),
     };
 
-    let stringify_options = build_stringify_options(|builder| builder.space_as_plus(true));
-    let parse_options = build_parse_options(|builder| {
+    let stringify_options = try_build_stringify_options(|builder| builder.space_as_plus(true))
+        .expect(STRINGIFY_BUILD_OK);
+    let parse_options = try_build_parse_options(|builder| {
         builder
             .space_as_plus(true)
             .max_params(1024)
             .max_length(16 * 1024)
             .max_depth(64)
-    });
+    })
+    .expect("parse options builder should succeed");
 
     let encoded = stringify_with(&profile, &stringify_options)?;
     let reparsed: ProfileForm = parse_with(&encoded, &parse_options)?;

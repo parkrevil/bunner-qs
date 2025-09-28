@@ -10,10 +10,12 @@ mod serde_helpers;
 use asserts::{assert_str_path, assert_string_array_path};
 use bunner_qs::{ParseError, SerdeQueryError, parse, parse_with};
 use json::json_from_pairs;
-use options::build_parse_options;
+use options::try_build_parse_options;
 use serde::Deserialize;
 use serde_helpers::assert_parse_roundtrip;
 use serde_json::{Value, json};
+
+const BUILD_OK: &str = "parse options builder should succeed";
 
 #[test]
 fn parses_basic_key_value_pairs() {
@@ -90,7 +92,8 @@ fn treats_flag_without_value_as_empty_string() {
 
 #[test]
 fn space_as_plus_option_controls_plus_handling() {
-    let relaxed = build_parse_options(|builder| builder.space_as_plus(true));
+    let relaxed =
+        try_build_parse_options(|builder| builder.space_as_plus(true)).expect(BUILD_OK);
     let relaxed: Value = parse_with("note=one+two", &relaxed).expect("plus should become space");
     assert_str_path(&relaxed, &["note"], "one two");
 
@@ -247,7 +250,8 @@ fn detects_unmatched_brackets_and_depth_overflow() {
         }
     );
 
-    let options = build_parse_options(|builder| builder.max_depth(1));
+    let options =
+        try_build_parse_options(|builder| builder.max_depth(1)).expect(BUILD_OK);
     asserts::assert_err_matches!(
         parse_with::<Value>("a[b][c]=1", &options),
         ParseError::DepthExceeded { key, limit } => |error_message| {
@@ -261,7 +265,8 @@ fn detects_unmatched_brackets_and_depth_overflow() {
 
 #[test]
 fn enforces_parameter_and_length_limits() {
-    let param_limited = build_parse_options(|builder| builder.max_params(1));
+    let param_limited =
+        try_build_parse_options(|builder| builder.max_params(1)).expect(BUILD_OK);
     asserts::assert_err_matches!(
         parse_with::<Value>("a=1&b=2", &param_limited),
         ParseError::TooManyParameters { limit, actual } => |error_message| {
@@ -274,7 +279,8 @@ fn enforces_parameter_and_length_limits() {
         }
     );
 
-    let length_limited = build_parse_options(|builder| builder.max_length(5));
+    let length_limited =
+        try_build_parse_options(|builder| builder.max_length(5)).expect(BUILD_OK);
     asserts::assert_err_matches!(
         parse_with::<Value>("toolong=1", &length_limited),
         ParseError::InputTooLong { limit } => |error_message| {
@@ -359,13 +365,14 @@ fn round_trips_complex_structure_with_stringify() {
 
 #[test]
 fn parse_options_builder_produces_expected_configuration() {
-    let options = build_parse_options(|builder| {
+    let options = try_build_parse_options(|builder| {
         builder
             .space_as_plus(true)
             .max_params(3)
             .max_length(128)
             .max_depth(2)
-    });
+    })
+    .expect(BUILD_OK);
 
     assert!(options.space_as_plus);
     assert_eq!(options.max_params, Some(3));

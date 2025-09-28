@@ -1,17 +1,9 @@
 use crate::parsing::arena::{ArenaQueryMap, ArenaValue};
-use crate::serde_adapter::DeserializeError;
+use crate::serde_adapter::errors::{DeserializeError, format_expected};
 use serde::de::{
     self, DeserializeOwned, DeserializeSeed, IntoDeserializer, MapAccess, SeqAccess, Visitor,
 };
 use std::collections::HashSet;
-
-fn format_expected(fields: &'static [&'static str]) -> String {
-    if fields.is_empty() {
-        "(none)".into()
-    } else {
-        fields.join(", ")
-    }
-}
 
 pub(crate) fn deserialize_from_arena_map<T: DeserializeOwned>(
     map: &ArenaQueryMap<'_>,
@@ -82,6 +74,44 @@ impl<'de> ArenaValueDeserializer<'de> {
         s.parse::<N>().map_err(|_| DeserializeError::InvalidNumber {
             value: s.to_string(),
         })
+    }
+
+    fn visit_sequence<V>(self, visitor: V, expected: &'static str) -> Result<V::Value, DeserializeError>
+    where
+        V: Visitor<'de>,
+    {
+        match self.value {
+            ArenaValueRef::Seq(items) => visitor.visit_seq(ArenaSequenceAccess { iter: items.iter() }),
+            _ => Err(DeserializeError::UnexpectedType {
+                expected,
+                found: self.unexpected(),
+            }),
+        }
+    }
+
+    fn visit_fixed_sequence<V, F>(
+        self,
+        expected_len: usize,
+        visitor: V,
+        expected_label: &'static str,
+        format_mismatch: F,
+    ) -> Result<V::Value, DeserializeError>
+    where
+        V: Visitor<'de>,
+        F: FnOnce(usize) -> String,
+    {
+        match self.value {
+            ArenaValueRef::Seq(items) => {
+                if items.len() != expected_len {
+                    return Err(DeserializeError::Message(format_mismatch(items.len())));
+                }
+                visitor.visit_seq(ArenaSequenceAccess { iter: items.iter() })
+            }
+            _ => Err(DeserializeError::UnexpectedType {
+                expected: expected_label,
+                found: self.unexpected(),
+            }),
+        }
     }
 }
 
@@ -299,36 +329,19 @@ impl<'de> de::Deserializer<'de> for ArenaValueDeserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        match self.value {
-            ArenaValueRef::Seq(items) => {
-                visitor.visit_seq(ArenaSequenceAccess { iter: items.iter() })
-            }
-            _ => Err(DeserializeError::UnexpectedType {
-                expected: "array",
-                found: self.unexpected(),
-            }),
-        }
+        self.visit_sequence(visitor, "array")
     }
 
     fn deserialize_tuple<V>(self, len: usize, visitor: V) -> Result<V::Value, Self::Error>
     where
         V: Visitor<'de>,
     {
-        match self.value {
-            ArenaValueRef::Seq(items) => {
-                if items.len() != len {
-                    return Err(DeserializeError::Message(format!(
-                        "expected tuple of length {len}, found {}",
-                        items.len()
-                    )));
-                }
-                visitor.visit_seq(ArenaSequenceAccess { iter: items.iter() })
-            }
-            _ => Err(DeserializeError::UnexpectedType {
-                expected: "tuple",
-                found: self.unexpected(),
-            }),
-        }
+        self.visit_fixed_sequence(
+            len,
+            visitor,
+            "tuple",
+            |actual| format!("expected tuple of length {len}, found {actual}"),
+        )
     }
 
     fn deserialize_tuple_struct<V>(
@@ -340,21 +353,16 @@ impl<'de> de::Deserializer<'de> for ArenaValueDeserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        match self.value {
-            ArenaValueRef::Seq(items) => {
-                if items.len() != len {
-                    return Err(DeserializeError::Message(format!(
-                        "expected tuple struct `{name}` with {len} elements, found {}",
-                        items.len()
-                    )));
-                }
-                visitor.visit_seq(ArenaSequenceAccess { iter: items.iter() })
-            }
-            _ => Err(DeserializeError::UnexpectedType {
-                expected: name,
-                found: self.unexpected(),
-            }),
-        }
+        self.visit_fixed_sequence(
+            len,
+            visitor,
+            name,
+            |actual| {
+                format!(
+                    "expected tuple struct `{name}` with {len} elements, found {actual}"
+                )
+            },
+        )
     }
 
     fn deserialize_map<V>(self, visitor: V) -> Result<V::Value, Self::Error>
