@@ -1,7 +1,6 @@
 #![allow(dead_code)]
 
-use crate::ordered_map::OrderedMap;
-use crate::value::Value;
+use crate::model::{OrderedMap, Value};
 use serde::de::{
     self, DeserializeOwned, DeserializeSeed, IntoDeserializer, MapAccess, SeqAccess, Visitor,
 };

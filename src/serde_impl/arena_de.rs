@@ -1,4 +1,4 @@
-use crate::parse_impl::arena::{ArenaQueryMap, ArenaValue};
+use crate::parsing::arena::{ArenaQueryMap, ArenaValue};
 use crate::serde_impl::de::DeserializeError;
 use serde::de::{
     self, DeserializeOwned, DeserializeSeed, IntoDeserializer, MapAccess, SeqAccess, Visitor,

@@ -16,7 +16,7 @@
 - Keep only `stringify` and `stringify_with` public; internal helpers become private to the module tree.
 - Adjust serialization helpers to call into the new module structure.
 
-## Phase 4 — Public API consolidation and polish
+## Phase 4 — Public API consolidation and polish ✅
 - Finalise `lib.rs` exports (only core functions, options, and error types).
 - Refresh `prelude.rs` to match the new public surface.
 - Update internal references (`serde_adapter`, `memory`, `util`) to guarantee one-way dependencies between domains.

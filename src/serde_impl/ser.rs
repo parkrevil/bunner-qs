@@ -1,5 +1,4 @@
-use crate::ordered_map::{OrderedMap, new_map, with_capacity};
-use crate::value::Value;
+use crate::model::{OrderedMap, Value, new_map, with_capacity};
 use serde::ser::{self, Impossible, Serialize, SerializeMap, SerializeSeq, SerializeStruct};
 use std::fmt::Display;
 use thiserror::Error;
