@@ -2,31 +2,41 @@ use crate::arena::{ArenaQueryMap, ArenaValue, ParseArena};
 use crate::{ParseError, ParseResult};
 use ahash::AHashMap;
 use hashbrown::hash_map::RawEntryMut;
+use memchr::memchr;
 use smallvec::SmallVec;
-use std::borrow::Cow;
+use std::borrow::{Borrow, Cow};
 use std::cell::RefCell;
+use std::fmt;
 use std::ops::{Deref, DerefMut};
 
 pub fn parse_key_path(key: &str) -> SmallVec<[&str; 16]> {
     let mut segments: SmallVec<[&str; 16]> = SmallVec::new();
+    let bytes = key.as_bytes();
     let mut start = 0usize;
-    let mut in_brackets = false;
+    let mut cursor = 0usize;
 
-    for (idx, ch) in key.char_indices() {
-        match ch {
-            '[' if !in_brackets => {
-                if start < idx {
-                    segments.push(&key[start..idx]);
-                }
-                in_brackets = true;
-                start = idx + ch.len_utf8();
+    while cursor < bytes.len() {
+        if bytes[cursor] == b'[' {
+            if start < cursor {
+                segments.push(&key[start..cursor]);
             }
-            ']' if in_brackets => {
-                segments.push(&key[start..idx]);
-                in_brackets = false;
-                start = idx + ch.len_utf8();
+            cursor += 1;
+            start = cursor;
+            if cursor >= bytes.len() {
+                break;
             }
-            _ => {}
+
+            let rel = memchr(b']', &bytes[cursor..]);
+            let end = rel.map(|offset| cursor + offset).unwrap_or(bytes.len());
+            if start < end {
+                segments.push(&key[start..end]);
+            } else {
+                segments.push("");
+            }
+            cursor = end.saturating_add(1);
+            start = cursor;
+        } else {
+            cursor += 1;
         }
     }
 
@@ -96,11 +106,12 @@ fn arena_build_nested_path<'arena>(
     let container_type = state
         .container_type(&root_path)
         .unwrap_or(ContainerType::Object);
+    let capacity_hint = state.child_capacity(&root_path).saturating_add(1);
 
     if let Some(existing) = map.get_mut(root_segment) {
         arena_ensure_container(arena, existing, container_type, root_key)?;
     } else {
-        let initial = arena_initial_container(arena, container_type);
+        let initial = arena_initial_container(arena, container_type, capacity_hint);
         map.try_insert_str(arena, root_segment, initial)
             .map_err(|_| ParseError::DuplicateKey {
                 key: root_key.to_string(),
@@ -127,10 +138,11 @@ struct ArenaSetContext<'arena, 'pattern> {
 fn arena_initial_container<'arena>(
     arena: &'arena ParseArena,
     container_type: ContainerType,
+    capacity_hint: usize,
 ) -> ArenaValue<'arena> {
     match container_type {
-        ContainerType::Array => ArenaValue::seq(arena.alloc_vec()),
-        ContainerType::Object => ArenaValue::map(arena),
+        ContainerType::Array => ArenaValue::seq_with_capacity(arena, capacity_hint),
+        ContainerType::Object => ArenaValue::map_with_capacity(arena, capacity_hint),
     }
 }
 
@@ -144,7 +156,7 @@ fn arena_ensure_container<'arena>(
         ContainerType::Array => match value {
             ArenaValue::Seq(_) => Ok(()),
             ArenaValue::Map { .. } => {
-                *value = ArenaValue::seq(arena.alloc_vec());
+                *value = ArenaValue::seq_with_capacity(arena, 0);
                 Ok(())
             }
             ArenaValue::String(_) => Err(ParseError::DuplicateKey {
@@ -154,7 +166,7 @@ fn arena_ensure_container<'arena>(
         ContainerType::Object => match value {
             ArenaValue::Map { .. } => Ok(()),
             ArenaValue::Seq(_) => {
-                *value = ArenaValue::map(arena);
+                *value = ArenaValue::map_with_capacity(arena, 0);
                 Ok(())
             }
             ArenaValue::String(_) => Err(ParseError::DuplicateKey {
@@ -187,8 +199,11 @@ fn arena_set_nested_value<'arena>(
         }
 
         if matches!(node, ArenaValue::String(_)) {
-            *node =
-                arena_initial_container(ctx.arena, container_hint.unwrap_or(ContainerType::Object));
+            *node = arena_initial_container(
+                ctx.arena,
+                container_hint.unwrap_or(ContainerType::Object),
+                0,
+            );
             continue;
         }
 
@@ -227,10 +242,12 @@ fn arena_set_nested_value<'arena>(
                     RawEntryMut::Occupied(entry) => *entry.get(),
                     RawEntryMut::Vacant(vacant) => {
                         let key_ref = ctx.arena.alloc_str(segment);
+                        let capacity_hint =
+                            child_capacity_hint(ctx.state, &path, segment).saturating_add(1);
                         let child = if next_is_numeric {
-                            ArenaValue::seq(ctx.arena.alloc_vec())
+                            ArenaValue::seq_with_capacity(ctx.arena, capacity_hint)
                         } else {
-                            ArenaValue::map(ctx.arena)
+                            ArenaValue::map_with_capacity(ctx.arena, capacity_hint)
                         };
                         let idx = entries.len();
                         entries.push((key_ref, child));
@@ -289,10 +306,12 @@ fn arena_set_nested_value<'arena>(
                     matches!(next_kind, SegmentKind::Numeric | SegmentKind::Empty);
 
                 if idx == items.len() {
+                    let capacity_hint =
+                        child_capacity_hint(ctx.state, &path, segment).saturating_add(1);
                     let child = if next_is_numeric {
-                        ArenaValue::seq(ctx.arena.alloc_vec())
+                        ArenaValue::seq_with_capacity(ctx.arena, capacity_hint)
                     } else {
-                        ArenaValue::map(ctx.arena)
+                        ArenaValue::map_with_capacity(ctx.arena, capacity_hint)
                     };
                     items.push(child);
                 }
@@ -314,11 +333,44 @@ fn arena_set_nested_value<'arena>(
     }
 }
 
+fn child_capacity_hint(state: &PatternState, path: &[&str], segment: &str) -> usize {
+    let mut full_path: SmallVec<[&str; 16]> = SmallVec::with_capacity(path.len() + 1);
+    full_path.extend_from_slice(path);
+    full_path.push(segment);
+    state.child_capacity(&full_path)
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum SegmentKind {
     Empty,
     Numeric,
     Other,
+}
+
+#[derive(Clone, PartialEq, Eq, Hash)]
+struct SegmentKey(SmallVec<[u8; 24]>);
+
+impl SegmentKey {
+    fn new(segment: &str) -> Self {
+        SegmentKey(SmallVec::from_slice(segment.as_bytes()))
+    }
+
+    fn as_str(&self) -> &str {
+        // SAFETY: All keys originate from UTF-8 input segments.
+        unsafe { std::str::from_utf8_unchecked(&self.0) }
+    }
+}
+
+impl Borrow<[u8]> for SegmentKey {
+    fn borrow(&self) -> &[u8] {
+        &self.0
+    }
+}
+
+impl fmt::Debug for SegmentKey {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_tuple("SegmentKey").field(&self.as_str()).finish()
+    }
 }
 
 struct ResolvedSegment<'a> {
@@ -428,7 +480,7 @@ impl Default for PatternState {
 struct PathNode {
     kind: Option<SegmentKind>,
     next_index: usize,
-    children: AHashMap<String, usize>,
+    children: AHashMap<SegmentKey, usize>,
     dirty: bool,
 }
 
@@ -457,12 +509,14 @@ impl PatternState {
     }
 
     fn ensure_child(&mut self, parent_idx: usize, key: &str) -> usize {
-        if let Some(&idx) = self.nodes[parent_idx].children.get(key) {
+        if let Some(&idx) = self.nodes[parent_idx].children.get(key.as_bytes()) {
             return idx;
         }
 
         let idx = self.alloc_node();
-        self.nodes[parent_idx].children.insert(key.to_string(), idx);
+        self.nodes[parent_idx]
+            .children
+            .insert(SegmentKey::new(key), idx);
         idx
     }
 
@@ -470,7 +524,7 @@ impl PatternState {
         let mut idx = 0usize;
         for segment in path {
             let node = &self.nodes[idx];
-            idx = *node.children.get(*segment)?;
+            idx = *node.children.get(segment.as_bytes())?;
         }
         Some(idx)
     }
@@ -540,6 +594,12 @@ impl PatternState {
     fn container_type(&self, path: &[&str]) -> Option<ContainerType> {
         let idx = self.descend_index(path)?;
         self.nodes[idx].kind.map(|kind| kind.container_type())
+    }
+
+    fn child_capacity(&self, path: &[&str]) -> usize {
+        self.descend_index(path)
+            .map(|idx| self.nodes[idx].children.len())
+            .unwrap_or(0)
     }
 }
 

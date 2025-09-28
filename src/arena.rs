@@ -7,6 +7,7 @@ use hashbrown::HashMap;
 use hashbrown::hash_map::RawEntryMut;
 use std::cell::RefCell;
 use std::ops::{Deref, DerefMut};
+use std::sync::OnceLock;
 
 use crate::value::{QueryMap, Value};
 
@@ -131,6 +132,24 @@ pub(crate) type ArenaVec<'arena, T> = BumpVec<'arena, T>;
 
 type FastMap<K, V> = HashMap<K, V, RandomState>;
 
+#[inline]
+fn shared_random_state() -> RandomState {
+    static STATE: OnceLock<RandomState> = OnceLock::new();
+    STATE
+        .get_or_init(|| RandomState::with_seeds(0x9E37_79B9, 0xB529_7A4D, 0x68E3_1DA4, 0x1B56_3F1B))
+        .clone()
+}
+
+#[inline]
+fn fast_map_with_capacity<K, V>(capacity: usize) -> FastMap<K, V> {
+    FastMap::with_capacity_and_hasher(capacity, shared_random_state())
+}
+
+#[inline]
+fn fast_map<K, V>() -> FastMap<K, V> {
+    FastMap::with_capacity_and_hasher(0, shared_random_state())
+}
+
 pub(crate) struct ArenaQueryMap<'arena> {
     entries: ArenaVec<'arena, (&'arena str, ArenaValue<'arena>)>,
     index: FastMap<&'arena str, usize>,
@@ -140,7 +159,7 @@ impl<'arena> ArenaQueryMap<'arena> {
     pub(crate) fn new(arena: &'arena ParseArena) -> Self {
         Self {
             entries: ArenaVec::new_in(arena.bump()),
-            index: FastMap::default(),
+            index: fast_map(),
         }
     }
 
@@ -150,9 +169,9 @@ impl<'arena> ArenaQueryMap<'arena> {
             entries.reserve(capacity);
         }
         let index = if capacity > 0 {
-            FastMap::with_capacity_and_hasher(capacity, RandomState::new())
+            fast_map_with_capacity(capacity)
         } else {
-            FastMap::default()
+            fast_map()
         };
 
         Self { entries, index }
@@ -235,17 +254,28 @@ impl<'arena> ArenaValue<'arena> {
     pub(crate) fn map(arena: &'arena ParseArena) -> Self {
         ArenaValue::Map {
             entries: ArenaVec::new_in(arena.bump()),
-            index: FastMap::default(),
+            index: fast_map(),
         }
     }
 
     pub(crate) fn map_with_capacity(arena: &'arena ParseArena, capacity: usize) -> Self {
+        if capacity <= 4 {
+            return ArenaValue::map(arena);
+        }
         let mut entries = ArenaVec::new_in(arena.bump());
         entries.reserve(capacity);
         ArenaValue::Map {
             entries,
-            index: FastMap::with_capacity_and_hasher(capacity, RandomState::new()),
+            index: fast_map_with_capacity(capacity),
         }
+    }
+
+    pub(crate) fn seq_with_capacity(arena: &'arena ParseArena, capacity: usize) -> Self {
+        let mut values = arena.alloc_vec();
+        if capacity > 4 {
+            values.reserve(capacity);
+        }
+        ArenaValue::Seq(values)
     }
 
     pub(crate) fn to_owned(&self) -> Value {
