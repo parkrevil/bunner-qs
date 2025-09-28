@@ -7,7 +7,7 @@ use std::fmt::Display;
 pub(crate) fn serialize_to_query_map<T: Serialize>(
     data: &T,
 ) -> Result<OrderedMap<String, Value>, SerializeError> {
-    match data.serialize(ValueSerializer)? {
+    match data.serialize(ValueSerializer::root())? {
         Some(Value::Object(map)) => Ok(map),
         Some(other) => Err(SerializeError::TopLevel(describe_value(&other))),
         None => Err(SerializeError::UnexpectedSkip),
@@ -22,7 +22,24 @@ fn describe_value(value: &Value) -> String {
     }
 }
 
-struct ValueSerializer;
+#[derive(Clone, Copy)]
+struct ValueSerializer {
+    preserve_none: bool,
+}
+
+impl ValueSerializer {
+    fn root() -> Self {
+        Self {
+            preserve_none: false,
+        }
+    }
+
+    fn sequence_element() -> Self {
+        Self {
+            preserve_none: true,
+        }
+    }
+}
 
 fn string_value<T: Display>(value: T) -> Value {
     Value::String(value.to_string())
@@ -104,11 +121,15 @@ impl ser::Serializer for ValueSerializer {
     }
 
     fn serialize_none(self) -> Result<Self::Ok, Self::Error> {
-        Ok(None)
+        if self.preserve_none {
+            Ok(Some(Value::String(String::new())))
+        } else {
+            Ok(None)
+        }
     }
 
     fn serialize_some<T: ?Sized + Serialize>(self, value: &T) -> Result<Self::Ok, Self::Error> {
-        value.serialize(ValueSerializer)
+        value.serialize(self)
     }
 
     fn serialize_unit(self) -> Result<Self::Ok, Self::Error> {
@@ -137,7 +158,7 @@ impl ser::Serializer for ValueSerializer {
         value: &T,
     ) -> Result<Self::Ok, Self::Error> {
         debug_assert!(!name.is_empty(), "newtype struct should have a name");
-        value.serialize(ValueSerializer)
+        value.serialize(self)
     }
 
     fn serialize_newtype_variant<T: ?Sized + Serialize>(
@@ -154,9 +175,7 @@ impl ser::Serializer for ValueSerializer {
     }
 
     fn serialize_seq(self, len: Option<usize>) -> Result<Self::SerializeSeq, Self::Error> {
-        Ok(ValueSeqSerializer {
-            items: Vec::with_capacity(len.unwrap_or(0)),
-        })
+        Ok(ValueSeqSerializer::new(len))
     }
 
     fn serialize_tuple(self, len: usize) -> Result<Self::SerializeTuple, Self::Error> {
@@ -230,14 +249,29 @@ struct ValueSeqSerializer {
     items: Vec<Value>,
 }
 
+impl ValueSeqSerializer {
+    fn new(len: Option<usize>) -> Self {
+        ValueSeqSerializer {
+            items: Vec::with_capacity(len.unwrap_or(0)),
+        }
+    }
+
+    fn push_value(&mut self, value: Option<Value>) {
+        match value {
+            Some(serialized) => self.items.push(serialized),
+            None => self.items.push(Value::String(String::new())),
+        }
+    }
+}
+
 impl SerializeSeq for ValueSeqSerializer {
     type Ok = Option<Value>;
     type Error = SerializeError;
 
     fn serialize_element<T: ?Sized + Serialize>(&mut self, value: &T) -> Result<(), Self::Error> {
-        if let Some(serialized) = value.serialize(ValueSerializer)? {
-            self.items.push(serialized);
-        }
+        let serializer = ValueSerializer::sequence_element();
+        let serialized = value.serialize(serializer)?;
+        self.push_value(serialized);
         Ok(())
     }
 
@@ -310,7 +344,7 @@ impl SerializeMap for ValueMapSerializer {
         let key = self.next_key.take().ok_or_else(|| {
             SerializeError::Message("serialize_value called before serialize_key".into())
         })?;
-        if let Some(serialized) = value.serialize(ValueSerializer)? {
+        if let Some(serialized) = value.serialize(ValueSerializer::root())? {
             self.entries.insert(key, serialized);
         }
         Ok(())
@@ -334,7 +368,7 @@ impl SerializeStruct for ValueStructSerializer {
         key: &'static str,
         value: &T,
     ) -> Result<(), Self::Error> {
-        if let Some(serialized) = value.serialize(ValueSerializer)? {
+        if let Some(serialized) = value.serialize(ValueSerializer::root())? {
             self.entries.insert(key.to_string(), serialized);
         }
         Ok(())

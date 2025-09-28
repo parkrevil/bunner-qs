@@ -293,3 +293,19 @@ fn stringify_skips_none_option_fields_by_default() {
     let encoded = stringify(&payload).expect("option fields set to None should be skipped");
     assert_eq!(encoded, "keep=alpha");
 }
+
+#[test]
+fn stringify_preserves_none_placeholders_in_sequences() {
+    #[derive(Serialize)]
+    struct SequenceWithGaps<'a> {
+        tags: Vec<Option<&'a str>>,
+    }
+
+    let payload = SequenceWithGaps {
+        tags: vec![Some("zero"), None, Some("two")],
+    };
+
+    let encoded = stringify(&payload).expect("sequence placeholders should be preserved");
+    // Order should include the empty slot for index 1.
+    assert_eq!(encoded, "tags%5B0%5D=zero&tags%5B1%5D=&tags%5B2%5D=two");
+}
