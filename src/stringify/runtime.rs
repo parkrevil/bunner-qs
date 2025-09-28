@@ -1,5 +1,5 @@
-use crate::config::StringifyOptions;
 use super::{StringifyError, StringifyResult};
+use crate::config::StringifyOptions;
 use crate::memory::acquire_string;
 use crate::model::{QueryMap, Value};
 use smallvec::SmallVec;

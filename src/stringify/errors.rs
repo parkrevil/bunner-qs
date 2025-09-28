@@ -1,5 +1,5 @@
-use thiserror::Error;
 use crate::serde_adapter::SerdeQueryError;
+use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum StringifyError {

@@ -1,9 +1,9 @@
 mod encode;
+mod errors;
 mod runtime;
 mod validate;
 mod walker;
 mod writer;
-mod errors;
 
 use crate::config::StringifyOptions;
 use crate::serde_adapter::to_query_map;

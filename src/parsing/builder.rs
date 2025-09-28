@@ -1,10 +1,10 @@
 use std::borrow::Cow;
 
-use crate::parsing::{ParseError, ParseResult};
 use crate::memory::acquire_bytes;
 use crate::nested::{
     PatternState, acquire_pattern_state, insert_nested_value_arena, parse_key_path,
 };
+use crate::parsing::{ParseError, ParseResult};
 use memchr::{memchr, memchr_iter};
 
 use super::arena::{ArenaQueryMap, ArenaValue, ParseArena};
