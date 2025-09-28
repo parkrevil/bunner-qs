@@ -1,7 +1,7 @@
 use crate::buffer_pool::acquire_string;
+use crate::core::StringifyOptions;
 use crate::encoding::{encode_key_into, encode_value_into};
 use crate::error::{SerdeStringifyError, SerdeStringifyResult, StringifyError, StringifyResult};
-use crate::options::StringifyOptions;
 use crate::value::{QueryMap, Value};
 use serde::Serialize;
 use smallvec::SmallVec;

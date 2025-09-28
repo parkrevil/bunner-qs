@@ -1,4 +1,4 @@
-use crate::arena::{ArenaQueryMap, ArenaValue};
+use crate::parse_impl::arena::{ArenaQueryMap, ArenaValue};
 use crate::serde_impl::{
     DeserializeError, SerializeError, deserialize_from_arena_map, deserialize_from_query_map,
     serialize_to_query_map,

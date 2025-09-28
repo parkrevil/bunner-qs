@@ -1,9 +1,27 @@
-use derive_builder::Builder;
 use std::sync::atomic::{AtomicBool, Ordering};
 
-pub(crate) use crate::core::options::*;
+/// 전역 serde fast-path 사용 여부를 설정합니다.
+pub fn set_global_serde_fastpath(enabled: bool) {
+    SERDE_FASTPATH.store(enabled, Ordering::Relaxed);
+}
 
-#[derive(Debug, Clone, Default, Builder)]
+/// 전역 파싱 진단 상세도를 설정합니다.
+pub fn set_global_parse_diagnostics(enabled: bool) {
+    PARSE_DIAGNOSTICS.store(enabled, Ordering::Relaxed);
+}
+
+static SERDE_FASTPATH: AtomicBool = AtomicBool::new(false);
+static PARSE_DIAGNOSTICS: AtomicBool = AtomicBool::new(true);
+
+pub(crate) fn global_serde_fastpath() -> bool {
+    SERDE_FASTPATH.load(Ordering::Relaxed)
+}
+
+pub(crate) fn global_parse_diagnostics() -> bool {
+    PARSE_DIAGNOSTICS.load(Ordering::Relaxed)
+}
+
+#[derive(Debug, Clone, Default, derive_builder::Builder)]
 #[builder(pattern = "owned", default, build_fn(validate = "Self::validate"))]
 pub struct ParseOptions {
     pub space_as_plus: bool,
@@ -36,7 +54,7 @@ impl ParseOptionsBuilder {
     }
 }
 
-#[derive(Debug, Clone, Default, Builder)]
+#[derive(Debug, Clone, Default, derive_builder::Builder)]
 #[builder(pattern = "owned", default)]
 pub struct StringifyOptions {
     pub space_as_plus: bool,
@@ -47,26 +65,3 @@ impl StringifyOptions {
         StringifyOptionsBuilder::default()
     }
 }
-
-static SERDE_FASTPATH: AtomicBool = AtomicBool::new(false);
-static PARSE_DIAGNOSTICS: AtomicBool = AtomicBool::new(true);
-
-#[allow(dead_code)]
-pub fn set_global_serde_fastpath(enabled: bool) {
-    SERDE_FASTPATH.store(enabled, Ordering::Relaxed);
-}
-
-pub(crate) fn global_serde_fastpath() -> bool {
-    SERDE_FASTPATH.load(Ordering::Relaxed)
-}
-
-#[allow(dead_code)]
-pub fn set_global_parse_diagnostics(enabled: bool) {
-    PARSE_DIAGNOSTICS.store(enabled, Ordering::Relaxed);
-}
-
-pub(crate) fn global_parse_diagnostics() -> bool {
-    PARSE_DIAGNOSTICS.load(Ordering::Relaxed)
-}
-
-//! Legacy options wrapper removed in new module layout.

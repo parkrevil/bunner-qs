@@ -1,12 +1,15 @@
-use crate::arena::{ArenaQueryMap, ArenaValue, ParseArena, ParseArenaGuard, acquire_parse_arena};
-use crate::buffer_pool::acquire_bytes;
+#[path = "parse/arena.rs"]
+pub(crate) mod arena;
+
+use self::arena::{ArenaQueryMap, ArenaValue, ParseArena, ParseArenaGuard, acquire_parse_arena};
+use crate::core::{
+    ParseOptions, QueryMap, acquire_bytes, global_parse_diagnostics, global_serde_fastpath,
+};
+use crate::error::{ParseError, ParseResult};
 use crate::nested::{
     PatternState, acquire_pattern_state, insert_nested_value_arena, parse_key_path,
 };
-use crate::options::{ParseOptions, global_parse_diagnostics, global_serde_fastpath};
 use crate::serde_bridge::{arena_map_to_json_value, from_arena_query_map};
-use crate::value::QueryMap;
-use crate::{ParseError, ParseResult};
 use ahash::AHashSet;
 use memchr::{memchr, memchr_iter, memchr2};
 use serde::de::DeserializeOwned;
