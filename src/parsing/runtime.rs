@@ -1,4 +1,4 @@
-use crate::config::{ParseOptions, global_parse_diagnostics, global_serde_fastpath};
+use crate::config::ParseOptions;
 
 #[derive(Clone, Copy)]
 pub(crate) struct ParseRuntime {
@@ -6,8 +6,6 @@ pub(crate) struct ParseRuntime {
     pub(crate) max_params: Option<usize>,
     pub(crate) max_length: Option<usize>,
     pub(crate) max_depth: Option<usize>,
-    pub(crate) diagnostics: bool,
-    pub(crate) serde_fastpath: bool,
 }
 
 impl ParseRuntime {
@@ -17,8 +15,6 @@ impl ParseRuntime {
             max_params: options.max_params,
             max_length: options.max_length,
             max_depth: options.max_depth,
-            diagnostics: global_parse_diagnostics(),
-            serde_fastpath: global_serde_fastpath(),
         }
     }
 }

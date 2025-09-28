@@ -10,7 +10,6 @@ mod stringify;
 
 pub use config::{
     ParseOptions, ParseOptionsBuilder, StringifyOptions, StringifyOptionsBuilder,
-    set_global_parse_diagnostics, set_global_serde_fastpath,
 };
 pub use parsing::{ParseError, ParseResult, parse, parse_with};
 pub use serde_adapter::{SerdeQueryError, from_query_map, to_query_map};

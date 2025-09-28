@@ -57,7 +57,6 @@ pub(crate) fn insert_nested_value_arena<'arena>(
     segments: &[&str],
     value: &'arena str,
     state: &mut PatternState,
-    diagnostics: bool,
 ) -> ParseResult<()> {
     if segments.is_empty() {
         return Ok(());
@@ -80,15 +79,7 @@ pub(crate) fn insert_nested_value_arena<'arena>(
     }
 
     let resolved_segments = resolve_segments(state, segments)?;
-    arena_build_nested_path(
-        arena,
-        map,
-        &resolved_segments,
-        value,
-        state,
-        root_key,
-        diagnostics,
-    )
+    arena_build_nested_path(arena, map, &resolved_segments, value, state, root_key)
 }
 
 fn arena_build_nested_path<'arena>(
@@ -98,7 +89,6 @@ fn arena_build_nested_path<'arena>(
     final_value: &'arena str,
     state: &PatternState,
     root_key: &str,
-    diagnostics: bool,
 ) -> ParseResult<()> {
     let root_segment = segments[0].as_str();
     let root_path = [root_segment];
@@ -123,7 +113,6 @@ fn arena_build_nested_path<'arena>(
         arena,
         state,
         root_key,
-        diagnostics,
     };
     arena_set_nested_value(&ctx, root_value, segments, 1, final_value)
 }
@@ -132,7 +121,6 @@ struct ArenaSetContext<'arena, 'pattern> {
     arena: &'arena ParseArena,
     state: &'pattern PatternState,
     root_key: &'pattern str,
-    diagnostics: bool,
 }
 
 fn arena_initial_container<'arena>(
@@ -216,11 +204,7 @@ fn arena_set_nested_value<'arena>(
                     match index.raw_entry_mut().from_key(segment) {
                         RawEntryMut::Occupied(_) => {
                             return Err(ParseError::DuplicateKey {
-                                key: if ctx.diagnostics {
-                                    segment.to_string()
-                                } else {
-                                    ctx.root_key.to_string()
-                                },
+                                key: segment.to_string(),
                             });
                         }
                         RawEntryMut::Vacant(vacant) => {
@@ -289,11 +273,7 @@ fn arena_set_nested_value<'arena>(
                         return Ok(());
                     } else if !arena_is_placeholder(&items[idx]) {
                         return Err(ParseError::DuplicateKey {
-                            key: if ctx.diagnostics {
-                                segment.to_string()
-                            } else {
-                                ctx.root_key.to_string()
-                            },
+                            key: segment.to_string(),
                         });
                     } else {
                         items[idx] = ArenaValue::string(value_to_set.take().unwrap());

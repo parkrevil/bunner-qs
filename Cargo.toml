@@ -13,7 +13,6 @@ serde_json = "1.0"
 percent-encoding = "2.3.2"
 ahash = "0.8"
 hashbrown = { version = "0.14", features = ["raw"] }
-serde_urlencoded = "0.7"
 memchr = "2.7"
 bumpalo = { version = "3.15", features = ["collections"] }
 pprof = { version = "0.13", features = ["flamegraph"] }
@@ -23,6 +22,7 @@ smallvec = "1.13"
 proptest = "1.4"
 criterion = { version = "0.5", features = ["html_reports"] }
 serde_qs = "0.12"
+serde_urlencoded = "0.7"
 
 [dev-dependencies.cargo-husky]
 version = "1"

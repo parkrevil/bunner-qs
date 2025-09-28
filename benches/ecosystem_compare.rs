@@ -1,11 +1,10 @@
 mod scenarios;
 
-use bunner_qs::{parse_with, set_global_serde_fastpath, stringify_with};
+use bunner_qs::{parse_with, stringify_with};
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
 use serde::Deserialize;
 use serde_json::{Map, Value};
 use std::collections::BTreeMap;
-use std::sync::Once;
 
 use scenarios::{Scenario, scenario_extreme, scenario_high, scenario_medium, scenario_simple};
 
@@ -88,8 +87,6 @@ fn serde_qs_config(max_depth: usize) -> serde_qs::Config {
 }
 
 fn register_parse_benches(c: &mut Criterion, label: &str, scenario: Scenario) {
-    enable_fast_path();
-
     let Scenario {
         payload,
         query,
@@ -154,8 +151,6 @@ fn register_parse_benches(c: &mut Criterion, label: &str, scenario: Scenario) {
 }
 
 fn register_stringify_benches(c: &mut Criterion, label: &str, scenario: Scenario) {
-    enable_fast_path();
-
     let Scenario {
         payload,
         query,
@@ -226,10 +221,3 @@ fn register_stringify_benches(c: &mut Criterion, label: &str, scenario: Scenario
 
 criterion_group!(ecosystem, bench_parse_compare, bench_stringify_compare);
 criterion_main!(ecosystem);
-
-fn enable_fast_path() {
-    static ONCE: Once = Once::new();
-    ONCE.call_once(|| {
-        set_global_serde_fastpath(true);
-    });
-}

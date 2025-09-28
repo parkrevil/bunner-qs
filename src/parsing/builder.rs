@@ -61,7 +61,7 @@ where
                 key_start,
                 decode_scratch.as_mut(),
             )?;
-            validate_brackets(key.as_ref(), runtime.max_depth, runtime.diagnostics)?;
+            validate_brackets(key.as_ref(), runtime.max_depth)?;
 
             let value_offset = eq_index
                 .map(|idx| offset + idx + 1)
@@ -93,7 +93,7 @@ fn insert_pair_arena<'arena>(
     arena: &'arena ParseArena,
     map: &mut ArenaQueryMap<'arena>,
     pattern_state: &mut PatternState,
-    runtime: &ParseRuntime,
+    _runtime: &ParseRuntime,
     key: Cow<'_, str>,
     value: Cow<'_, str>,
 ) -> ParseResult<()> {
@@ -102,7 +102,7 @@ fn insert_pair_arena<'arena>(
         let value_ref = arena.alloc_str(value.as_ref());
         map.try_insert_str(arena, key_str, ArenaValue::string(value_ref))
             .map_err(|_| ParseError::DuplicateKey {
-                key: duplicate_key_label(runtime, key_str),
+                key: duplicate_key_label(key_str),
             })?;
         return Ok(());
     }
@@ -115,6 +115,5 @@ fn insert_pair_arena<'arena>(
         &key_segments,
         value_ref,
         pattern_state,
-        runtime.diagnostics,
     )
 }
