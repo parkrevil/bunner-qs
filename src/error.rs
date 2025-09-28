@@ -1,4 +1,4 @@
-use crate::serde_bridge::SerdeQueryError;
+use crate::serde_adapter::SerdeQueryError;
 use thiserror::Error;
 
 #[derive(Debug, Error)]

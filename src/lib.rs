@@ -7,7 +7,6 @@ mod model;
 mod nested;
 mod parsing;
 mod serde_adapter;
-pub mod serde_bridge;
 mod stringify;
 
 pub use config::{
