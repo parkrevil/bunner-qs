@@ -1,11 +1,7 @@
 use crate::parsing::ParseError;
 use memchr::memchr_iter;
 
-
-pub(crate) fn validate_brackets(
-    key: &str,
-    max_depth: Option<usize>,
-) -> Result<(), ParseError> {
+pub(crate) fn validate_brackets(key: &str, max_depth: Option<usize>) -> Result<(), ParseError> {
     let mut open = 0usize;
     let mut total_pairs = 0usize;
 

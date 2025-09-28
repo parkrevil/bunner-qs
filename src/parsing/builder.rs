@@ -109,11 +109,5 @@ fn insert_pair_arena<'arena>(
 
     let key_segments = parse_key_path(key.as_ref());
     let value_ref = arena.alloc_str(value.as_ref());
-    insert_nested_value_arena(
-        arena,
-        map,
-        &key_segments,
-        value_ref,
-        pattern_state,
-    )
+    insert_nested_value_arena(arena, map, &key_segments, value_ref, pattern_state)
 }
