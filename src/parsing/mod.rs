@@ -17,7 +17,6 @@ use serde::de::DeserializeOwned;
 use serde_json::Value as JsonValue;
 
 use crate::config::ParseOptions;
-use crate::model::QueryMap;
 use crate::serde_adapter::{arena_map_to_json_value, from_arena_query_map};
 
 use builder::with_arena_query_map;
@@ -59,19 +58,5 @@ where
             }
             from_arena_query_map::<T>(arena_map).map_err(ParseError::from)
         }
-    })
-}
-
-#[allow(dead_code)]
-pub(crate) fn parse_query_map(input: &str, options: &ParseOptions) -> ParseResult<QueryMap> {
-    let runtime = ParseRuntime::new(options);
-    let (trimmed, offset) = preflight(input, &runtime)?;
-
-    if trimmed.is_empty() {
-        return Ok(QueryMap::new());
-    }
-
-    with_arena_query_map(trimmed, offset, &runtime, |_, arena_map| {
-        Ok(arena_map.to_owned())
     })
 }

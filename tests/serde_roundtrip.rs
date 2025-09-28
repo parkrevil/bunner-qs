@@ -615,7 +615,6 @@ fn parse_reports_custom_adapter_error() {
         }
     }
 
-    #[allow(dead_code)]
     #[derive(Debug, Deserialize, Default)]
     struct CustomAdapter {
         #[serde(deserialize_with = "uppercase_only")]
@@ -658,13 +657,11 @@ fn parse_allows_custom_adapter_transformation() -> Result<(), Box<dyn Error>> {
 
 #[test]
 fn parse_reports_flatten_structure_mismatch() {
-    #[allow(dead_code)]
     #[derive(Debug, Deserialize, Default)]
     struct FlattenInner {
         suffix: String,
     }
 
-    #[allow(dead_code)]
     #[derive(Debug, Deserialize, Default)]
     struct FlattenWrapper {
         prefix: String,

@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use ahash::RandomState;
 use bumpalo::Bump;
 use bumpalo::collections::Vec as BumpVec;
@@ -8,8 +6,6 @@ use hashbrown::hash_map::RawEntryMut;
 use std::cell::RefCell;
 use std::ops::{Deref, DerefMut};
 use std::sync::OnceLock;
-
-use crate::model::{QueryMap, Value};
 
 pub(crate) struct ParseArena {
     bump: Bump,
@@ -38,11 +34,6 @@ impl ParseArena {
     #[inline]
     pub(crate) fn alloc_str<'arena>(&'arena self, value: &str) -> &'arena str {
         self.bump.alloc_str(value)
-    }
-
-    #[inline]
-    pub(crate) fn alloc_slice_copy<'arena, T: Copy>(&'arena self, slice: &[T]) -> &'arena [T] {
-        self.bump.alloc_slice_copy(slice)
     }
 
     #[inline]
@@ -155,13 +146,6 @@ pub(crate) struct ArenaQueryMap<'arena> {
 }
 
 impl<'arena> ArenaQueryMap<'arena> {
-    pub(crate) fn new(arena: &'arena ParseArena) -> Self {
-        Self {
-            entries: ArenaVec::new_in(arena.bump()),
-            index: fast_map(),
-        }
-    }
-
     pub(crate) fn with_capacity(arena: &'arena ParseArena, capacity: usize) -> Self {
         let mut entries = ArenaVec::new_in(arena.bump());
         if capacity > 0 {
@@ -209,22 +193,8 @@ impl<'arena> ArenaQueryMap<'arena> {
         }
     }
 
-    pub(crate) fn push_allocated(&mut self, key: &'arena str, value: ArenaValue<'arena>) {
-        let idx = self.entries.len();
-        self.entries.push((key, value));
-        self.index.insert(key, idx);
-    }
-
     pub(crate) fn len(&self) -> usize {
         self.entries.len()
-    }
-
-    pub(crate) fn to_owned(&self) -> QueryMap {
-        let mut map = QueryMap::with_capacity(self.entries.len());
-        for (key, value) in self.entries.iter() {
-            map.insert((*key).to_string(), value.to_owned());
-        }
-        map
     }
 
     pub(crate) fn entries_slice(&self) -> &[(&'arena str, ArenaValue<'arena>)] {
@@ -244,10 +214,6 @@ pub(crate) enum ArenaValue<'arena> {
 impl<'arena> ArenaValue<'arena> {
     pub(crate) fn string(value: &'arena str) -> Self {
         ArenaValue::String(value)
-    }
-
-    pub(crate) fn seq(values: ArenaVec<'arena, ArenaValue<'arena>>) -> Self {
-        ArenaValue::Seq(values)
     }
 
     pub(crate) fn map(arena: &'arena ParseArena) -> Self {
@@ -275,23 +241,6 @@ impl<'arena> ArenaValue<'arena> {
             values.reserve(capacity);
         }
         ArenaValue::Seq(values)
-    }
-
-    pub(crate) fn to_owned(&self) -> Value {
-        match self {
-            ArenaValue::String(s) => Value::String((*s).to_string()),
-            ArenaValue::Seq(items) => {
-                let owned = items.iter().map(|item| item.to_owned()).collect();
-                Value::Array(owned)
-            }
-            ArenaValue::Map { entries, .. } => {
-                let mut map = QueryMap::with_capacity(entries.len());
-                for (key, value) in entries.iter() {
-                    map.insert((*key).to_string(), value.to_owned());
-                }
-                Value::Object(map.into())
-            }
-        }
     }
 
     pub(crate) fn as_seq_slice(&self) -> Option<&[ArenaValue<'arena>]> {

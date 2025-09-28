@@ -130,35 +130,42 @@ impl ser::Serializer for ValueSerializer {
         Ok(Some(Value::String(String::new())))
     }
 
-    fn serialize_unit_struct(self, _name: &'static str) -> Result<Self::Ok, Self::Error> {
+    fn serialize_unit_struct(self, name: &'static str) -> Result<Self::Ok, Self::Error> {
+        debug_assert!(!name.is_empty(), "unit struct should have a name");
         Ok(Some(Value::String(String::new())))
     }
 
     fn serialize_unit_variant(
         self,
-        _name: &'static str,
-        _variant_index: u32,
+        name: &'static str,
+        variant_index: u32,
         variant: &'static str,
     ) -> Result<Self::Ok, Self::Error> {
+        debug_assert!(!name.is_empty(), "enum should have a name");
+        debug_assert!(variant_index < u32::MAX, "variant index should be finite");
         Ok(Some(Value::String(variant.to_string())))
     }
 
     fn serialize_newtype_struct<T: ?Sized + Serialize>(
         self,
-        _name: &'static str,
+        name: &'static str,
         value: &T,
     ) -> Result<Self::Ok, Self::Error> {
+        debug_assert!(!name.is_empty(), "newtype struct should have a name");
         value.serialize(ValueSerializer)
     }
 
     fn serialize_newtype_variant<T: ?Sized + Serialize>(
         self,
-        _name: &'static str,
-        _variant_index: u32,
-        _variant: &'static str,
-        _value: &T,
+        name: &'static str,
+        variant_index: u32,
+        variant: &'static str,
+        value: &T,
     ) -> Result<Self::Ok, Self::Error> {
-        Err(SerializeError::Unsupported("enum newtype variant"))
+        let _ = value;
+        Err(SerializeError::Message(format!(
+            "enum `{name}` newtype variant `{variant}` (index {variant_index}) cannot be serialized into query strings"
+        )))
     }
 
     fn serialize_seq(self, len: Option<usize>) -> Result<Self::SerializeSeq, Self::Error> {
@@ -173,20 +180,24 @@ impl ser::Serializer for ValueSerializer {
 
     fn serialize_tuple_struct(
         self,
-        _name: &'static str,
+        name: &'static str,
         len: usize,
     ) -> Result<Self::SerializeTupleStruct, Self::Error> {
+        debug_assert!(!name.is_empty(), "tuple struct should have a name");
+        debug_assert!(len < usize::MAX, "tuple struct length must be finite");
         self.serialize_seq(Some(len))
     }
 
     fn serialize_tuple_variant(
         self,
-        _name: &'static str,
-        _variant_index: u32,
-        _variant: &'static str,
-        _len: usize,
+        name: &'static str,
+        variant_index: u32,
+        variant: &'static str,
+        len: usize,
     ) -> Result<Self::SerializeTupleVariant, Self::Error> {
-        Err(SerializeError::Unsupported("tuple variant"))
+        Err(SerializeError::Message(format!(
+            "enum `{name}` tuple variant `{variant}` (index {variant_index}) with length {len} cannot be serialized into query strings"
+        )))
     }
 
     fn serialize_map(self, len: Option<usize>) -> Result<Self::SerializeMap, Self::Error> {
@@ -204,9 +215,11 @@ impl ser::Serializer for ValueSerializer {
 
     fn serialize_struct(
         self,
-        _name: &'static str,
+        name: &'static str,
         len: usize,
     ) -> Result<Self::SerializeStruct, Self::Error> {
+        debug_assert!(!name.is_empty(), "struct should have a name");
+        debug_assert!(len < usize::MAX, "struct field length must be finite");
         let entries = if len == 0 {
             new_map()
         } else {
@@ -217,12 +230,14 @@ impl ser::Serializer for ValueSerializer {
 
     fn serialize_struct_variant(
         self,
-        _name: &'static str,
-        _variant_index: u32,
-        _variant: &'static str,
-        _len: usize,
+        name: &'static str,
+        variant_index: u32,
+        variant: &'static str,
+        len: usize,
     ) -> Result<Self::SerializeStructVariant, Self::Error> {
-        Err(SerializeError::Unsupported("struct variant"))
+        Err(SerializeError::Message(format!(
+            "enum `{name}` struct variant `{variant}` (index {variant_index}) with {len} fields cannot be serialized into query strings"
+        )))
     }
 }
 
@@ -276,12 +291,18 @@ impl serde::ser::SerializeTupleVariant for ValueSeqSerializer {
     type Ok = Option<Value>;
     type Error = SerializeError;
 
-    fn serialize_field<T: ?Sized + Serialize>(&mut self, _value: &T) -> Result<(), Self::Error> {
-        Err(SerializeError::Unsupported("tuple variant"))
+    fn serialize_field<T: ?Sized + Serialize>(&mut self, value: &T) -> Result<(), Self::Error> {
+        let type_name = std::any::type_name::<T>();
+        let _ = value;
+        Err(SerializeError::Message(format!(
+            "tuple variants are unsupported; attempted to serialize element of type `{type_name}`"
+        )))
     }
 
     fn end(self) -> Result<Self::Ok, Self::Error> {
-        Err(SerializeError::Unsupported("tuple variant"))
+        Err(SerializeError::Message(
+            "tuple variants are unsupported in query string serialization".into(),
+        ))
     }
 }
 
@@ -420,24 +441,29 @@ impl ser::Serializer for MapKeySerializer {
         Err(SerializeError::InvalidKey("unit".into()))
     }
 
-    fn serialize_unit_struct(self, _name: &'static str) -> Result<Self::Ok, Self::Error> {
-        Err(SerializeError::InvalidKey("unit struct".into()))
+    fn serialize_unit_struct(self, name: &'static str) -> Result<Self::Ok, Self::Error> {
+        Err(SerializeError::InvalidKey(format!(
+            "unit struct `{name}` cannot be used as a map key"
+        )))
     }
 
     fn serialize_unit_variant(
         self,
-        _name: &'static str,
-        _variant_index: u32,
+        name: &'static str,
+        variant_index: u32,
         variant: &'static str,
     ) -> Result<Self::Ok, Self::Error> {
+        debug_assert!(!name.is_empty(), "enum should have a name");
+        debug_assert!(variant_index < u32::MAX, "variant index must be finite");
         Ok(variant.to_string())
     }
 
     fn serialize_newtype_struct<T: ?Sized + Serialize>(
         self,
-        _name: &'static str,
+        name: &'static str,
         value: &T,
     ) -> Result<Self::Ok, Self::Error> {
+        debug_assert!(!name.is_empty(), "newtype struct should have a name");
         value.serialize(self)
     }
 
@@ -451,59 +477,78 @@ impl ser::Serializer for MapKeySerializer {
 
     fn serialize_newtype_variant<T: ?Sized + Serialize>(
         self,
-        _name: &'static str,
-        _variant_index: u32,
-        _variant: &'static str,
-        _value: &T,
+        name: &'static str,
+        variant_index: u32,
+        variant: &'static str,
+        value: &T,
     ) -> Result<Self::Ok, Self::Error> {
-        Err(SerializeError::InvalidKey("enum variant".into()))
+        let _ = value;
+        Err(SerializeError::InvalidKey(format!(
+            "enum `{name}` variant `{variant}` (index {variant_index}) cannot be used as a map key"
+        )))
     }
 
-    fn serialize_seq(self, _len: Option<usize>) -> Result<Self::SerializeSeq, Self::Error> {
-        Err(SerializeError::InvalidKey("seq".into()))
+    fn serialize_seq(self, len: Option<usize>) -> Result<Self::SerializeSeq, Self::Error> {
+        Err(SerializeError::InvalidKey(format!(
+            "sequence (length {:?}) cannot be used as a map key",
+            len
+        )))
     }
 
-    fn serialize_tuple(self, _len: usize) -> Result<Self::SerializeTuple, Self::Error> {
-        Err(SerializeError::InvalidKey("tuple".into()))
+    fn serialize_tuple(self, len: usize) -> Result<Self::SerializeTuple, Self::Error> {
+        Err(SerializeError::InvalidKey(format!(
+            "tuple of length {len} cannot be used as a map key"
+        )))
     }
 
     fn serialize_tuple_struct(
         self,
-        _name: &'static str,
-        _len: usize,
+        name: &'static str,
+        len: usize,
     ) -> Result<Self::SerializeTupleStruct, Self::Error> {
-        Err(SerializeError::InvalidKey("tuple struct".into()))
+        Err(SerializeError::InvalidKey(format!(
+            "tuple struct `{name}` of length {len} cannot be used as a map key"
+        )))
     }
 
     fn serialize_tuple_variant(
         self,
-        _name: &'static str,
-        _variant_index: u32,
-        _variant: &'static str,
-        _len: usize,
+        name: &'static str,
+        variant_index: u32,
+        variant: &'static str,
+        len: usize,
     ) -> Result<Self::SerializeTupleVariant, Self::Error> {
-        Err(SerializeError::InvalidKey("tuple variant".into()))
+        Err(SerializeError::InvalidKey(format!(
+            "enum `{name}` tuple variant `{variant}` (index {variant_index}) with length {len} cannot be used as a map key"
+        )))
     }
 
-    fn serialize_map(self, _len: Option<usize>) -> Result<Self::SerializeMap, Self::Error> {
-        Err(SerializeError::InvalidKey("map".into()))
+    fn serialize_map(self, len: Option<usize>) -> Result<Self::SerializeMap, Self::Error> {
+        Err(SerializeError::InvalidKey(format!(
+            "map (length {:?}) cannot be used as a map key",
+            len
+        )))
     }
 
     fn serialize_struct(
         self,
-        _name: &'static str,
-        _len: usize,
+        name: &'static str,
+        len: usize,
     ) -> Result<Self::SerializeStruct, Self::Error> {
-        Err(SerializeError::InvalidKey("struct".into()))
+        Err(SerializeError::InvalidKey(format!(
+            "struct `{name}` with {len} fields cannot be used as a map key"
+        )))
     }
 
     fn serialize_struct_variant(
         self,
-        _name: &'static str,
-        _variant_index: u32,
-        _variant: &'static str,
-        _len: usize,
+        name: &'static str,
+        variant_index: u32,
+        variant: &'static str,
+        len: usize,
     ) -> Result<Self::SerializeStructVariant, Self::Error> {
-        Err(SerializeError::InvalidKey("struct variant".into()))
+        Err(SerializeError::InvalidKey(format!(
+            "enum `{name}` struct variant `{variant}` (index {variant_index}) with {len} fields cannot be used as a map key"
+        )))
     }
 }

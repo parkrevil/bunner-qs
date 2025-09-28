@@ -73,14 +73,7 @@ where
                 decode_scratch.as_mut(),
             )?;
 
-            insert_pair_arena(
-                arena,
-                &mut arena_map,
-                &mut pattern_state,
-                runtime,
-                key,
-                value,
-            )?;
+            insert_pair_arena(arena, &mut arena_map, &mut pattern_state, key, value)?;
         }
 
         cursor = segment_end.saturating_add(1);
@@ -93,7 +86,6 @@ fn insert_pair_arena<'arena>(
     arena: &'arena ParseArena,
     map: &mut ArenaQueryMap<'arena>,
     pattern_state: &mut PatternState,
-    _runtime: &ParseRuntime,
     key: Cow<'_, str>,
     value: Cow<'_, str>,
 ) -> ParseResult<()> {

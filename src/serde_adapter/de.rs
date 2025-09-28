@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use crate::model::{OrderedMap, Value};
 use serde::de::{
     self, DeserializeOwned, DeserializeSeed, IntoDeserializer, MapAccess, SeqAccess, Visitor,
@@ -320,12 +318,13 @@ impl<'de> de::Deserializer<'de> for ValueDeserializer<'de> {
 
     fn deserialize_newtype_struct<V>(
         self,
-        _name: &'static str,
+        name: &'static str,
         visitor: V,
     ) -> Result<V::Value, Self::Error>
     where
         V: Visitor<'de>,
     {
+        debug_assert!(!name.is_empty(), "newtype struct should have a name");
         visitor.visit_newtype_struct(self)
     }
 
@@ -342,23 +341,51 @@ impl<'de> de::Deserializer<'de> for ValueDeserializer<'de> {
         }
     }
 
-    fn deserialize_tuple<V>(self, _len: usize, visitor: V) -> Result<V::Value, Self::Error>
+    fn deserialize_tuple<V>(self, len: usize, visitor: V) -> Result<V::Value, Self::Error>
     where
         V: Visitor<'de>,
     {
-        self.deserialize_seq(visitor)
+        match self.value {
+            ValueRef::Array(items) => {
+                if items.len() != len {
+                    return Err(DeserializeError::Message(format!(
+                        "expected tuple of length {len}, found {}",
+                        items.len()
+                    )));
+                }
+                visitor.visit_seq(SequenceAccess { iter: items.iter() })
+            }
+            _ => Err(DeserializeError::UnexpectedType {
+                expected: "tuple",
+                found: self.unexpected(),
+            }),
+        }
     }
 
     fn deserialize_tuple_struct<V>(
         self,
-        _name: &'static str,
-        _len: usize,
+        name: &'static str,
+        len: usize,
         visitor: V,
     ) -> Result<V::Value, Self::Error>
     where
         V: Visitor<'de>,
     {
-        self.deserialize_seq(visitor)
+        match self.value {
+            ValueRef::Array(items) => {
+                if items.len() != len {
+                    return Err(DeserializeError::Message(format!(
+                        "expected tuple struct `{name}` with {len} elements, found {}",
+                        items.len()
+                    )));
+                }
+                visitor.visit_seq(SequenceAccess { iter: items.iter() })
+            }
+            _ => Err(DeserializeError::UnexpectedType {
+                expected: name,
+                found: self.unexpected(),
+            }),
+        }
     }
 
     fn deserialize_map<V>(self, visitor: V) -> Result<V::Value, Self::Error>
@@ -402,17 +429,18 @@ impl<'de> de::Deserializer<'de> for ValueDeserializer<'de> {
 
     fn deserialize_enum<V>(
         self,
-        _name: &'static str,
-        _variants: &'static [&'static str],
-        _visitor: V,
+        name: &'static str,
+        variants: &'static [&'static str],
+        visitor: V,
     ) -> Result<V::Value, Self::Error>
     where
         V: Visitor<'de>,
     {
-        Err(DeserializeError::UnexpectedType {
-            expected: "enum",
-            found: self.unexpected(),
-        })
+        drop(visitor);
+        Err(DeserializeError::Message(format!(
+            "enum `{name}` with variants [{}] cannot be deserialized from query strings",
+            format_expected(variants)
+        )))
     }
 
     fn deserialize_identifier<V>(self, visitor: V) -> Result<V::Value, Self::Error>
