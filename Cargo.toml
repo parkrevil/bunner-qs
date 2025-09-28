@@ -15,7 +15,6 @@ ahash = "0.8"
 hashbrown = { version = "0.14", features = ["raw"] }
 memchr = "2.7"
 bumpalo = { version = "3.15", features = ["collections"] }
-pprof = { version = "0.13", features = ["flamegraph"] }
 smallvec = "1.13"
 
 [dev-dependencies]
