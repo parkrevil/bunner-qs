@@ -12,6 +12,9 @@ pub(crate) struct ParseArena {
     capacity_hint: usize,
 }
 
+const ARENA_SHRINK_THRESHOLD: usize = 256 * 1024; // 256 KiB
+const ARENA_SHRINK_RATIO: usize = 4;
+
 impl ParseArena {
     pub(crate) fn new() -> Self {
         Self {
@@ -55,7 +58,18 @@ impl ParseArena {
     pub(crate) fn prepare(&mut self, min_capacity: usize) {
         if min_capacity == 0 {
             self.reset();
-        } else if min_capacity > self.capacity_hint {
+            return;
+        }
+
+        if self.capacity_hint > ARENA_SHRINK_THRESHOLD
+            && min_capacity > 0
+            && min_capacity < self.capacity_hint / ARENA_SHRINK_RATIO
+        {
+            *self = ParseArena::with_capacity(min_capacity);
+            return;
+        }
+
+        if min_capacity > self.capacity_hint {
             *self = ParseArena::with_capacity(min_capacity);
         } else {
             self.reset();

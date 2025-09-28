@@ -6,7 +6,7 @@ use std::cell::RefCell;
 use super::segment::{ContainerType, ResolvedSegment, SegmentKey, SegmentKind};
 
 thread_local! {
-    static PATTERN_STATE_POOL: RefCell<PatternState> = RefCell::new(PatternState::default());
+    static PATTERN_STATE_POOL: RefCell<Vec<PatternState>> = const { RefCell::new(Vec::new()) };
 }
 
 pub(crate) struct PatternStateGuard {
@@ -38,21 +38,16 @@ impl Drop for PatternStateGuard {
     fn drop(&mut self) {
         if let Some(state) = self.state.take() {
             PATTERN_STATE_POOL.with(|cell| {
-                if let Ok(mut slot) = cell.try_borrow_mut() {
-                    *slot = state;
-                }
+                cell.borrow_mut().push(state);
             });
         }
     }
 }
 
 pub(crate) fn acquire_pattern_state() -> PatternStateGuard {
-    PATTERN_STATE_POOL.with(|cell| match cell.try_borrow_mut() {
-        Ok(mut stored) => {
-            let state = std::mem::take(&mut *stored);
-            PatternStateGuard::new(state)
-        }
-        Err(_) => PatternStateGuard::new(PatternState::default()),
+    PATTERN_STATE_POOL.with(|cell| {
+        let state = cell.borrow_mut().pop().unwrap_or_default();
+        PatternStateGuard::new(state)
     })
 }
 

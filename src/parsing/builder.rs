@@ -8,7 +8,7 @@ use crate::nested::{
     pattern_state::{PatternState, acquire_pattern_state},
 };
 use crate::parsing::{ParseError, ParseResult};
-use memchr::{memchr, memchr_iter};
+use memchr::{memchr, memchr2};
 
 use super::arena::{ArenaQueryMap, ArenaValue, ParseArena};
 use super::decoder::decode_component;
@@ -35,7 +35,36 @@ where
     let bytes = trimmed.as_bytes();
     let mut cursor = 0usize;
 
-    for segment_end in memchr_iter(b'&', bytes).chain(std::iter::once(bytes.len())) {
+    while cursor < bytes.len() {
+        let mut search = cursor;
+        let mut segment_end = bytes.len();
+        let mut eq_index: Option<usize> = None;
+
+        while search < bytes.len() {
+            let rel = if eq_index.is_some() {
+                memchr(b'&', &bytes[search..])
+            } else {
+                memchr2(b'=', b'&', &bytes[search..])
+            };
+
+            let Some(rel) = rel else {
+                break;
+            };
+
+            let idx = search + rel;
+            match bytes[idx] {
+                b'=' if eq_index.is_none() => {
+                    eq_index = Some(idx);
+                    search = idx + 1;
+                }
+                b'&' => {
+                    segment_end = idx;
+                    break;
+                }
+                _ => unreachable!(),
+            }
+        }
+
         if segment_end > cursor {
             pairs += 1;
             check_param_limit(options.max_params, pairs)?;
@@ -47,10 +76,10 @@ where
                 options,
                 decode_scratch.as_mut(),
                 trimmed,
-                bytes,
                 offset,
                 cursor,
                 segment_end,
+                eq_index,
             )?;
         }
 
@@ -81,14 +110,11 @@ fn process_segment<'arena>(
     options: &ParseOptions,
     decode_scratch: &mut Vec<u8>,
     trimmed: &str,
-    bytes: &[u8],
     offset: usize,
     cursor: usize,
     segment_end: usize,
+    eq_index: Option<usize>,
 ) -> ParseResult<()> {
-    let eq_relative = memchr(b'=', &bytes[cursor..segment_end]);
-    let eq_index = eq_relative.map(|rel| cursor + rel);
-
     let raw_key_end = eq_index.unwrap_or(segment_end);
     let raw_key = &trimmed[cursor..raw_key_end];
     let raw_value = eq_index
@@ -140,6 +166,15 @@ fn insert_pair_arena<'arena>(
     key: Cow<'_, str>,
     value: Cow<'_, str>,
 ) -> ParseResult<()> {
+    if key.is_empty() {
+        let value_ref = arena.alloc_str(value.as_ref());
+        map.try_insert_str(arena, "", ArenaValue::string(value_ref))
+            .map_err(|_| ParseError::DuplicateKey {
+                key: duplicate_key_label(""),
+            })?;
+        return Ok(());
+    }
+
     if !key.is_empty() && !key.contains('[') {
         let key_str = key.as_ref();
         let value_ref = arena.alloc_str(value.as_ref());

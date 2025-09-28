@@ -170,9 +170,9 @@ fn parses_percent_encoded_equals_inside_bracket_segment() {
 }
 
 #[test]
-fn ignores_pairs_with_empty_keys() {
-    let parsed: Value = parse("=1&foo=bar").expect("empty key pairs should be ignored");
-    assert_eq!(parsed, json_from_pairs(&[("foo", "bar")]));
+fn retains_pairs_with_empty_keys() {
+    let parsed: Value = parse("=1&foo=bar").expect("empty key pairs should be retained");
+    assert_eq!(parsed, json_from_pairs(&[("", "1"), ("foo", "bar")]));
 }
 
 #[test]

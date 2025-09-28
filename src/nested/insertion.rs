@@ -11,6 +11,8 @@ fn arena_is_placeholder(value: &ArenaValue<'_>) -> bool {
     matches!(value, ArenaValue::String(s) if s.is_empty())
 }
 
+const MAX_CHILD_CAPACITY_HINT: usize = 64;
+
 pub(crate) fn insert_nested_value_arena<'arena>(
     arena: &'arena ParseArena,
     map: &mut ArenaQueryMap<'arena>,
@@ -56,7 +58,10 @@ fn arena_build_nested_path<'arena>(
     let container_type = state
         .container_type(&root_path)
         .unwrap_or(ContainerType::Object);
-    let capacity_hint = state.child_capacity(&root_path).saturating_add(1);
+    let capacity_hint = state
+        .child_capacity(&root_path)
+        .saturating_add(1)
+        .min(MAX_CHILD_CAPACITY_HINT);
 
     if let Some(existing) = map.get_mut(root_segment) {
         arena_ensure_container(arena, existing, container_type, root_key)?;
@@ -145,8 +150,9 @@ fn arena_set_nested_value<'arena>(
                     RawEntryMut::Occupied(entry) => *entry.get(),
                     RawEntryMut::Vacant(vacant) => {
                         let key_ref = ctx.arena.alloc_str(segment);
-                        let capacity_hint =
-                            child_capacity_hint(ctx.state, &path, segment).saturating_add(1);
+                        let capacity_hint = child_capacity_hint(ctx.state, &path, segment)
+                            .saturating_add(1)
+                            .min(MAX_CHILD_CAPACITY_HINT);
                         let child = if next_is_numeric {
                             ArenaValue::seq_with_capacity(ctx.arena, capacity_hint)
                         } else {
@@ -205,8 +211,9 @@ fn arena_set_nested_value<'arena>(
                     matches!(next_kind, SegmentKind::Numeric | SegmentKind::Empty);
 
                 if idx == items.len() {
-                    let capacity_hint =
-                        child_capacity_hint(ctx.state, &path, segment).saturating_add(1);
+                    let capacity_hint = child_capacity_hint(ctx.state, &path, segment)
+                        .saturating_add(1)
+                        .min(MAX_CHILD_CAPACITY_HINT);
                     let child = if next_is_numeric {
                         ArenaValue::seq_with_capacity(ctx.arena, capacity_hint)
                     } else {
@@ -236,7 +243,9 @@ fn child_capacity_hint(state: &PatternState, path: &[&str], segment: &str) -> us
     let mut full_path: SmallVec<[&str; 16]> = SmallVec::with_capacity(path.len() + 1);
     full_path.extend_from_slice(path);
     full_path.push(segment);
-    state.child_capacity(&full_path)
+    state
+        .child_capacity(&full_path)
+        .min(MAX_CHILD_CAPACITY_HINT)
 }
 
 pub(crate) fn resolve_segments<'a>(

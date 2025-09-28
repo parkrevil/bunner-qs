@@ -30,11 +30,11 @@ const fn build_component_set() -> AsciiSet {
 
 const COMPONENT_ENCODE_SET: &AsciiSet = &build_component_set();
 
-pub fn encode_key_into(buffer: &mut String, key: &str, space_as_plus: bool) {
+pub(crate) fn encode_key_into(buffer: &mut String, key: &str, space_as_plus: bool) {
     encode_into(key, space_as_plus, buffer);
 }
 
-pub fn encode_value_into(buffer: &mut String, value: &str, space_as_plus: bool) {
+pub(crate) fn encode_value_into(buffer: &mut String, value: &str, space_as_plus: bool) {
     encode_into(value, space_as_plus, buffer);
 }
 

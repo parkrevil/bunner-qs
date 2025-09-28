@@ -5,6 +5,9 @@ thread_local! {
     static BYTE_BUFFER: RefCell<Vec<u8>> = const { RefCell::new(Vec::new()) };
 }
 
+const MAX_STRING_BUFFER_CAPACITY: usize = 1 << 20; // 1 MiB
+const MAX_BYTE_BUFFER_CAPACITY: usize = 1 << 20; // 1 MiB
+
 pub(crate) struct StringGuard {
     buffer: Option<String>,
 }
@@ -19,6 +22,9 @@ impl Drop for StringGuard {
     fn drop(&mut self) {
         if let Some(mut buf) = self.buffer.take() {
             buf.clear();
+            if buf.capacity() > MAX_STRING_BUFFER_CAPACITY {
+                return;
+            }
             STRING_BUFFER.with(|cell| {
                 let mut storage = cell.borrow_mut();
                 *storage = buf;
@@ -41,6 +47,9 @@ impl Drop for ByteGuard {
     fn drop(&mut self) {
         if let Some(mut buf) = self.buffer.take() {
             buf.clear();
+            if buf.capacity() > MAX_BYTE_BUFFER_CAPACITY {
+                return;
+            }
             BYTE_BUFFER.with(|cell| {
                 let mut storage = cell.borrow_mut();
                 *storage = buf;

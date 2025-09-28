@@ -70,30 +70,26 @@ pub(crate) fn decode_component<'a>(
                         index: offset + cursor,
                     });
                 }
+
                 if byte < 0x80 {
                     let start = cursor;
                     cursor += 1;
 
-                    let ascii_rest = &bytes[cursor..];
-                    if !ascii_rest.is_empty() {
-                        let mut advance = ascii_rest.len();
+                    while cursor < bytes.len() {
+                        let next = bytes[cursor];
 
-                        if space_as_plus {
-                            if let Some(pos) = memchr2(b'%', b'+', ascii_rest) {
-                                advance = advance.min(pos);
-                            }
-                        } else if let Some(pos) = memchr(b'%', ascii_rest) {
-                            advance = advance.min(pos);
+                        if next <= 0x1F || next == 0x7F {
+                            return Err(ParseError::InvalidCharacter {
+                                character: next as char,
+                                index: offset + cursor,
+                            });
                         }
 
-                        if let Some(pos) = ascii_rest
-                            .iter()
-                            .position(|&b| b >= 0x80 || b <= 0x1F || b == 0x7F)
-                        {
-                            advance = advance.min(pos);
+                        if next == b'%' || next >= 0x80 || (space_as_plus && next == b'+') {
+                            break;
                         }
 
-                        cursor += advance;
+                        cursor += 1;
                     }
 
                     scratch.extend_from_slice(&bytes[start..cursor]);
