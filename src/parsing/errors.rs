@@ -24,25 +24,3 @@ pub enum ParseError {
     #[error("failed to deserialize parsed query into target type: {0}")]
     Serde(#[from] SerdeQueryError),
 }
-
-pub type ParseResult<T> = Result<T, ParseError>;
-
-#[derive(Debug, Error)]
-pub enum StringifyError {
-    #[error("key contains disallowed control character: '{key}'")]
-    InvalidKey { key: String },
-    #[error("value for key '{key}' contains disallowed control character")]
-    InvalidValue { key: String },
-}
-
-pub type StringifyResult<T> = Result<T, StringifyError>;
-
-#[derive(Debug, Error)]
-pub enum SerdeStringifyError {
-    #[error(transparent)]
-    Serialize(#[from] SerdeQueryError),
-    #[error(transparent)]
-    Stringify(#[from] StringifyError),
-}
-
-pub type SerdeStringifyResult<T> = Result<T, SerdeStringifyError>;

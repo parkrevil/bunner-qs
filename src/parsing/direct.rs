@@ -1,7 +1,7 @@
 use ahash::AHashSet;
 use serde::de::DeserializeOwned;
 
-use crate::error::{ParseError, ParseResult};
+use crate::parsing::{ParseError, ParseResult};
 
 use super::key_path::estimate_param_capacity;
 use super::runtime::ParseRuntime;

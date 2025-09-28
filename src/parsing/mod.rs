@@ -1,12 +1,15 @@
 mod builder;
 mod decoder;
 mod direct;
+mod errors;
 mod key_path;
 mod preflight;
 mod runtime;
 mod state;
 
 pub(crate) mod arena;
+
+pub use self::errors::ParseError;
 
 use std::any::TypeId;
 use std::mem::ManuallyDrop;
@@ -15,7 +18,6 @@ use serde::de::DeserializeOwned;
 use serde_json::Value as JsonValue;
 
 use crate::config::ParseOptions;
-use crate::error::{ParseError, ParseResult};
 use crate::model::QueryMap;
 use crate::serde_adapter::{arena_map_to_json_value, from_arena_query_map};
 
@@ -23,6 +25,8 @@ use builder::with_arena_query_map;
 use direct::try_parse_direct;
 use preflight::preflight;
 use runtime::ParseRuntime;
+
+pub type ParseResult<T> = Result<T, ParseError>;
 
 pub fn parse<T>(input: impl AsRef<str>) -> ParseResult<T>
 where

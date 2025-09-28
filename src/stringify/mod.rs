@@ -3,13 +3,20 @@ mod runtime;
 mod validate;
 mod walker;
 mod writer;
+mod errors;
 
 use crate::config::StringifyOptions;
-use crate::error::{SerdeStringifyError, SerdeStringifyResult};
 use crate::serde_adapter::to_query_map;
+
+pub use self::errors::{SerdeStringifyError, StringifyError};
+
 use serde::Serialize;
 
 pub(crate) use runtime::stringify_query_map_with;
+
+pub type StringifyResult<T> = Result<T, StringifyError>;
+
+pub type SerdeStringifyResult<T> = Result<T, SerdeStringifyError>;
 
 pub fn stringify<T>(data: &T) -> SerdeStringifyResult<String>
 where

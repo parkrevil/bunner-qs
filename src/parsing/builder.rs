@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 
-use crate::error::{ParseError, ParseResult};
+use crate::parsing::{ParseError, ParseResult};
 use crate::memory::acquire_bytes;
 use crate::nested::{
     PatternState, acquire_pattern_state, insert_nested_value_arena, parse_key_path,

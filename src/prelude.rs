@@ -1,5 +1,3 @@
-//! 편의용 prelude 모듈입니다.
-
 pub use crate::{
     ParseError, ParseOptions, ParseOptionsBuilder, ParseResult, SerdeQueryError,
     SerdeStringifyError, SerdeStringifyResult, StringifyError, StringifyOptions,
