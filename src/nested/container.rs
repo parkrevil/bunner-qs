@@ -1,5 +1,5 @@
-use crate::parsing::arena::{ArenaValue, ParseArena};
 use crate::ParseError;
+use crate::parsing::arena::{ArenaValue, ParseArena};
 
 use super::segment::ContainerType;
 

@@ -4,7 +4,7 @@ use crate::memory::acquire_bytes;
 use crate::nested::{
     insertion::insert_nested_value_arena,
     parse_key_path,
-    pattern_state::{acquire_pattern_state, PatternState},
+    pattern_state::{PatternState, acquire_pattern_state},
 };
 use crate::parsing::{ParseError, ParseResult};
 use memchr::{memchr, memchr_iter};

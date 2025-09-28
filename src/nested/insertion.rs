@@ -1,5 +1,5 @@
-use crate::parsing::arena::{ArenaQueryMap, ArenaValue, ParseArena};
 use crate::ParseError;
+use crate::parsing::arena::{ArenaQueryMap, ArenaValue, ParseArena};
 use hashbrown::hash_map::RawEntryMut;
 use smallvec::SmallVec;
 
@@ -253,7 +253,9 @@ pub(crate) fn resolve_segments<'a>(
 
     let mut resolved: SmallVec<[ResolvedSegment<'a>; 16]> = SmallVec::with_capacity(original.len());
 
-    resolved.push(ResolvedSegment::new(std::borrow::Cow::Borrowed(original[0])));
+    resolved.push(ResolvedSegment::new(std::borrow::Cow::Borrowed(
+        original[0],
+    )));
 
     for &segment in &original[1..] {
         let resolved_segment = state.resolve(&resolved, segment, original[0])?;

@@ -2,7 +2,7 @@ use memchr::memchr;
 use smallvec::SmallVec;
 
 /// Parses a key path string into segments, handling bracket notation.
-/// 
+///
 /// For example, "user[0][name]" becomes ["user", "0", "name"].
 pub fn parse_key_path(key: &str) -> SmallVec<[&str; 16]> {
     let mut segments: SmallVec<[&str; 16]> = SmallVec::new();
