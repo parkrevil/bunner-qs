@@ -1,5 +1,5 @@
 use crate::parsing::arena::{ArenaQueryMap, ArenaValue};
-use crate::serde_adapter::errors::DeserializeError;
+use crate::serde_adapter::errors::{DeserializeError, format_expected};
 use serde::de::{
     self, DeserializeOwned, DeserializeSeed, IntoDeserializer, MapAccess, SeqAccess, Visitor,
 };
@@ -325,7 +325,9 @@ impl<'de> de::Deserializer<'de> for ArenaValueDeserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        self.visit_fixed_sequence(len, visitor, "tuple", |actual| format!("expected tuple of length {len}, found {actual}"))
+        self.visit_fixed_sequence(len, visitor, "tuple", |actual| {
+            format!("expected tuple of length {len}, found {actual}")
+        })
     }
 
     fn deserialize_tuple_struct<V>(
@@ -337,7 +339,9 @@ impl<'de> de::Deserializer<'de> for ArenaValueDeserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        self.visit_fixed_sequence(len, visitor, name, |actual| format!("expected tuple struct `{name}` with {len} elements, found {actual}"))
+        self.visit_fixed_sequence(len, visitor, name, |actual| {
+            format!("expected tuple struct `{name}` with {len} elements, found {actual}")
+        })
     }
 
     fn deserialize_map<V>(self, visitor: V) -> Result<V::Value, Self::Error>
@@ -366,12 +370,14 @@ impl<'de> de::Deserializer<'de> for ArenaValueDeserializer<'de> {
         V: Visitor<'de>,
     {
         match self.value {
-            super::value_ref::ArenaValueRef::Map(map) => visitor.visit_map(ArenaStructDeserializer {
-                iter: map.iter(),
-                value: None,
-                allowed: fields,
-                seen: HashSet::with_capacity(map.len()),
-            }),
+            super::value_ref::ArenaValueRef::Map(map) => {
+                visitor.visit_map(ArenaStructDeserializer {
+                    iter: map.iter(),
+                    value: None,
+                    allowed: fields,
+                    seen: HashSet::with_capacity(map.len()),
+                })
+            }
             _ => Err(DeserializeError::ExpectedObject {
                 struct_name: name,
                 found: self.unexpected(),
@@ -391,7 +397,7 @@ impl<'de> de::Deserializer<'de> for ArenaValueDeserializer<'de> {
         drop(visitor);
         Err(DeserializeError::Message(format!(
             "enum `{name}` with variants [{}] cannot be deserialized from query strings",
-            super::format_expected(variants)
+            format_expected(variants)
         )))
     }
 
@@ -486,7 +492,7 @@ impl<'de> MapAccess<'de> for ArenaStructDeserializer<'de> {
             if !self.allowed.contains(&key_str) {
                 return Err(DeserializeError::UnknownField {
                     field: key_str.to_string(),
-                    expected: super::format_expected(self.allowed),
+                    expected: format_expected(self.allowed),
                 });
             }
             if !self.seen.insert(key_str) {

@@ -1,5 +1,5 @@
 use crate::ParseError;
-use crate::parsing::arena::{ArenaQueryMap, ArenaValue, ParseArena, ArenaVec};
+use crate::parsing::arena::{ArenaQueryMap, ArenaValue, ArenaVec, ParseArena};
 use hashbrown::hash_map::RawEntryMut;
 use smallvec::SmallVec;
 
@@ -174,6 +174,7 @@ enum StepOutcome {
     Descend { next_index: usize },
 }
 
+#[allow(clippy::too_many_arguments)]
 fn handle_map_segment<'arena, S>(
     ctx: &ArenaSetContext<'arena, '_>,
     entries: &mut ArenaVec<'arena, (&'arena str, ArenaValue<'arena>)>,
@@ -232,6 +233,7 @@ where
     })
 }
 
+#[allow(clippy::too_many_arguments)]
 fn handle_seq_segment<'arena>(
     ctx: &ArenaSetContext<'arena, '_>,
     items: &mut ArenaVec<'arena, ArenaValue<'arena>>,
@@ -243,11 +245,13 @@ fn handle_seq_segment<'arena>(
     value_to_set: &mut Option<&'arena str>,
 ) -> Result<StepOutcome, ParseError> {
     let idx = match segments[depth].kind {
-        SegmentKind::Numeric | SegmentKind::Empty => segment.parse::<usize>().map_err(|_| {
-            ParseError::DuplicateKey {
-                key: ctx.root_key.to_string(),
-            }
-        })?,
+        SegmentKind::Numeric | SegmentKind::Empty => {
+            segment
+                .parse::<usize>()
+                .map_err(|_| ParseError::DuplicateKey {
+                    key: ctx.root_key.to_string(),
+                })?
+        }
         SegmentKind::Other => {
             return Err(ParseError::DuplicateKey {
                 key: ctx.root_key.to_string(),

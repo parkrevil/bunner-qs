@@ -26,7 +26,11 @@ pub(crate) fn decode_component<'a>(
     decode_with_special_chars(raw, bytes, space_as_plus, offset, scratch)
 }
 
-fn fast_path_ascii<'a>(raw: &'a str, bytes: &[u8], offset: usize) -> Result<Cow<'a, str>, ParseError> {
+fn fast_path_ascii<'a>(
+    raw: &'a str,
+    bytes: &[u8],
+    offset: usize,
+) -> Result<Cow<'a, str>, ParseError> {
     if let Some(idx) = bytes.iter().position(|&byte| byte <= 0x1F || byte == 0x7F) {
         return Err(ParseError::InvalidCharacter {
             character: bytes[idx] as char,

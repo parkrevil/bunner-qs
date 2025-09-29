@@ -1,12 +1,4 @@
-pub mod value_ref;
 pub mod deserializer;
+pub mod value_ref;
 
-pub use deserializer::*;
-
-fn format_expected(fields: &'static [&'static str]) -> String {
-    if fields.is_empty() {
-        "(none)".into()
-    } else {
-        fields.join(", ")
-    }
-}
+pub(crate) use deserializer::*;

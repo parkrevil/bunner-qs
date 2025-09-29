@@ -1,4 +1,4 @@
-use crate::parsing::arena::{ArenaQueryMap, ArenaValue};
+use crate::parsing::arena::ArenaValue;
 
 #[derive(Clone, Copy)]
 pub(crate) enum ArenaValueRef<'de> {

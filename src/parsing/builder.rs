@@ -34,7 +34,17 @@ where
     let mut decode_scratch = acquire_bytes();
     let bytes = trimmed.as_bytes();
 
-    parse_segments_into_map(arena, &mut arena_map, &mut pattern_state, options, trimmed, offset, bytes, &mut pairs, decode_scratch.as_mut())?;
+    parse_segments_into_map(
+        arena,
+        &mut arena_map,
+        &mut pattern_state,
+        options,
+        trimmed,
+        offset,
+        bytes,
+        &mut pairs,
+        decode_scratch.as_mut(),
+    )?;
 
     finalize(arena, &arena_map)
 }
@@ -140,6 +150,7 @@ fn insert_pair_arena<'arena>(
     insert_nested_value_arena(arena, map, &key_segments, value_ref, pattern_state)
 }
 
+#[allow(clippy::too_many_arguments)]
 fn parse_segments_into_map<'arena>(
     arena: &'arena ParseArena,
     arena_map: &mut ArenaQueryMap<'arena>,

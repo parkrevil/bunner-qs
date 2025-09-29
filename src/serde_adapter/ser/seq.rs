@@ -1,7 +1,7 @@
 use crate::model::Value;
 use crate::serde_adapter::errors::SerializeError;
-use serde::ser::{SerializeSeq, SerializeTuple, SerializeTupleStruct, SerializeTupleVariant};
 use serde::Serialize;
+use serde::ser::{SerializeSeq, SerializeTuple, SerializeTupleStruct, SerializeTupleVariant};
 
 pub(crate) struct ValueSeqSerializer {
     items: Vec<Value>,

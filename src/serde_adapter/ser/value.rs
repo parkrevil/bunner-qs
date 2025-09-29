@@ -1,9 +1,9 @@
 use crate::model::{OrderedMap, Value};
 use crate::serde_adapter::errors::SerializeError;
-use serde::ser::{self, Impossible, Serialize, SerializeMap, SerializeSeq, SerializeStruct};
+use serde::ser::{self, Impossible, Serialize};
 use std::fmt::Display;
 
-use super::{ValueSeqSerializer, ValueMapSerializer, ValueStructSerializer};
+use super::{ValueMapSerializer, ValueSeqSerializer, ValueStructSerializer};
 
 pub(crate) fn serialize_to_query_map<T: Serialize>(
     data: &T,
@@ -129,9 +129,9 @@ impl ser::Serializer for ValueSerializer {
         }
     }
 
-    fn serialize_some<T: ?Sized>(self, value: &T) -> Result<Self::Ok, Self::Error>
+    fn serialize_some<T>(self, value: &T) -> Result<Self::Ok, Self::Error>
     where
-        T: Serialize,
+        T: ?Sized + Serialize,
     {
         value.serialize(self)
     }
@@ -153,26 +153,26 @@ impl ser::Serializer for ValueSerializer {
         Ok(Some(Value::String(variant.into())))
     }
 
-    fn serialize_newtype_struct<T: ?Sized>(
+    fn serialize_newtype_struct<T>(
         self,
         _name: &'static str,
         value: &T,
     ) -> Result<Self::Ok, Self::Error>
     where
-        T: Serialize,
+        T: ?Sized + Serialize,
     {
         value.serialize(self)
     }
 
-    fn serialize_newtype_variant<T: ?Sized>(
+    fn serialize_newtype_variant<T>(
         self,
         _name: &'static str,
         _variant_index: u32,
         _variant: &'static str,
-        value: &T,
+        _value: &T,
     ) -> Result<Self::Ok, Self::Error>
     where
-        T: Serialize,
+        T: ?Sized + Serialize,
     {
         Err(SerializeError::Unsupported("newtype variant"))
     }

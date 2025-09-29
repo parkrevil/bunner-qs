@@ -1,8 +1,8 @@
 use crate::model::{OrderedMap, Value};
 use crate::serde_adapter::errors::SerializeError;
 use ahash::RandomState;
-use serde::ser::SerializeMap;
 use serde::Serialize;
+use serde::ser::SerializeMap;
 
 pub(crate) struct ValueMapSerializer {
     entries: OrderedMap<String, Value>,

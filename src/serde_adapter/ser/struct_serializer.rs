@@ -1,8 +1,8 @@
 use crate::model::{OrderedMap, Value};
 use crate::serde_adapter::errors::SerializeError;
 use ahash::RandomState;
-use serde::ser::{self, SerializeStruct, Impossible};
 use serde::Serialize;
+use serde::ser::{self, Impossible, SerializeStruct};
 use std::fmt::Display;
 
 pub(crate) struct ValueStructSerializer {
