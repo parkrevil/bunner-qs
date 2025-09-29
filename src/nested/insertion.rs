@@ -1,5 +1,5 @@
 use crate::ParseError;
-use crate::parsing::arena::{ArenaQueryMap, ArenaValue, ParseArena};
+use crate::parsing::arena::{ArenaQueryMap, ArenaValue, ParseArena, ArenaVec};
 use hashbrown::hash_map::RawEntryMut;
 use smallvec::SmallVec;
 
@@ -123,120 +123,180 @@ fn arena_set_nested_value<'arena>(
         let is_last = depth == segments.len() - 1;
 
         match node {
+            // Handle insertion into map structures
             ArenaValue::Map { entries, index } => {
-                if is_last {
-                    match index.raw_entry_mut().from_key(segment) {
-                        RawEntryMut::Occupied(_) => {
-                            return Err(ParseError::DuplicateKey {
-                                key: segment.to_string(),
-                            });
-                        }
-                        RawEntryMut::Vacant(vacant) => {
-                            let key_ref = ctx.arena.alloc_str(segment);
-                            let idx = entries.len();
-                            entries
-                                .push((key_ref, ArenaValue::string(value_to_set.take().unwrap())));
-                            vacant.insert(key_ref, idx);
-                            return Ok(());
-                        }
+                match handle_map_segment(
+                    ctx,
+                    entries,
+                    index,
+                    segments,
+                    &mut path,
+                    depth,
+                    segment,
+                    is_last,
+                    &mut value_to_set,
+                )? {
+                    StepOutcome::Complete => return Ok(()),
+                    StepOutcome::Descend { next_index } => {
+                        node = &mut entries[next_index].1;
+                        depth += 1;
+                        path.push(segment);
                     }
                 }
-
-                let next_kind = segments[depth + 1].kind;
-                let next_is_numeric =
-                    matches!(next_kind, SegmentKind::Numeric | SegmentKind::Empty);
-
-                let entry_index = match index.raw_entry_mut().from_key(segment) {
-                    RawEntryMut::Occupied(entry) => *entry.get(),
-                    RawEntryMut::Vacant(vacant) => {
-                        let key_ref = ctx.arena.alloc_str(segment);
-                        let capacity_hint = child_capacity_hint(ctx.state, &path, segment)
-                            .saturating_add(1)
-                            .min(MAX_CHILD_CAPACITY_HINT);
-                        let child = if next_is_numeric {
-                            ArenaValue::seq_with_capacity(ctx.arena, capacity_hint)
-                        } else {
-                            ArenaValue::map_with_capacity(ctx.arena, capacity_hint)
-                        };
-                        let idx = entries.len();
-                        entries.push((key_ref, child));
-                        vacant.insert(key_ref, idx);
-                        idx
-                    }
-                };
-
-                let entry_value = &mut entries[entry_index].1;
-
-                node = entry_value;
-                depth += 1;
-                path.push(segment);
             }
+            // Handle insertion into sequence structures
             ArenaValue::Seq(items) => {
-                let idx =
-                    match segments[depth].kind {
-                        SegmentKind::Numeric | SegmentKind::Empty => segment
-                            .parse::<usize>()
-                            .map_err(|_| ParseError::DuplicateKey {
-                                key: ctx.root_key.to_string(),
-                            })?,
-                        SegmentKind::Other => {
-                            return Err(ParseError::DuplicateKey {
-                                key: ctx.root_key.to_string(),
-                            });
-                        }
-                    };
-
-                if idx > items.len() {
-                    return Err(ParseError::DuplicateKey {
-                        key: ctx.root_key.to_string(),
-                    });
-                }
-
-                if is_last {
-                    if idx == items.len() {
-                        items.push(ArenaValue::string(value_to_set.take().unwrap()));
-                        return Ok(());
-                    } else if !arena_is_placeholder(&items[idx]) {
-                        return Err(ParseError::DuplicateKey {
-                            key: segment.to_string(),
-                        });
-                    } else {
-                        items[idx] = ArenaValue::string(value_to_set.take().unwrap());
-                        return Ok(());
+                match handle_seq_segment(
+                    ctx,
+                    items,
+                    segments,
+                    &mut path,
+                    depth,
+                    segment,
+                    is_last,
+                    &mut value_to_set,
+                )? {
+                    StepOutcome::Complete => return Ok(()),
+                    StepOutcome::Descend { next_index } => {
+                        node = &mut items[next_index];
+                        depth += 1;
+                        path.push(segment);
                     }
                 }
-
-                let next_kind = segments[depth + 1].kind;
-                let next_is_numeric =
-                    matches!(next_kind, SegmentKind::Numeric | SegmentKind::Empty);
-
-                if idx == items.len() {
-                    let capacity_hint = child_capacity_hint(ctx.state, &path, segment)
-                        .saturating_add(1)
-                        .min(MAX_CHILD_CAPACITY_HINT);
-                    let child = if next_is_numeric {
-                        ArenaValue::seq_with_capacity(ctx.arena, capacity_hint)
-                    } else {
-                        ArenaValue::map_with_capacity(ctx.arena, capacity_hint)
-                    };
-                    items.push(child);
-                }
-
-                if idx < items.len()
-                    && matches!(&items[idx], ArenaValue::String(s) if !s.is_empty())
-                {
-                    return Err(ParseError::DuplicateKey {
-                        key: ctx.root_key.to_string(),
-                    });
-                }
-
-                node = &mut items[idx];
-                depth += 1;
-                path.push(segment);
             }
             ArenaValue::String(_) => unreachable!(),
         }
     }
+}
+
+enum StepOutcome {
+    Complete,
+    Descend { next_index: usize },
+}
+
+fn handle_map_segment<'arena, S>(
+    ctx: &ArenaSetContext<'arena, '_>,
+    entries: &mut ArenaVec<'arena, (&'arena str, ArenaValue<'arena>)>,
+    index: &mut hashbrown::HashMap<&'arena str, usize, S>,
+    segments: &[ResolvedSegment<'_>],
+    path: &mut SmallVec<[&str; 16]>,
+    depth: usize,
+    segment: &str,
+    is_last: bool,
+    value_to_set: &mut Option<&'arena str>,
+) -> Result<StepOutcome, ParseError>
+where
+    S: std::hash::BuildHasher,
+{
+    if is_last {
+        match index.raw_entry_mut().from_key(segment) {
+            RawEntryMut::Occupied(_) => {
+                return Err(ParseError::DuplicateKey {
+                    key: segment.to_string(),
+                });
+            }
+            RawEntryMut::Vacant(vacant) => {
+                let key_ref = ctx.arena.alloc_str(segment);
+                let idx = entries.len();
+                entries.push((key_ref, ArenaValue::string(value_to_set.take().unwrap())));
+                vacant.insert(key_ref, idx);
+                return Ok(StepOutcome::Complete);
+            }
+        }
+    }
+
+    let next_kind = segments[depth + 1].kind;
+    let next_is_numeric = matches!(next_kind, SegmentKind::Numeric | SegmentKind::Empty);
+
+    let entry_index = match index.raw_entry_mut().from_key(segment) {
+        RawEntryMut::Occupied(entry) => *entry.get(),
+        RawEntryMut::Vacant(vacant) => {
+            let key_ref = ctx.arena.alloc_str(segment);
+            let capacity_hint = child_capacity_hint(ctx.state, path, segment)
+                .saturating_add(1)
+                .min(MAX_CHILD_CAPACITY_HINT);
+            let child = if next_is_numeric {
+                ArenaValue::seq_with_capacity(ctx.arena, capacity_hint)
+            } else {
+                ArenaValue::map_with_capacity(ctx.arena, capacity_hint)
+            };
+            let idx = entries.len();
+            entries.push((key_ref, child));
+            vacant.insert(key_ref, idx);
+            idx
+        }
+    };
+
+    Ok(StepOutcome::Descend {
+        next_index: entry_index,
+    })
+}
+
+fn handle_seq_segment<'arena>(
+    ctx: &ArenaSetContext<'arena, '_>,
+    items: &mut ArenaVec<'arena, ArenaValue<'arena>>,
+    segments: &[ResolvedSegment<'_>],
+    path: &mut SmallVec<[&str; 16]>,
+    depth: usize,
+    segment: &str,
+    is_last: bool,
+    value_to_set: &mut Option<&'arena str>,
+) -> Result<StepOutcome, ParseError> {
+    let idx = match segments[depth].kind {
+        SegmentKind::Numeric | SegmentKind::Empty => segment.parse::<usize>().map_err(|_| {
+            ParseError::DuplicateKey {
+                key: ctx.root_key.to_string(),
+            }
+        })?,
+        SegmentKind::Other => {
+            return Err(ParseError::DuplicateKey {
+                key: ctx.root_key.to_string(),
+            });
+        }
+    };
+
+    if idx > items.len() {
+        return Err(ParseError::DuplicateKey {
+            key: ctx.root_key.to_string(),
+        });
+    }
+
+    if is_last {
+        if idx == items.len() {
+            items.push(ArenaValue::string(value_to_set.take().unwrap()));
+            return Ok(StepOutcome::Complete);
+        }
+        if !arena_is_placeholder(&items[idx]) {
+            return Err(ParseError::DuplicateKey {
+                key: segment.to_string(),
+            });
+        }
+        items[idx] = ArenaValue::string(value_to_set.take().unwrap());
+        return Ok(StepOutcome::Complete);
+    }
+
+    let next_kind = segments[depth + 1].kind;
+    let next_is_numeric = matches!(next_kind, SegmentKind::Numeric | SegmentKind::Empty);
+
+    if idx == items.len() {
+        let capacity_hint = child_capacity_hint(ctx.state, path, segment)
+            .saturating_add(1)
+            .min(MAX_CHILD_CAPACITY_HINT);
+        let child = if next_is_numeric {
+            ArenaValue::seq_with_capacity(ctx.arena, capacity_hint)
+        } else {
+            ArenaValue::map_with_capacity(ctx.arena, capacity_hint)
+        };
+        items.push(child);
+    }
+
+    if idx < items.len() && matches!(&items[idx], ArenaValue::String(s) if !s.is_empty()) {
+        return Err(ParseError::DuplicateKey {
+            key: ctx.root_key.to_string(),
+        });
+    }
+
+    Ok(StepOutcome::Descend { next_index: idx })
 }
 
 fn child_capacity_hint(state: &PatternState, path: &[&str], segment: &str) -> usize {

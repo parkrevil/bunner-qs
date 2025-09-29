@@ -1,5 +1,5 @@
 use crate::parsing::arena::{ArenaQueryMap, ArenaValue};
-use crate::serde_adapter::errors::{DeserializeError, format_expected};
+use crate::serde_adapter::errors::DeserializeError;
 use serde::de::{
     self, DeserializeOwned, DeserializeSeed, IntoDeserializer, MapAccess, SeqAccess, Visitor,
 };
@@ -9,48 +9,31 @@ pub(crate) fn deserialize_from_arena_map<T: DeserializeOwned>(
     map: &ArenaQueryMap<'_>,
 ) -> Result<T, DeserializeError> {
     T::deserialize(ArenaValueDeserializer {
-        value: ArenaValueRef::Map(map.entries_slice()),
+        value: super::value_ref::ArenaValueRef::Map(map.entries_slice()),
     })
 }
 
-#[derive(Clone, Copy)]
-enum ArenaValueRef<'de> {
-    String(&'de str),
-    Seq(&'de [ArenaValue<'de>]),
-    Map(&'de [(&'de str, ArenaValue<'de>)]),
-}
-
-impl<'de> ArenaValueRef<'de> {
-    fn from_value(value: &'de ArenaValue<'de>) -> Self {
-        match value {
-            ArenaValue::String(s) => ArenaValueRef::String(s),
-            ArenaValue::Seq(_) => ArenaValueRef::Seq(value.as_seq_slice().unwrap()),
-            ArenaValue::Map { .. } => ArenaValueRef::Map(value.as_map_slice().unwrap()),
-        }
-    }
-}
-
-struct ArenaValueDeserializer<'de> {
-    value: ArenaValueRef<'de>,
+pub(crate) struct ArenaValueDeserializer<'de> {
+    value: super::value_ref::ArenaValueRef<'de>,
 }
 
 impl<'de> ArenaValueDeserializer<'de> {
     fn unexpected(&self) -> &'static str {
         match self.value {
-            ArenaValueRef::String(_) => "string",
-            ArenaValueRef::Seq(_) => "array",
-            ArenaValueRef::Map(_) => "object",
+            super::value_ref::ArenaValueRef::String(_) => "string",
+            super::value_ref::ArenaValueRef::Seq(_) => "array",
+            super::value_ref::ArenaValueRef::Map(_) => "object",
         }
     }
 
     fn as_str(&self) -> Result<&'de str, DeserializeError> {
         match self.value {
-            ArenaValueRef::String(s) => Ok(s),
+            super::value_ref::ArenaValueRef::String(s) => Ok(s),
             other => Err(DeserializeError::ExpectedString {
                 found: match other {
-                    ArenaValueRef::Seq(_) => "array",
-                    ArenaValueRef::Map(_) => "object",
-                    ArenaValueRef::String(_) => unreachable!(),
+                    super::value_ref::ArenaValueRef::Seq(_) => "array",
+                    super::value_ref::ArenaValueRef::Map(_) => "object",
+                    super::value_ref::ArenaValueRef::String(_) => unreachable!(),
                 },
             }),
         }
@@ -85,7 +68,7 @@ impl<'de> ArenaValueDeserializer<'de> {
         V: Visitor<'de>,
     {
         match self.value {
-            ArenaValueRef::Seq(items) => {
+            super::value_ref::ArenaValueRef::Seq(items) => {
                 visitor.visit_seq(ArenaSequenceAccess { iter: items.iter() })
             }
             _ => Err(DeserializeError::UnexpectedType {
@@ -107,7 +90,7 @@ impl<'de> ArenaValueDeserializer<'de> {
         F: FnOnce(usize) -> String,
     {
         match self.value {
-            ArenaValueRef::Seq(items) => {
+            super::value_ref::ArenaValueRef::Seq(items) => {
                 if items.len() != expected_len {
                     return Err(DeserializeError::Message(format_mismatch(items.len())));
                 }
@@ -129,9 +112,9 @@ impl<'de> de::Deserializer<'de> for ArenaValueDeserializer<'de> {
         V: Visitor<'de>,
     {
         match self.value {
-            ArenaValueRef::String(_) => self.deserialize_str(visitor),
-            ArenaValueRef::Seq(_) => self.deserialize_seq(visitor),
-            ArenaValueRef::Map(_) => self.deserialize_map(visitor),
+            super::value_ref::ArenaValueRef::String(_) => self.deserialize_str(visitor),
+            super::value_ref::ArenaValueRef::Seq(_) => self.deserialize_seq(visitor),
+            super::value_ref::ArenaValueRef::Map(_) => self.deserialize_map(visitor),
         }
     }
 
@@ -311,7 +294,7 @@ impl<'de> de::Deserializer<'de> for ArenaValueDeserializer<'de> {
         V: Visitor<'de>,
     {
         match self.value {
-            ArenaValueRef::String("") => visitor.visit_unit(),
+            super::value_ref::ArenaValueRef::String("") => visitor.visit_unit(),
             _ => Err(DeserializeError::UnexpectedType {
                 expected: name,
                 found: self.unexpected(),
@@ -342,9 +325,7 @@ impl<'de> de::Deserializer<'de> for ArenaValueDeserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        self.visit_fixed_sequence(len, visitor, "tuple", |actual| {
-            format!("expected tuple of length {len}, found {actual}")
-        })
+        self.visit_fixed_sequence(len, visitor, "tuple", |actual| format!("expected tuple of length {len}, found {actual}"))
     }
 
     fn deserialize_tuple_struct<V>(
@@ -356,9 +337,7 @@ impl<'de> de::Deserializer<'de> for ArenaValueDeserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        self.visit_fixed_sequence(len, visitor, name, |actual| {
-            format!("expected tuple struct `{name}` with {len} elements, found {actual}")
-        })
+        self.visit_fixed_sequence(len, visitor, name, |actual| format!("expected tuple struct `{name}` with {len} elements, found {actual}"))
     }
 
     fn deserialize_map<V>(self, visitor: V) -> Result<V::Value, Self::Error>
@@ -366,8 +345,8 @@ impl<'de> de::Deserializer<'de> for ArenaValueDeserializer<'de> {
         V: Visitor<'de>,
     {
         match self.value {
-            ArenaValueRef::Map(entries) => visitor.visit_map(ArenaMapDeserializer {
-                iter: entries.iter(),
+            super::value_ref::ArenaValueRef::Map(map) => visitor.visit_map(ArenaMapDeserializer {
+                iter: map.iter(),
                 value: None,
             }),
             _ => Err(DeserializeError::UnexpectedType {
@@ -387,11 +366,11 @@ impl<'de> de::Deserializer<'de> for ArenaValueDeserializer<'de> {
         V: Visitor<'de>,
     {
         match self.value {
-            ArenaValueRef::Map(entries) => visitor.visit_map(ArenaStructDeserializer {
-                iter: entries.iter(),
+            super::value_ref::ArenaValueRef::Map(map) => visitor.visit_map(ArenaStructDeserializer {
+                iter: map.iter(),
                 value: None,
                 allowed: fields,
-                seen: HashSet::with_capacity(entries.len()),
+                seen: HashSet::with_capacity(map.len()),
             }),
             _ => Err(DeserializeError::ExpectedObject {
                 struct_name: name,
@@ -412,7 +391,7 @@ impl<'de> de::Deserializer<'de> for ArenaValueDeserializer<'de> {
         drop(visitor);
         Err(DeserializeError::Message(format!(
             "enum `{name}` with variants [{}] cannot be deserialized from query strings",
-            format_expected(variants)
+            super::format_expected(variants)
         )))
     }
 
@@ -431,7 +410,7 @@ impl<'de> de::Deserializer<'de> for ArenaValueDeserializer<'de> {
     }
 }
 
-struct ArenaSequenceAccess<'de> {
+pub(crate) struct ArenaSequenceAccess<'de> {
     iter: std::slice::Iter<'de, ArenaValue<'de>>,
 }
 
@@ -444,7 +423,7 @@ impl<'de> SeqAccess<'de> for ArenaSequenceAccess<'de> {
     {
         if let Some(value) = self.iter.next() {
             let deserializer = ArenaValueDeserializer {
-                value: ArenaValueRef::from_value(value),
+                value: super::value_ref::ArenaValueRef::from_value(value),
             };
             seed.deserialize(deserializer).map(Some)
         } else {
@@ -453,7 +432,7 @@ impl<'de> SeqAccess<'de> for ArenaSequenceAccess<'de> {
     }
 }
 
-struct ArenaMapDeserializer<'de> {
+pub(crate) struct ArenaMapDeserializer<'de> {
     iter: std::slice::Iter<'de, (&'de str, ArenaValue<'de>)>,
     value: Option<&'de ArenaValue<'de>>,
 }
@@ -467,7 +446,7 @@ impl<'de> MapAccess<'de> for ArenaMapDeserializer<'de> {
     {
         if let Some((key, value)) = self.iter.next() {
             self.value = Some(value);
-            let key_deser = (*key).into_deserializer();
+            let key_deser = key.to_string().into_deserializer();
             seed.deserialize(key_deser).map(Some)
         } else {
             Ok(None)
@@ -483,12 +462,12 @@ impl<'de> MapAccess<'de> for ArenaMapDeserializer<'de> {
             .take()
             .ok_or_else(|| DeserializeError::Message("value missing for map entry".into()))?;
         seed.deserialize(ArenaValueDeserializer {
-            value: ArenaValueRef::from_value(value),
+            value: super::value_ref::ArenaValueRef::from_value(value),
         })
     }
 }
 
-struct ArenaStructDeserializer<'de> {
+pub(crate) struct ArenaStructDeserializer<'de> {
     iter: std::slice::Iter<'de, (&'de str, ArenaValue<'de>)>,
     value: Option<&'de ArenaValue<'de>>,
     allowed: &'static [&'static str],
@@ -507,7 +486,7 @@ impl<'de> MapAccess<'de> for ArenaStructDeserializer<'de> {
             if !self.allowed.contains(&key_str) {
                 return Err(DeserializeError::UnknownField {
                     field: key_str.to_string(),
-                    expected: format_expected(self.allowed),
+                    expected: super::format_expected(self.allowed),
                 });
             }
             if !self.seen.insert(key_str) {
@@ -516,7 +495,7 @@ impl<'de> MapAccess<'de> for ArenaStructDeserializer<'de> {
                 });
             }
             self.value = Some(value);
-            let key_deser = key_str.into_deserializer();
+            let key_deser = key_str.to_string().into_deserializer();
             seed.deserialize(key_deser).map(Some)
         } else {
             Ok(None)
@@ -532,7 +511,7 @@ impl<'de> MapAccess<'de> for ArenaStructDeserializer<'de> {
             .take()
             .ok_or_else(|| DeserializeError::Message("value missing for struct field".into()))?;
         seed.deserialize(ArenaValueDeserializer {
-            value: ArenaValueRef::from_value(value),
+            value: super::value_ref::ArenaValueRef::from_value(value),
         })
     }
 }

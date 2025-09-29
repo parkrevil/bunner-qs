@@ -33,58 +33,8 @@ where
     let mut pairs = 0usize;
     let mut decode_scratch = acquire_bytes();
     let bytes = trimmed.as_bytes();
-    let mut cursor = 0usize;
 
-    while cursor < bytes.len() {
-        let mut search = cursor;
-        let mut segment_end = bytes.len();
-        let mut eq_index: Option<usize> = None;
-
-        while search < bytes.len() {
-            let rel = if eq_index.is_some() {
-                memchr(b'&', &bytes[search..])
-            } else {
-                memchr2(b'=', b'&', &bytes[search..])
-            };
-
-            let Some(rel) = rel else {
-                break;
-            };
-
-            let idx = search + rel;
-            match bytes[idx] {
-                b'=' if eq_index.is_none() => {
-                    eq_index = Some(idx);
-                    search = idx + 1;
-                }
-                b'&' => {
-                    segment_end = idx;
-                    break;
-                }
-                _ => unreachable!(),
-            }
-        }
-
-        if segment_end > cursor {
-            pairs += 1;
-            check_param_limit(options.max_params, pairs)?;
-
-            process_segment(
-                arena,
-                &mut arena_map,
-                &mut pattern_state,
-                options,
-                decode_scratch.as_mut(),
-                trimmed,
-                offset,
-                cursor,
-                segment_end,
-                eq_index,
-            )?;
-        }
-
-        cursor = segment_end.saturating_add(1);
-    }
+    parse_segments_into_map(arena, &mut arena_map, &mut pattern_state, options, trimmed, offset, bytes, &mut pairs, decode_scratch.as_mut())?;
 
     finalize(arena, &arena_map)
 }
@@ -188,4 +138,71 @@ fn insert_pair_arena<'arena>(
     let key_segments = parse_key_path(key.as_ref());
     let value_ref = arena.alloc_str(value.as_ref());
     insert_nested_value_arena(arena, map, &key_segments, value_ref, pattern_state)
+}
+
+fn parse_segments_into_map<'arena>(
+    arena: &'arena ParseArena,
+    arena_map: &mut ArenaQueryMap<'arena>,
+    pattern_state: &mut PatternState,
+    options: &ParseOptions,
+    trimmed: &str,
+    offset: usize,
+    bytes: &[u8],
+    pairs: &mut usize,
+    decode_scratch: &mut Vec<u8>,
+) -> ParseResult<()> {
+    let mut cursor = 0usize;
+
+    while cursor < bytes.len() {
+        let mut search = cursor;
+        let mut segment_end = bytes.len();
+        let mut eq_index: Option<usize> = None;
+
+        while search < bytes.len() {
+            let rel = if eq_index.is_some() {
+                memchr(b'&', &bytes[search..])
+            } else {
+                memchr2(b'=', b'&', &bytes[search..])
+            };
+
+            let Some(rel) = rel else {
+                break;
+            };
+
+            let idx = search + rel;
+            match bytes[idx] {
+                b'=' if eq_index.is_none() => {
+                    eq_index = Some(idx);
+                    search = idx + 1;
+                }
+                b'&' => {
+                    segment_end = idx;
+                    break;
+                }
+                _ => unreachable!(),
+            }
+        }
+
+        if segment_end > cursor {
+            *pairs += 1;
+            check_param_limit(options.max_params, *pairs)?;
+
+            process_segment(
+                arena,
+                arena_map,
+                pattern_state,
+                options,
+                decode_scratch,
+                trimmed,
+                offset,
+                cursor,
+                segment_end,
+                eq_index,
+            )?;
+        }
+
+        cursor = segment_end.saturating_add(1);
+    }
+
+    Ok(())
 }
