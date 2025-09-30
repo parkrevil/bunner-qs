@@ -41,3 +41,7 @@ pub fn parse_key_path(key: &str) -> SmallVec<[&str; 16]> {
 
     segments
 }
+
+#[cfg(test)]
+#[path = "key_path_test.rs"]
+mod key_path_test;
