@@ -51,6 +51,10 @@ pub(crate) fn acquire_pattern_state() -> PatternStateGuard {
     })
 }
 
+#[cfg(test)]
+#[path = "pattern_state_test.rs"]
+mod pattern_state_test;
+
 #[derive(Debug)]
 pub(crate) struct PatternState {
     nodes: Vec<PathNode>,
