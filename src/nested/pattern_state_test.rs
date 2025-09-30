@@ -22,7 +22,7 @@ fn resolve_numeric<'a>(
 fn expect_duplicate_key(error: ParseError, expected: &str) {
     match error {
         ParseError::DuplicateKey { key } => assert_eq!(key, expected),
-        _ => panic!("expected duplicate key"),
+        other => panic!("expected duplicate key error, got {other:?}"),
     }
 }
 
@@ -113,7 +113,7 @@ mod child_capacity {
     }
 }
 
-mod acquire_pattern_state_mod {
+mod acquire_pattern_state {
     use super::*;
 
     #[test]
