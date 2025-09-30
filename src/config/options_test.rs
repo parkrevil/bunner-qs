@@ -13,6 +13,7 @@ mod parse_options_builder {
 
         // Assert
         assert!(!options.space_as_plus);
+        assert_eq!(options.duplicate_keys, DuplicateKeyBehavior::Reject);
         assert!(options.max_params.is_none());
         assert!(options.max_length.is_none());
         assert!(options.max_depth.is_none());
@@ -26,6 +27,7 @@ mod parse_options_builder {
         // Act
         let options = builder
             .space_as_plus(true)
+            .duplicate_keys(DuplicateKeyBehavior::LastWins)
             .max_params(100)
             .max_length(2048)
             .max_depth(32)
@@ -34,6 +36,7 @@ mod parse_options_builder {
 
         // Assert
         assert!(options.space_as_plus);
+        assert_eq!(options.duplicate_keys, DuplicateKeyBehavior::LastWins);
         assert_eq!(options.max_params, Some(100));
         assert_eq!(options.max_length, Some(2048));
         assert_eq!(options.max_depth, Some(32));

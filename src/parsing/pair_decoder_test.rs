@@ -31,15 +31,8 @@ mod decode_pair {
         let mut scratch = Vec::new();
 
         // Act
-        let (key, value) = decode_pair(
-            "hello+world",
-            "value+here",
-            0,
-            17,
-            &options,
-            &mut scratch,
-        )
-        .expect("decode succeeds");
+        let (key, value) = decode_pair("hello+world", "value+here", 0, 17, &options, &mut scratch)
+            .expect("decode succeeds");
 
         // Assert
         assert_eq!(key.as_ref(), "hello world");
@@ -53,8 +46,8 @@ mod decode_pair {
         let mut scratch = Vec::new();
 
         // Act
-        let error = decode_pair("foo[", "bar", 0, 4, &options, &mut scratch)
-            .expect_err("decode fails");
+        let error =
+            decode_pair("foo[", "bar", 0, 4, &options, &mut scratch).expect_err("decode fails");
 
         // Assert
         assert!(matches!(error, ParseError::UnmatchedBracket { ref key } if key == "foo["));

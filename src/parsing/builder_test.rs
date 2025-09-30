@@ -1,5 +1,5 @@
 use super::*;
-use crate::config::ParseOptions;
+use crate::config::{DuplicateKeyBehavior, ParseOptions};
 use crate::parsing::ParseError;
 use crate::parsing::arena::ArenaValue;
 
@@ -53,6 +53,58 @@ mod with_arena_query_map {
             ParseError::DuplicateKey { key } => assert_eq!(key, "foo"),
             other => panic!("expected duplicate key error, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn allows_duplicate_keys_when_first_wins_enabled() {
+        // Arrange
+        let trimmed = "foo=one&foo=two";
+        let options = ParseOptions::builder()
+            .duplicate_keys(DuplicateKeyBehavior::FirstWins)
+            .build()
+            .expect("builder should succeed");
+
+        // Act
+        let result = with_arena_query_map(trimmed, 0, &options, |_, map| {
+            let entries = map.entries_slice();
+            assert_eq!(entries.len(), 1);
+            let (key, value) = &entries[0];
+            assert_eq!(*key, "foo");
+            match value {
+                ArenaValue::String(text) => assert_eq!(*text, "one"),
+                _ => panic!("expected string value"),
+            }
+            Ok(())
+        });
+
+        // Assert
+        result.expect("first wins should allow duplicates");
+    }
+
+    #[test]
+    fn overwrites_duplicate_keys_when_last_wins_enabled() {
+        // Arrange
+        let trimmed = "foo=one&foo=two";
+        let options = ParseOptions::builder()
+            .duplicate_keys(DuplicateKeyBehavior::LastWins)
+            .build()
+            .expect("builder should succeed");
+
+        // Act
+        let result = with_arena_query_map(trimmed, 0, &options, |_, map| {
+            let entries = map.entries_slice();
+            assert_eq!(entries.len(), 1);
+            let (key, value) = &entries[0];
+            assert_eq!(*key, "foo");
+            match value {
+                ArenaValue::String(text) => assert_eq!(*text, "two"),
+                _ => panic!("expected string value"),
+            }
+            Ok(())
+        });
+
+        // Assert
+        result.expect("last wins should replace duplicate values");
     }
 
     #[test]

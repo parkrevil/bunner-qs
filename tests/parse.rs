@@ -8,7 +8,9 @@ mod options;
 mod serde_helpers;
 
 use asserts::{assert_str_path, assert_string_array_path};
-use bunner_qs::{ParseError, ParseOptions, SerdeQueryError, parse, parse_with};
+use bunner_qs::{
+    DuplicateKeyBehavior, ParseError, ParseOptions, SerdeQueryError, parse, parse_with,
+};
 use json::json_from_pairs;
 use options::try_build_parse_options;
 use serde::Deserialize;
@@ -426,6 +428,36 @@ mod option_behavior_tests {
             length_error.1,
             "input exceeds maximum length of 5 characters"
         );
+    }
+
+    #[test]
+    fn duplicate_keys_first_wins_keeps_initial_values() {
+        // Arrange
+        let options =
+            build_parse_options(|builder| builder.duplicate_keys(DuplicateKeyBehavior::FirstWins));
+        let query = "color=red&color=blue&user[name]=Alice&user[name]=Bob";
+
+        // Act
+        let parsed = parse_with_options(query, &options);
+
+        // Assert
+        assert_str_path(&parsed, &["color"], "red");
+        assert_str_path(&parsed, &["user", "name"], "Alice");
+    }
+
+    #[test]
+    fn duplicate_keys_last_wins_replaces_with_latest_values() {
+        // Arrange
+        let options =
+            build_parse_options(|builder| builder.duplicate_keys(DuplicateKeyBehavior::LastWins));
+        let query = "color=red&color=blue&user[name]=Alice&user[name]=Bob";
+
+        // Act
+        let parsed = parse_with_options(query, &options);
+
+        // Assert
+        assert_str_path(&parsed, &["color"], "blue");
+        assert_str_path(&parsed, &["user", "name"], "Bob");
     }
 }
 

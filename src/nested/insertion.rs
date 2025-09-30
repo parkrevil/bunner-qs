@@ -1,3 +1,4 @@
+use crate::DuplicateKeyBehavior;
 use crate::ParseError;
 use crate::parsing::arena::{ArenaQueryMap, ArenaValue, ArenaVec, ParseArena};
 use hashbrown::hash_map::RawEntryMut;
@@ -19,6 +20,7 @@ pub(crate) fn insert_nested_value_arena<'arena>(
     segments: &[&str],
     value: &'arena str,
     state: &mut PatternState,
+    duplicate_keys: DuplicateKeyBehavior,
 ) -> Result<(), ParseError> {
     if segments.is_empty() {
         return Ok(());
@@ -27,10 +29,17 @@ pub(crate) fn insert_nested_value_arena<'arena>(
     let root_key = segments[0];
 
     if segments.len() == 1 {
-        if map.contains_key(root_key) {
-            return Err(ParseError::DuplicateKey {
-                key: root_key.to_string(),
-            });
+        if let Some(existing) = map.get_mut(root_key) {
+            return match duplicate_keys {
+                DuplicateKeyBehavior::Reject => Err(ParseError::DuplicateKey {
+                    key: root_key.to_string(),
+                }),
+                DuplicateKeyBehavior::FirstWins => Ok(()),
+                DuplicateKeyBehavior::LastWins => {
+                    *existing = ArenaValue::string(value);
+                    Ok(())
+                }
+            };
         }
 
         map.try_insert_str(arena, root_key, ArenaValue::string(value))
@@ -41,7 +50,15 @@ pub(crate) fn insert_nested_value_arena<'arena>(
     }
 
     let resolved_segments = resolve_segments(state, segments)?;
-    arena_build_nested_path(arena, map, &resolved_segments, value, state, root_key)
+    arena_build_nested_path(
+        arena,
+        map,
+        &resolved_segments,
+        value,
+        state,
+        root_key,
+        duplicate_keys,
+    )
 }
 
 fn arena_build_nested_path<'arena>(
@@ -51,6 +68,7 @@ fn arena_build_nested_path<'arena>(
     final_value: &'arena str,
     state: &PatternState,
     root_key: &str,
+    duplicate_keys: DuplicateKeyBehavior,
 ) -> Result<(), ParseError> {
     let root_segment = segments[0].as_str();
     let root_path = [root_segment];
@@ -78,6 +96,7 @@ fn arena_build_nested_path<'arena>(
         arena,
         state,
         root_key,
+        duplicate_keys,
     };
     arena_set_nested_value(&ctx, root_value, segments, 1, final_value)
 }
@@ -86,6 +105,7 @@ struct ArenaSetContext<'arena, 'pattern> {
     arena: &'arena ParseArena,
     state: &'pattern PatternState,
     root_key: &'pattern str,
+    duplicate_keys: DuplicateKeyBehavior,
 }
 
 fn arena_set_nested_value<'arena>(
@@ -191,10 +211,18 @@ where
 {
     if is_last {
         match index.raw_entry_mut().from_key(segment) {
-            RawEntryMut::Occupied(_) => {
-                return Err(ParseError::DuplicateKey {
-                    key: segment.to_string(),
-                });
+            RawEntryMut::Occupied(entry) => {
+                return match ctx.duplicate_keys {
+                    DuplicateKeyBehavior::Reject => Err(ParseError::DuplicateKey {
+                        key: segment.to_string(),
+                    }),
+                    DuplicateKeyBehavior::FirstWins => Ok(StepOutcome::Complete),
+                    DuplicateKeyBehavior::LastWins => {
+                        let idx = *entry.get();
+                        entries[idx].1 = ArenaValue::string(value_to_set.take().unwrap());
+                        Ok(StepOutcome::Complete)
+                    }
+                };
             }
             RawEntryMut::Vacant(vacant) => {
                 let key_ref = ctx.arena.alloc_str(segment);
@@ -271,9 +299,16 @@ fn handle_seq_segment<'arena>(
             return Ok(StepOutcome::Complete);
         }
         if !arena_is_placeholder(&items[idx]) {
-            return Err(ParseError::DuplicateKey {
-                key: segment.to_string(),
-            });
+            return match ctx.duplicate_keys {
+                DuplicateKeyBehavior::Reject => Err(ParseError::DuplicateKey {
+                    key: segment.to_string(),
+                }),
+                DuplicateKeyBehavior::FirstWins => Ok(StepOutcome::Complete),
+                DuplicateKeyBehavior::LastWins => {
+                    items[idx] = ArenaValue::string(value_to_set.take().unwrap());
+                    Ok(StepOutcome::Complete)
+                }
+            };
         }
         items[idx] = ArenaValue::string(value_to_set.take().unwrap());
         return Ok(StepOutcome::Complete);

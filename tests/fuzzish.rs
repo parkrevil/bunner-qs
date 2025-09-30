@@ -3,7 +3,10 @@ mod fuzzish;
 #[path = "common/seed/mod.rs"]
 mod seed;
 
-use bunner_qs::{ParseError, ParseOptions, StringifyOptions, parse, parse_with, stringify_with};
+use bunner_qs::{
+    DuplicateKeyBehavior, ParseError, ParseOptions, StringifyOptions, parse, parse_with,
+    stringify_with,
+};
 use fuzzish::{
     allowed_char, arb_roundtrip_input, estimate_params, form_encode, percent_encode, root_depth,
     root_key_string, string_with_spaces, total_string_length, unicode_key_string,
@@ -108,6 +111,7 @@ proptest! {
         let query = format!("note={}", encoded);
         let opts = ParseOptions {
             space_as_plus: true,
+            duplicate_keys: DuplicateKeyBehavior::Reject,
             ..Default::default()
         };
         let parsed: Value = parse_with(&query, &opts).expect("should decode plus as space");
@@ -131,6 +135,7 @@ proptest! {
         let query = segments.join("&");
         let opts = ParseOptions {
             max_params: Some(limit),
+            duplicate_keys: DuplicateKeyBehavior::Reject,
             ..Default::default()
         };
         let result = parse_with::<Value>(&query, &opts);
@@ -150,6 +155,7 @@ proptest! {
         let limit = query.len() - 1;
         let opts = ParseOptions {
             max_length: Some(limit),
+            duplicate_keys: DuplicateKeyBehavior::Reject,
             ..Default::default()
         };
         let result = parse_with::<Value>(&query, &opts);
@@ -171,6 +177,7 @@ proptest! {
         let query = format!("{key}=deep");
         let opts = ParseOptions {
             max_depth: Some(limit),
+            duplicate_keys: DuplicateKeyBehavior::Reject,
             ..Default::default()
         };
         let result = parse_with::<Value>(&query, &opts);
@@ -196,6 +203,7 @@ proptest! {
         let query = format!("{key}=ok");
         let opts = ParseOptions {
             max_depth: Some(limit),
+            duplicate_keys: DuplicateKeyBehavior::Reject,
             ..Default::default()
         };
         let result = parse_with::<Value>(&query, &opts);
@@ -319,6 +327,7 @@ proptest! {
 
         let parse_options = ParseOptions {
             space_as_plus: config.space_as_plus,
+            duplicate_keys: DuplicateKeyBehavior::Reject,
             max_params: config.max_params,
             max_length: config.max_length,
             max_depth: config.max_depth,
@@ -356,6 +365,7 @@ proptest! {
 
         let parsed: Value = parse_with(&encoded, &ParseOptions {
             space_as_plus: true,
+            duplicate_keys: DuplicateKeyBehavior::Reject,
             ..Default::default()
         })
         .expect("parse should succeed");
@@ -404,6 +414,7 @@ proptest! {
         let query = format!("{key}=deep");
         let opts = ParseOptions {
             max_depth: Some(depth),
+            duplicate_keys: DuplicateKeyBehavior::Reject,
             ..Default::default()
         };
     let result = parse_with::<Value>(&query, &opts);
@@ -420,6 +431,7 @@ proptest! {
         let opts = ParseOptions {
             max_params: Some(num_keys),
             max_length: Some(query.len()),
+            duplicate_keys: DuplicateKeyBehavior::Reject,
             ..Default::default()
         };
     let result = parse_with::<Value>(&query, &opts);

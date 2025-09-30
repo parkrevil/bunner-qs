@@ -8,7 +8,10 @@ pub mod parsing;
 mod serde_adapter;
 mod stringify;
 
-pub use config::{ParseOptions, ParseOptionsBuilder, StringifyOptions, StringifyOptionsBuilder};
+pub use config::{
+    DuplicateKeyBehavior, ParseOptions, ParseOptionsBuilder, StringifyOptions,
+    StringifyOptionsBuilder,
+};
 pub use parsing::{ParseError, ParseResult, parse, parse_with};
 pub use serde_adapter::SerdeQueryError;
 pub use stringify::{

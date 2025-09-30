@@ -1,4 +1,5 @@
 use super::{insert_nested_value_arena, resolve_segments};
+use crate::DuplicateKeyBehavior;
 use crate::ParseError;
 use crate::nested::pattern_state::{PatternStateGuard, acquire_pattern_state};
 use crate::parsing::arena::{ArenaQueryMap, ArenaValue, ParseArena};
@@ -14,8 +15,16 @@ fn insert_value<'arena>(
     path: &[&str],
     value: &str,
     state: &mut PatternStateGuard,
+    duplicate_keys: DuplicateKeyBehavior,
 ) -> Result<(), ParseError> {
-    insert_nested_value_arena(arena, map, path, arena.alloc_str(value), state)
+    insert_nested_value_arena(
+        arena,
+        map,
+        path,
+        arena.alloc_str(value),
+        state,
+        duplicate_keys,
+    )
 }
 
 fn insert_sequence_values<'arena>(
@@ -24,9 +33,11 @@ fn insert_sequence_values<'arena>(
     path: &[&str],
     values: &[&str],
     state: &mut PatternStateGuard,
+    duplicate_keys: DuplicateKeyBehavior,
 ) {
     for value in values {
-        insert_value(arena, map, path, value, state).expect("sequence insert should succeed");
+        insert_value(arena, map, path, value, state, duplicate_keys)
+            .expect("sequence insert should succeed");
     }
 }
 
@@ -81,8 +92,15 @@ mod insert_nested_value_arena {
         let mut state = acquire_pattern_state();
 
         // Act
-        insert_value(&arena, &mut map, &["token"], "abc123", &mut state)
-            .expect("root insertion should succeed");
+        insert_value(
+            &arena,
+            &mut map,
+            &["token"],
+            "abc123",
+            &mut state,
+            DuplicateKeyBehavior::Reject,
+        )
+        .expect("root insertion should succeed");
 
         // Assert
         assert_single_string_entry(&map, "token", "abc123");
@@ -97,7 +115,14 @@ mod insert_nested_value_arena {
         let path = ["items", "", "name"];
 
         // Act
-        insert_sequence_values(&arena, &mut map, &path, &["alice", "bob"], &mut state);
+        insert_sequence_values(
+            &arena,
+            &mut map,
+            &path,
+            &["alice", "bob"],
+            &mut state,
+            DuplicateKeyBehavior::Reject,
+        );
 
         // Assert
         assert_sequence_of_maps(&map, "items", "name", &["alice", "bob"]);
@@ -109,14 +134,91 @@ mod insert_nested_value_arena {
         let arena = ParseArena::new();
         let mut map = map_with_capacity(&arena, 0);
         let mut state = acquire_pattern_state();
-        insert_value(&arena, &mut map, &["token"], "first", &mut state).expect("initial insert");
+        insert_value(
+            &arena,
+            &mut map,
+            &["token"],
+            "first",
+            &mut state,
+            DuplicateKeyBehavior::Reject,
+        )
+        .expect("initial insert");
 
         // Act
-        let error = insert_value(&arena, &mut map, &["token"], "second", &mut state)
-            .expect_err("duplicate insert should fail");
+        let error = insert_value(
+            &arena,
+            &mut map,
+            &["token"],
+            "second",
+            &mut state,
+            DuplicateKeyBehavior::Reject,
+        )
+        .expect_err("duplicate insert should fail");
 
         // Assert
         expect_duplicate_key(error, "token");
+    }
+
+    #[test]
+    fn when_scalar_repeats_and_first_wins_should_keep_initial_value() {
+        // Arrange
+        let arena = ParseArena::new();
+        let mut map = map_with_capacity(&arena, 0);
+        let mut state = acquire_pattern_state();
+        insert_value(
+            &arena,
+            &mut map,
+            &["token"],
+            "first",
+            &mut state,
+            DuplicateKeyBehavior::FirstWins,
+        )
+        .expect("initial insert");
+
+        // Act
+        insert_value(
+            &arena,
+            &mut map,
+            &["token"],
+            "second",
+            &mut state,
+            DuplicateKeyBehavior::FirstWins,
+        )
+        .expect("duplicate insert should be ignored");
+
+        // Assert
+        assert_single_string_entry(&map, "token", "first");
+    }
+
+    #[test]
+    fn when_scalar_repeats_and_last_wins_should_replace_with_latest_value() {
+        // Arrange
+        let arena = ParseArena::new();
+        let mut map = map_with_capacity(&arena, 0);
+        let mut state = acquire_pattern_state();
+        insert_value(
+            &arena,
+            &mut map,
+            &["token"],
+            "first",
+            &mut state,
+            DuplicateKeyBehavior::LastWins,
+        )
+        .expect("initial insert");
+
+        // Act
+        insert_value(
+            &arena,
+            &mut map,
+            &["token"],
+            "second",
+            &mut state,
+            DuplicateKeyBehavior::LastWins,
+        )
+        .expect("duplicate insert should overwrite");
+
+        // Assert
+        assert_single_string_entry(&map, "token", "second");
     }
 }
 

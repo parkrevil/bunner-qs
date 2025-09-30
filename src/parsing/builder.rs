@@ -90,7 +90,14 @@ fn process_segment<'arena>(
         decode_scratch,
     )?;
 
-    insert_pair_arena(arena, arena_map, pattern_state, key, value)
+    insert_pair_arena(
+        arena,
+        arena_map,
+        pattern_state,
+        key,
+        value,
+        options.duplicate_keys,
+    )
 }
 
 #[allow(clippy::too_many_arguments)]

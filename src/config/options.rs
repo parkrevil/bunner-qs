@@ -1,9 +1,18 @@
 use derive_builder::Builder;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum DuplicateKeyBehavior {
+    #[default]
+    Reject,
+    FirstWins,
+    LastWins,
+}
+
 #[derive(Debug, Clone, Default, Builder)]
 #[builder(pattern = "owned", default, build_fn(validate = "Self::validate"))]
 pub struct ParseOptions {
     pub space_as_plus: bool,
+    pub duplicate_keys: DuplicateKeyBehavior,
     #[builder(setter(strip_option))]
     pub max_params: Option<usize>,
     #[builder(setter(strip_option))]

@@ -1,5 +1,6 @@
 use std::borrow::Cow;
 
+use crate::config::DuplicateKeyBehavior;
 use crate::nested::pattern_state::PatternState;
 use crate::nested::{insertion::insert_nested_value_arena, parse_key_path};
 use crate::parsing::{ParseError, ParseResult};
@@ -13,29 +14,54 @@ pub(crate) fn insert_pair_arena<'arena>(
     pattern_state: &mut PatternState,
     key: Cow<'_, str>,
     value: Cow<'_, str>,
+    duplicate_keys: DuplicateKeyBehavior,
 ) -> ParseResult<()> {
+    let value_ref = arena.alloc_str(value.as_ref());
+
     if key.is_empty() {
-        let value_ref = arena.alloc_str(value.as_ref());
-        map.try_insert_str(arena, "", ArenaValue::string(value_ref))
-            .map_err(|_| ParseError::DuplicateKey {
-                key: duplicate_key_label(""),
-            })?;
-        return Ok(());
+        return insert_root_value(arena, map, "", value_ref, duplicate_keys);
     }
 
     if !key.is_empty() && !key.contains('[') {
         let key_str = key.as_ref();
-        let value_ref = arena.alloc_str(value.as_ref());
-        map.try_insert_str(arena, key_str, ArenaValue::string(value_ref))
-            .map_err(|_| ParseError::DuplicateKey {
-                key: duplicate_key_label(key_str),
-            })?;
-        return Ok(());
+        return insert_root_value(arena, map, key_str, value_ref, duplicate_keys);
     }
 
     let key_segments = parse_key_path(key.as_ref());
-    let value_ref = arena.alloc_str(value.as_ref());
-    insert_nested_value_arena(arena, map, &key_segments, value_ref, pattern_state)
+    insert_nested_value_arena(
+        arena,
+        map,
+        &key_segments,
+        value_ref,
+        pattern_state,
+        duplicate_keys,
+    )
+}
+
+fn insert_root_value<'arena>(
+    arena: &'arena ParseArena,
+    map: &mut ArenaQueryMap<'arena>,
+    key: &str,
+    value: &'arena str,
+    duplicate_keys: DuplicateKeyBehavior,
+) -> ParseResult<()> {
+    if let Some(existing) = map.get_mut(key) {
+        return match duplicate_keys {
+            DuplicateKeyBehavior::Reject => Err(ParseError::DuplicateKey {
+                key: duplicate_key_label(key),
+            }),
+            DuplicateKeyBehavior::FirstWins => Ok(()),
+            DuplicateKeyBehavior::LastWins => {
+                *existing = ArenaValue::string(value);
+                Ok(())
+            }
+        };
+    }
+
+    map.try_insert_str(arena, key, ArenaValue::string(value))
+        .map_err(|_| ParseError::DuplicateKey {
+            key: duplicate_key_label(key),
+        })
 }
 
 #[cfg(test)]

@@ -1,3 +1,6 @@
 mod options;
 
-pub use options::{ParseOptions, ParseOptionsBuilder, StringifyOptions, StringifyOptionsBuilder};
+pub use options::{
+    DuplicateKeyBehavior, ParseOptions, ParseOptionsBuilder, StringifyOptions,
+    StringifyOptionsBuilder,
+};
