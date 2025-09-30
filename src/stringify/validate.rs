@@ -8,3 +8,7 @@ pub(crate) fn ensure_no_control(value: &str) -> Result<(), ()> {
         Ok(())
     }
 }
+
+#[cfg(test)]
+#[path = "validate_test.rs"]
+mod validate_test;
