@@ -9,7 +9,7 @@ mod decode_component {
     }
 
     #[test]
-    fn when_ascii_input_has_no_specials_it_should_return_borrowed_slice() {
+    fn returns_borrowed_slice_for_plain_ascii() {
         // Arrange
         let raw = "simple";
         let mut scratch = scratch();
@@ -22,7 +22,7 @@ mod decode_component {
     }
 
     #[test]
-    fn when_plus_signs_are_treated_as_spaces_it_should_decode_to_spaces() {
+    fn decodes_plus_signs_as_spaces_when_enabled() {
         // Arrange
         let raw = "one+two";
         let mut scratch = scratch();
@@ -35,7 +35,7 @@ mod decode_component {
     }
 
     #[test]
-    fn when_percent_sequence_is_truncated_it_should_return_invalid_percent_error() {
+    fn returns_invalid_percent_error_for_truncated_sequence() {
         // Arrange
         let raw = "%2";
         let mut scratch = scratch();
@@ -51,7 +51,7 @@ mod decode_component {
     }
 
     #[test]
-    fn when_control_character_is_present_it_should_return_invalid_character_error() {
+    fn returns_invalid_character_error_for_control_character() {
         // Arrange
         let raw = "bad\u{0007}";
         let mut scratch = scratch();
@@ -70,7 +70,7 @@ mod decode_component {
     }
 
     #[test]
-    fn when_percent_decodes_to_invalid_utf8_it_should_return_invalid_utf8_error() {
+    fn returns_invalid_utf8_error_for_bad_percent_encoding() {
         // Arrange
         let raw = "%FF";
         let mut scratch = scratch();

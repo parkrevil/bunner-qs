@@ -15,3 +15,7 @@ pub use stringify::{
     SerdeStringifyError, SerdeStringifyResult, StringifyError, StringifyResult, stringify,
     stringify_with,
 };
+
+#[cfg(test)]
+#[path = "../tests/common/parsing_helpers.rs"]
+pub(crate) mod parsing_helpers;

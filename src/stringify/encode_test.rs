@@ -1,22 +1,22 @@
-use super::{encode_key_into, encode_value_into};
+// no direct imports; use fully-qualified calls
 
 fn encode_key(initial: &str, input: &str, space_as_plus: bool) -> String {
     let mut buffer = String::from(initial);
-    encode_key_into(&mut buffer, input, space_as_plus);
+    super::encode_key_into(&mut buffer, input, space_as_plus);
     buffer
 }
 
 fn encode_value(initial: &str, input: &str, space_as_plus: bool) -> String {
     let mut buffer = String::from(initial);
-    encode_value_into(&mut buffer, input, space_as_plus);
+    super::encode_value_into(&mut buffer, input, space_as_plus);
     buffer
 }
 
-mod encode_key_into_tests {
+mod encode_key_into {
     use super::*;
 
     #[test]
-    fn when_encoding_key_with_reserved_characters_it_should_percent_encode_them() {
+    fn percent_encodes_reserved_characters() {
         // Arrange
         let input = "user name+role/section?=true";
 
@@ -28,7 +28,7 @@ mod encode_key_into_tests {
     }
 
     #[test]
-    fn when_component_has_no_reserved_characters_it_should_append_verbatim() {
+    fn appends_verbatim_when_no_reserved_characters() {
         // Arrange
         let initial = "prefix=";
         let input = "alpha_numeric-._~";
@@ -41,7 +41,7 @@ mod encode_key_into_tests {
     }
 
     #[test]
-    fn when_component_is_empty_it_should_not_modify_buffer() {
+    fn does_not_modify_buffer_for_empty_component() {
         // Arrange
         let initial = "existing";
 
@@ -53,7 +53,7 @@ mod encode_key_into_tests {
     }
 
     #[test]
-    fn when_space_as_plus_is_enabled_it_should_replace_each_space_with_plus() {
+    fn replaces_spaces_with_plus_when_enabled() {
         // Arrange
         let input = " dev ops/team ";
 
@@ -65,11 +65,11 @@ mod encode_key_into_tests {
     }
 }
 
-mod encode_value_into_tests {
+mod encode_value_into {
     use super::*;
 
     #[test]
-    fn when_encoding_value_with_space_as_plus_it_should_replace_spaces_with_plus() {
+    fn replaces_spaces_with_plus_when_enabled() {
         // Arrange
         let input = "multi word value+more";
 
@@ -81,7 +81,7 @@ mod encode_value_into_tests {
     }
 
     #[test]
-    fn when_encoding_value_without_space_as_plus_it_should_percent_encode_spaces() {
+    fn percent_encodes_spaces_when_plus_disabled() {
         // Arrange
         let input = "space separated";
 
@@ -93,7 +93,7 @@ mod encode_value_into_tests {
     }
 
     #[test]
-    fn when_component_is_empty_it_should_not_modify_buffer() {
+    fn does_not_modify_buffer_for_empty_component() {
         // Arrange
         let initial = "existing";
 
@@ -105,7 +105,7 @@ mod encode_value_into_tests {
     }
 
     #[test]
-    fn when_space_as_plus_is_enabled_without_spaces_it_should_percent_encode_reserved_characters() {
+    fn percent_encodes_reserved_characters_without_spaces() {
         // Arrange
         let input = "café/tea";
 

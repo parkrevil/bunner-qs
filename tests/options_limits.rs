@@ -84,7 +84,7 @@ mod parse_limits_tests {
     use super::*;
 
     #[test]
-    fn when_max_params_are_within_limit_it_should_parse() {
+    fn parses_within_max_params_limit() {
         // Arrange
         let options = build_parse_options(|builder| builder.max_params(2));
 
@@ -99,7 +99,7 @@ mod parse_limits_tests {
     }
 
     #[test]
-    fn when_max_params_is_zero_it_should_error_on_first_pair() {
+    fn errors_on_first_pair_when_max_params_zero() {
         // Arrange
         let options = ParseOptions {
             max_params: Some(0),
@@ -114,7 +114,7 @@ mod parse_limits_tests {
     }
 
     #[test]
-    fn when_length_hits_boundary_it_should_allow_and_block_overflow() {
+    fn respects_length_boundary_allowing_limit_and_blocking_overflow() {
         // Arrange
         let query = "token=abcdef";
         let allowed = build_parse_options(|builder| builder.max_length(query.len()));
@@ -130,7 +130,7 @@ mod parse_limits_tests {
     }
 
     #[test]
-    fn when_depth_limit_is_exceeded_it_should_report_error() {
+    fn reports_error_when_depth_limit_exceeded() {
         // Arrange
         let options = build_parse_options(|builder| builder.max_depth(2));
 
@@ -145,7 +145,7 @@ mod parse_limits_tests {
     }
 
     #[test]
-    fn when_length_and_param_limits_apply_it_should_prioritize_length() {
+    fn prioritizes_length_limit_when_both_apply() {
         // Arrange
         let options = build_parse_options(|builder| builder.max_params(5).max_length(5));
 
@@ -157,7 +157,7 @@ mod parse_limits_tests {
     }
 
     #[test]
-    fn when_length_is_high_but_param_limit_is_low_it_should_error_on_params() {
+    fn errors_on_params_when_param_limit_is_low() {
         // Arrange
         let options = build_parse_options(|builder| builder.max_params(1).max_length(64));
 
@@ -169,7 +169,7 @@ mod parse_limits_tests {
     }
 
     #[test]
-    fn when_depth_limit_combines_with_param_budget_it_should_still_error() {
+    fn errors_when_depth_limit_combines_with_param_budget() {
         // Arrange
         let options = build_parse_options(|builder| builder.max_params(10).max_depth(1));
 
@@ -182,7 +182,7 @@ mod parse_limits_tests {
     }
 
     #[test]
-    fn when_limits_are_extreme_it_should_still_parse() {
+    fn parses_successfully_with_extreme_limits() {
         // Arrange
         let options = build_parse_options(|builder| {
             builder
@@ -204,7 +204,7 @@ mod parse_builder_tests {
     use super::*;
 
     #[test]
-    fn when_builder_sets_all_fields_it_should_store_values() {
+    fn stores_values_when_builder_sets_all_fields() {
         // Arrange
         let options = build_parse_options(|builder| {
             builder
@@ -227,7 +227,7 @@ mod parse_builder_tests {
     }
 
     #[test]
-    fn when_builder_receives_zero_limits_it_should_fail() {
+    fn fails_when_builder_receives_zero_limits() {
         // Arrange
         let params_msg = expect_builder_error(|builder| builder.max_params(0));
         let length_msg = expect_builder_error(|builder| builder.max_length(0));
@@ -245,7 +245,7 @@ mod parse_builder_tests {
     }
 
     #[test]
-    fn when_builder_uses_defaults_it_should_match_parse_options_default() {
+    fn matches_defaults_when_builder_uses_defaults() {
         // Arrange
         let built = build_parse_options(|builder| builder);
         let defaults = ParseOptions::default();
@@ -263,7 +263,7 @@ mod parse_builder_tests {
     }
 
     #[test]
-    fn when_space_as_plus_is_enabled_it_should_decode_plus() {
+    fn decodes_plus_when_space_as_plus_enabled() {
         // Arrange
         let options = build_parse_options(|builder| builder.space_as_plus(true));
 
@@ -275,7 +275,7 @@ mod parse_builder_tests {
     }
 
     #[test]
-    fn when_space_as_plus_is_combined_with_length_it_should_enforce_limit() {
+    fn enforces_length_when_space_as_plus_combined() {
         // Arrange
         let query = "note=one+two+three";
         let permissive =
@@ -297,7 +297,7 @@ mod stringify_option_tests {
     use super::*;
 
     #[test]
-    fn when_stringify_space_as_plus_is_enabled_it_should_emit_plus() {
+    fn emits_plus_when_stringify_space_as_plus_enabled() {
         // Arrange
         let map = json_from_pairs(&[("greeting", "hello world")]);
 
@@ -313,7 +313,7 @@ mod literal_behavior_tests {
     use super::*;
 
     #[test]
-    fn when_keys_contain_dots_it_should_treat_them_as_literals() {
+    fn treats_keys_with_dots_as_literals() {
         // Arrange
         let parsed = parse_value("profile.name=Ada&profile[meta][timezone]=UTC");
 
@@ -335,7 +335,7 @@ mod literal_behavior_tests {
     }
 
     #[test]
-    fn when_dotted_keys_are_followed_by_brackets_it_should_form_arrays() {
+    fn forms_arrays_when_dotted_keys_followed_by_brackets() {
         // Arrange
         let parsed = parse_value("metrics.cpu[0]=low&metrics.cpu[1]=high");
 

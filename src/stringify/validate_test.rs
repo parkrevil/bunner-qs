@@ -4,11 +4,11 @@ fn ensure(input: &str) -> Result<(), ()> {
     ensure_no_control(input)
 }
 
-mod ensure_no_control_tests {
+mod ensure_no_control {
     use super::*;
 
     #[test]
-    fn when_input_has_clean_ascii_it_should_allow_value() {
+    fn allows_clean_ascii() {
         // Arrange
         let input = "user=alice&count=42";
 
@@ -20,7 +20,7 @@ mod ensure_no_control_tests {
     }
 
     #[test]
-    fn when_input_contains_unicode_above_control_range_it_should_allow_value() {
+    fn allows_unicode_above_control_range() {
         // Arrange
         let input = "café\u{00A0}preview";
 
@@ -32,7 +32,7 @@ mod ensure_no_control_tests {
     }
 
     #[test]
-    fn when_input_has_ascii_control_characters_it_should_reject_value() {
+    fn rejects_ascii_control_characters() {
         // Arrange
         let controls = ["line1\nline2", "null\0byte"];
 
@@ -44,7 +44,7 @@ mod ensure_no_control_tests {
     }
 
     #[test]
-    fn when_input_has_delete_character_it_should_reject_value() {
+    fn rejects_delete_character() {
         // Arrange
         let delete = format!("header:{}tail", char::from(0x7F));
 

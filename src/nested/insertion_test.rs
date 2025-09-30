@@ -2,6 +2,7 @@ use super::{insert_nested_value_arena, resolve_segments};
 use crate::ParseError;
 use crate::nested::pattern_state::{PatternStateGuard, acquire_pattern_state};
 use crate::parsing::arena::{ArenaQueryMap, ArenaValue, ParseArena};
+use crate::parsing_helpers::expect_duplicate_key;
 
 fn map_with_capacity<'arena>(arena: &'arena ParseArena, capacity: usize) -> ArenaQueryMap<'arena> {
     ArenaQueryMap::with_capacity(arena, capacity)
@@ -69,18 +70,11 @@ fn assert_sequence_of_maps<'arena>(
     }
 }
 
-fn expect_duplicate_key(error: ParseError, expected: &str) {
-    match error {
-        ParseError::DuplicateKey { key } => assert_eq!(key, expected),
-        other => panic!("expected duplicate key error, got {other:?}"),
-    }
-}
-
 mod insert_nested_value_arena {
     use super::*;
 
     #[test]
-    fn when_scalar_is_inserted_at_root_it_should_store_string_value() {
+    fn stores_string_value_for_root_scalar_insert() {
         // Arrange
         let arena = ParseArena::new();
         let mut map = map_with_capacity(&arena, 0);
@@ -95,7 +89,7 @@ mod insert_nested_value_arena {
     }
 
     #[test]
-    fn when_array_pattern_is_used_it_should_expand_sequence_of_maps() {
+    fn expands_sequence_of_maps_for_array_pattern() {
         // Arrange
         let arena = ParseArena::new();
         let mut map = map_with_capacity(&arena, 0);
@@ -110,7 +104,7 @@ mod insert_nested_value_arena {
     }
 
     #[test]
-    fn when_duplicate_scalar_is_inserted_it_should_return_duplicate_key_error() {
+    fn returns_duplicate_key_when_scalar_repeats() {
         // Arrange
         let arena = ParseArena::new();
         let mut map = map_with_capacity(&arena, 0);
@@ -130,7 +124,7 @@ mod resolve_segments {
     use super::*;
 
     #[test]
-    fn when_array_segment_repeats_it_should_increment_indices() {
+    fn increments_indices_when_array_segment_repeats() {
         // Arrange
         let mut state = acquire_pattern_state();
         let path = ["items", "", "name"];
@@ -145,7 +139,7 @@ mod resolve_segments {
     }
 
     #[test]
-    fn when_path_has_only_literals_it_should_return_original_segments() {
+    fn returns_original_segments_for_literal_path() {
         // Arrange
         let mut state = acquire_pattern_state();
         let path = ["profile", "name"];

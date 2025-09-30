@@ -1,17 +1,7 @@
 use super::{arena_ensure_container, arena_initial_container};
-use crate::ParseError;
 use crate::nested::segment::ContainerType;
 use crate::parsing::arena::{ArenaValue, ParseArena};
-
-fn make_sequence<'arena>(arena: &'arena ParseArena, items: &[&str]) -> ArenaValue<'arena> {
-    let mut value = ArenaValue::seq_with_capacity(arena, items.len());
-    if let ArenaValue::Seq(entries) = &mut value {
-        for item in items.iter() {
-            entries.push(ArenaValue::string(arena.alloc_str(item)));
-        }
-    }
-    value
-}
+use crate::parsing_helpers::{expect_duplicate_key, make_sequence, make_string};
 
 fn assert_sequence_items(value: &ArenaValue<'_>, expected: &[&str]) {
     match value {
@@ -35,22 +25,11 @@ fn assert_empty_map(value: &ArenaValue<'_>) {
     }
 }
 
-fn make_string<'arena>(arena: &'arena ParseArena, text: &str) -> ArenaValue<'arena> {
-    ArenaValue::string(arena.alloc_str(text))
-}
-
-fn expect_duplicate_key(error: ParseError, expected_key: &str) {
-    match error {
-        ParseError::DuplicateKey { key } => assert_eq!(key, expected_key),
-        other => panic!("expected duplicate key error, got {other:?}"),
-    }
-}
-
 mod arena_initial_container {
     use super::*;
 
     #[test]
-    fn when_array_requested_it_should_start_with_empty_sequence() {
+    fn starts_with_empty_sequence_for_array_request() {
         // Arrange
         let arena = ParseArena::new();
 
@@ -62,7 +41,7 @@ mod arena_initial_container {
     }
 
     #[test]
-    fn when_object_requested_it_should_start_with_empty_map() {
+    fn starts_with_empty_map_for_object_request() {
         // Arrange
         let arena = ParseArena::new();
 
@@ -78,7 +57,7 @@ mod arena_ensure_container {
     use super::*;
 
     #[test]
-    fn when_sequence_matches_array_expectation_it_should_be_reused() {
+    fn reuses_sequence_when_array_expectation_matches() {
         // Arrange
         let arena = ParseArena::new();
         let mut value = make_sequence(&arena, &["existing"]);
@@ -92,7 +71,7 @@ mod arena_ensure_container {
     }
 
     #[test]
-    fn when_array_expected_but_map_provided_it_should_convert_to_sequence() {
+    fn converts_map_to_sequence_when_array_expected() {
         // Arrange
         let arena = ParseArena::new();
         let mut value = ArenaValue::map(&arena);
@@ -106,7 +85,7 @@ mod arena_ensure_container {
     }
 
     #[test]
-    fn when_object_expected_but_sequence_provided_it_should_convert_to_map() {
+    fn converts_sequence_to_map_when_object_expected() {
         // Arrange
         let arena = ParseArena::new();
         let mut value = make_sequence(&arena, &[]);
@@ -120,7 +99,7 @@ mod arena_ensure_container {
     }
 
     #[test]
-    fn when_string_conflicts_with_array_expectation_it_should_error() {
+    fn reports_error_when_string_conflicts_with_array() {
         // Arrange
         let arena = ParseArena::new();
         let mut value = make_string(&arena, "leaf");
@@ -134,7 +113,7 @@ mod arena_ensure_container {
     }
 
     #[test]
-    fn when_string_conflicts_with_object_expectation_it_should_error() {
+    fn reports_error_when_string_conflicts_with_object() {
         // Arrange
         let arena = ParseArena::new();
         let mut value = make_string(&arena, "leaf");

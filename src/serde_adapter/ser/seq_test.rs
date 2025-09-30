@@ -6,7 +6,7 @@ mod value_seq_serializer {
     use super::*;
 
     #[test]
-    fn when_serializing_mixed_option_sequence_it_should_convert_none_to_empty_string() {
+    fn converts_none_to_empty_string_in_option_sequence() {
         // Arrange
         let mut serializer = ValueSeqSerializer::new(Some(3));
 
@@ -31,7 +31,7 @@ mod value_seq_serializer {
     }
 
     #[test]
-    fn when_serializing_nested_arrays_it_should_preserve_structure() {
+    fn preserves_structure_for_nested_arrays() {
         // Arrange
         let mut serializer = ValueSeqSerializer::new(None);
         let nested = vec!["one", "two"];
@@ -56,7 +56,7 @@ mod value_seq_serializer {
     }
 
     #[test]
-    fn when_tuple_serializer_collects_elements_it_should_return_array_value() {
+    fn returns_array_value_from_tuple_serializer() {
         // Arrange
         let mut serializer = ValueSeqSerializer::new(Some(2));
 
@@ -79,7 +79,7 @@ mod value_seq_serializer {
     }
 
     #[test]
-    fn when_tuple_struct_serializer_collects_fields_it_should_return_array_value() {
+    fn returns_array_value_from_tuple_struct_serializer() {
         // Arrange
         let mut serializer = ValueSeqSerializer::new(Some(1));
 
@@ -97,7 +97,7 @@ mod value_seq_serializer {
     }
 
     #[test]
-    fn when_serializing_tuple_variant_it_should_return_unsupported_message() {
+    fn reports_unsupported_message_for_tuple_variant() {
         // Arrange
         let mut serializer = ValueSeqSerializer::new(None);
 
@@ -110,7 +110,7 @@ mod value_seq_serializer {
     }
 
     #[test]
-    fn when_ending_tuple_variant_it_should_return_unsupported_message() {
+    fn reports_unsupported_message_when_ending_tuple_variant() {
         // Arrange
         let serializer = ValueSeqSerializer::new(None);
 

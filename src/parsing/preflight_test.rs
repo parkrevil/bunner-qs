@@ -1,11 +1,11 @@
 use super::{ParseError, preflight};
 use crate::config::ParseOptions;
 
-mod preflight_tests {
+mod preflight {
     use super::*;
 
     #[test]
-    fn when_input_exceeds_max_length_it_returns_error() {
+    fn returns_error_when_input_exceeds_max_length() {
         // Arrange
         let raw = "abcdef";
         let options = ParseOptions {
@@ -24,7 +24,7 @@ mod preflight_tests {
     }
 
     #[test]
-    fn when_leading_question_mark_exists_it_returns_trimmed_slice_and_offset() {
+    fn returns_trimmed_slice_and_offset_for_leading_question_mark() {
         // Arrange
         let raw = "?foo=bar";
         let options = ParseOptions::default();
@@ -37,7 +37,7 @@ mod preflight_tests {
     }
 
     #[test]
-    fn when_internal_question_mark_is_found_it_returns_error_with_index() {
+    fn returns_error_with_index_for_internal_question_mark() {
         // Arrange
         let raw = "a?=1";
         let options = ParseOptions::default();
@@ -53,7 +53,7 @@ mod preflight_tests {
     }
 
     #[test]
-    fn when_disallowed_control_character_is_present_it_returns_invalid_character() {
+    fn returns_invalid_character_error_for_disallowed_control() {
         // Arrange
         let raw = format!("foo{}bar", '\u{001F}');
         let options = ParseOptions::default();
@@ -70,7 +70,7 @@ mod preflight_tests {
     }
 
     #[test]
-    fn when_space_character_appears_after_prefix_it_reports_offset_index() {
+    fn reports_offset_for_space_after_prefix() {
         // Arrange
         let raw = "?foo bar";
         let options = ParseOptions::default();

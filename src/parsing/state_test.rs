@@ -1,10 +1,10 @@
 use super::{ARENA_REUSE_UPPER_BOUND, ArenaLease};
 
-mod arena_lease_acquire_tests {
+mod arena_lease_acquire {
     use super::*;
 
     #[test]
-    fn when_min_capacity_is_zero_it_returns_guard_from_pool() {
+    fn returns_guard_from_pool_for_zero_capacity_request() {
         // Arrange
         let min_capacity = 0;
 
@@ -22,7 +22,7 @@ mod arena_lease_acquire_tests {
     }
 
     #[test]
-    fn when_min_capacity_is_within_reuse_upper_bound_it_uses_guard() {
+    fn returns_pooled_guard_within_reuse_upper_bound() {
         // Arrange
         let min_capacity = ARENA_REUSE_UPPER_BOUND;
 
@@ -40,7 +40,7 @@ mod arena_lease_acquire_tests {
     }
 
     #[test]
-    fn when_min_capacity_exceeds_upper_bound_it_allocates_owned_arena() {
+    fn allocates_owned_arena_when_capacity_exceeds_upper_bound() {
         // Arrange
         let min_capacity = ARENA_REUSE_UPPER_BOUND + 1;
 
@@ -58,11 +58,11 @@ mod arena_lease_acquire_tests {
     }
 }
 
-mod arena_lease_deref_tests {
+mod arena_lease_deref {
     use super::*;
 
     #[test]
-    fn when_guard_is_dereferenced_it_should_allow_shared_access() {
+    fn allows_shared_access_when_guard_is_dereferenced() {
         // Arrange
         let lease = ArenaLease::acquire(1);
 
@@ -74,7 +74,7 @@ mod arena_lease_deref_tests {
     }
 
     #[test]
-    fn when_guard_is_mutably_dereferenced_it_should_allow_mutations() {
+    fn allows_mutations_when_guard_is_mutably_dereferenced() {
         // Arrange
         let mut lease = ArenaLease::acquire(8);
 
@@ -87,7 +87,7 @@ mod arena_lease_deref_tests {
     }
 
     #[test]
-    fn when_owned_is_dereferenced_it_should_allow_shared_access() {
+    fn allows_shared_access_for_owned_arena() {
         // Arrange
         let lease = ArenaLease::acquire(ARENA_REUSE_UPPER_BOUND + 1);
 
@@ -99,7 +99,7 @@ mod arena_lease_deref_tests {
     }
 
     #[test]
-    fn when_owned_is_mutably_dereferenced_it_should_allow_mutations() {
+    fn allows_mutations_for_owned_arena() {
         // Arrange
         let mut lease = ArenaLease::acquire(ARENA_REUSE_UPPER_BOUND + 1);
 

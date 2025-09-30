@@ -2,20 +2,9 @@ use super::super::value_ref::ArenaValueRef;
 use super::ArenaValueDeserializer;
 use super::deserialize_from_arena_map;
 use crate::parsing::arena::{ArenaQueryMap, ArenaValue, ParseArena};
+use crate::parsing_helpers::{make_sequence, make_string};
 use crate::serde_adapter::errors::DeserializeError;
 use serde::Deserialize;
-
-fn make_string<'arena>(arena: &'arena ParseArena, value: &str) -> ArenaValue<'arena> {
-    ArenaValue::string(arena.alloc_str(value))
-}
-
-fn make_sequence<'arena>(arena: &'arena ParseArena, items: &[&'static str]) -> ArenaValue<'arena> {
-    let mut values = arena.alloc_vec();
-    for item in items {
-        values.push(ArenaValue::string(arena.alloc_str(item)));
-    }
-    ArenaValue::Seq(values)
-}
 
 fn make_map<'arena>(arena: &'arena ParseArena) -> ArenaQueryMap<'arena> {
     ArenaQueryMap::with_capacity(arena, 4)
@@ -41,7 +30,7 @@ mod deserialize_from_arena_map {
     }
 
     #[test]
-    fn when_deserializing_struct_it_should_return_expected_profile() {
+    fn deserializes_struct_into_expected_profile() {
         // Arrange
         let arena = ParseArena::new();
         let mut map = make_map(&arena);
@@ -65,7 +54,7 @@ mod deserialize_from_arena_map {
     }
 
     #[test]
-    fn when_boolean_literal_is_invalid_it_should_return_invalid_bool_error() {
+    fn rejects_invalid_boolean_literal_with_error() {
         // Arrange
         let arena = ParseArena::new();
         let mut map = make_map(&arena);
@@ -84,7 +73,7 @@ mod deserialize_from_arena_map {
     }
 
     #[test]
-    fn when_struct_contains_unknown_field_it_should_report_error_with_expectations() {
+    fn reports_unknown_field_with_expected_list() {
         // Arrange
         let arena = ParseArena::new();
         let mut map = make_map(&arena);
@@ -133,7 +122,7 @@ mod arena_value_deserializer {
     struct Marker;
 
     #[test]
-    fn when_sequence_length_is_incorrect_it_should_return_descriptive_message() {
+    fn reports_sequence_length_mismatch_message() {
         // Arrange
         let arena = ParseArena::new();
         let sequence_value = make_sequence(&arena, &["1"]);
@@ -150,7 +139,7 @@ mod arena_value_deserializer {
     }
 
     #[test]
-    fn when_struct_field_repeats_it_should_report_duplicate_field_error() {
+    fn reports_duplicate_field_error_when_struct_field_repeats() {
         // Arrange
         let arena = ParseArena::new();
         let mut entries = arena.alloc_vec();
@@ -176,7 +165,7 @@ mod arena_value_deserializer {
     }
 
     #[test]
-    fn when_unit_is_backed_by_non_empty_string_it_should_return_unexpected_type_error() {
+    fn rejects_non_empty_string_for_unit_with_unexpected_type() {
         // Arrange
         let arena = ParseArena::new();
         let value = make_string(&arena, "not-empty");
@@ -198,7 +187,7 @@ mod arena_value_deserializer {
     }
 
     #[test]
-    fn when_char_is_single_character_it_should_deserialize_successfully() {
+    fn deserializes_single_character_string_into_char() {
         // Arrange
         let arena = ParseArena::new();
         let value = make_string(&arena, "ß");
@@ -214,7 +203,7 @@ mod arena_value_deserializer {
     }
 
     #[test]
-    fn when_char_contains_multiple_characters_it_should_report_invalid_number() {
+    fn rejects_multi_character_string_as_char() {
         // Arrange
         let arena = ParseArena::new();
         let value = make_string(&arena, "no");
@@ -233,7 +222,7 @@ mod arena_value_deserializer {
     }
 
     #[test]
-    fn when_unit_is_backed_by_empty_string_it_should_deserialize_successfully() {
+    fn deserializes_unit_from_empty_string() {
         // Arrange
         let arena = ParseArena::new();
         let value = make_string(&arena, "");
@@ -249,7 +238,7 @@ mod arena_value_deserializer {
     }
 
     #[test]
-    fn when_unit_struct_is_backed_by_empty_string_it_should_deserialize_successfully() {
+    fn deserializes_unit_struct_from_empty_string() {
         // Arrange
         let arena = ParseArena::new();
         let value = make_string(&arena, "");
@@ -265,7 +254,7 @@ mod arena_value_deserializer {
     }
 
     #[test]
-    fn when_newtype_struct_is_backed_by_string_it_should_deserialize_inner_value() {
+    fn deserializes_newtype_struct_from_string() {
         // Arrange
         let arena = ParseArena::new();
         let value = make_string(&arena, "neo");
@@ -281,7 +270,7 @@ mod arena_value_deserializer {
     }
 
     #[test]
-    fn when_tuple_struct_has_matching_length_it_should_deserialize_elements() {
+    fn deserializes_tuple_struct_with_matching_length() {
         // Arrange
         let arena = ParseArena::new();
         let value = make_sequence(&arena, &["5", "7"]);
@@ -297,7 +286,7 @@ mod arena_value_deserializer {
     }
 
     #[test]
-    fn when_enumeration_is_requested_it_should_return_unsupported_message() {
+    fn rejects_enumeration_deserialization_as_unsupported() {
         // Arrange
         let arena = ParseArena::new();
         let value = make_string(&arena, "Fast");
@@ -317,7 +306,7 @@ mod arena_value_deserializer {
     }
 
     #[test]
-    fn when_map_is_requested_but_value_is_string_it_should_report_unexpected_type() {
+    fn rejects_string_value_when_map_requested() {
         // Arrange
         let arena = ParseArena::new();
         let value = make_string(&arena, "plain");

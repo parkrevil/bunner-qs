@@ -4,7 +4,7 @@ mod parse_key_path {
     use super::*;
 
     #[test]
-    fn when_key_has_no_brackets_it_should_return_single_segment() {
+    fn parses_key_without_brackets_into_single_segment() {
         // Arrange
         let input = "profile";
 
@@ -16,7 +16,7 @@ mod parse_key_path {
     }
 
     #[test]
-    fn when_key_has_nested_indices_it_should_expand_all_segments() {
+    fn parses_key_with_nested_indices_into_segments() {
         // Arrange
         let input = "user[0][name]";
 
@@ -28,7 +28,7 @@ mod parse_key_path {
     }
 
     #[test]
-    fn when_key_has_trailing_segment_it_should_append_tail() {
+    fn parses_trailing_segment_after_index() {
         // Arrange
         let input = "items[42]status";
 
@@ -40,7 +40,7 @@ mod parse_key_path {
     }
 
     #[test]
-    fn when_key_has_empty_brackets_it_should_include_empty_segment() {
+    fn parses_empty_brackets_as_empty_segment() {
         // Arrange
         let input = "flag[]";
 
@@ -52,7 +52,7 @@ mod parse_key_path {
     }
 
     #[test]
-    fn when_bracket_is_unmatched_it_should_collect_remaining_text() {
+    fn collects_remaining_text_for_unmatched_bracket() {
         // Arrange
         let input = "foo[bar";
 
@@ -64,7 +64,7 @@ mod parse_key_path {
     }
 
     #[test]
-    fn when_input_is_empty_it_should_return_empty_segments() {
+    fn returns_empty_segments_for_empty_input() {
         // Arrange
         let input = "";
 

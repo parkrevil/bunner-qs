@@ -1,4 +1,4 @@
-use super::write_pair;
+// use super::write_pair; // use fully qualified path to avoid name clash with module name
 
 struct WriteOutcome {
     output: String,
@@ -14,18 +14,18 @@ fn write_once(
 ) -> WriteOutcome {
     let mut output = String::from(initial);
     let mut first = first_pair;
-    write_pair(&mut output, key, value, space_as_plus, &mut first);
+    crate::stringify::writer::write_pair(&mut output, key, value, space_as_plus, &mut first);
     WriteOutcome {
         output,
         first_pair: first,
     }
 }
 
-mod write_pair_into_tests {
+mod write_pair {
     use super::*;
 
     #[test]
-    fn when_writing_first_pair_it_should_not_prefix_ampersand() {
+    fn does_not_prefix_ampersand_for_first_pair() {
         // Arrange
         let initial = "";
         let key = "user";
@@ -40,7 +40,7 @@ mod write_pair_into_tests {
     }
 
     #[test]
-    fn when_writing_subsequent_pair_it_should_prefix_separator() {
+    fn prefixes_separator_for_subsequent_pair() {
         // Arrange
         let initial = "first=one";
         let key = "second field";
@@ -55,7 +55,7 @@ mod write_pair_into_tests {
     }
 
     #[test]
-    fn when_space_as_plus_is_enabled_it_should_encode_spaces_as_plus() {
+    fn encodes_spaces_as_plus_when_enabled() {
         // Arrange
         let initial = "";
         let key = "space key";
@@ -70,13 +70,13 @@ mod write_pair_into_tests {
     }
 
     #[test]
-    fn when_components_need_percent_encoding_it_should_escape_reserved_characters() {
+    fn escapes_reserved_characters_when_needed() {
         // Arrange
         let mut output = String::with_capacity(0);
         let mut first_pair = true;
 
         // Act
-        write_pair(
+        crate::stringify::writer::write_pair(
             &mut output,
             "name+role?",
             "value/with=reserved&stuff",

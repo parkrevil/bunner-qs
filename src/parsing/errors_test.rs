@@ -5,7 +5,7 @@ mod parse_error_display {
     use super::*;
 
     #[test]
-    fn when_duplicate_key_is_rendered_it_should_include_key_name() {
+    fn renders_duplicate_key_error_with_key_name() {
         // Arrange
         let error = ParseError::DuplicateKey {
             key: "color".into(),
@@ -19,7 +19,7 @@ mod parse_error_display {
     }
 
     #[test]
-    fn when_too_many_parameters_is_rendered_it_should_include_counts() {
+    fn renders_too_many_parameters_with_counts() {
         // Arrange
         let error = ParseError::TooManyParameters {
             limit: 3,
@@ -38,7 +38,7 @@ mod serde_conversion_behavior {
     use super::*;
 
     #[test]
-    fn when_wrapping_deserialize_error_it_should_prefix_message() {
+    fn prefixes_message_when_wrapping_deserialize_error() {
         // Arrange
         let serde_error =
             SerdeQueryError::from(DeserializeError::InvalidBool { value: "NO".into() });
@@ -54,7 +54,7 @@ mod serde_conversion_behavior {
     }
 
     #[test]
-    fn when_wrapping_serialize_error_it_should_prefix_message() {
+    fn prefixes_message_when_wrapping_serialize_error() {
         // Arrange
         let serde_error = SerdeQueryError::from(SerializeError::Unsupported("tuple variant"));
 

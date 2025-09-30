@@ -1,4 +1,4 @@
-use super::{SerdeStringifyError, StringifyError, StringifyOptions, stringify, stringify_with};
+use crate::{SerdeStringifyError, StringifyError, StringifyOptions};
 use serde::Serialize;
 
 #[derive(Serialize)]
@@ -32,7 +32,7 @@ mod stringify {
         let profile = make_profile();
 
         // Act
-        let result = stringify(&profile).expect("stringify should succeed");
+        let result = crate::stringify(&profile).expect("stringify should succeed");
 
         // Assert
         assert_eq!(result, "name=Alice&city=Seattle");
@@ -44,7 +44,7 @@ mod stringify {
         let message = make_message("line1\nline2");
 
         // Act
-        let error = stringify(&message).expect_err("control characters should fail");
+        let error = crate::stringify(&message).expect_err("control characters should fail");
 
         // Assert
         match error {
@@ -68,7 +68,8 @@ mod stringify_with {
         };
 
         // Act
-        let result = stringify_with(&message, &options).expect("stringify_with should succeed");
+        let result =
+            crate::stringify_with(&message, &options).expect("stringify_with should succeed");
 
         // Assert
         assert_eq!(result, "body=hello+world");

@@ -6,7 +6,7 @@ mod with_arena_query_map {
     use super::*;
 
     #[test]
-    fn when_query_has_unique_pairs_it_should_populate_map() {
+    fn populates_map_from_unique_pairs() {
         // Arrange
         let trimmed = "foo=bar&baz=qux";
         let options = ParseOptions::default();
@@ -38,7 +38,7 @@ mod with_arena_query_map {
     }
 
     #[test]
-    fn when_duplicate_key_appears_it_should_return_error() {
+    fn returns_error_when_duplicate_key_appears() {
         // Arrange
         let trimmed = "foo=one&foo=two";
         let options = ParseOptions::default();
@@ -55,7 +55,7 @@ mod with_arena_query_map {
     }
 
     #[test]
-    fn when_parameter_limit_is_exceeded_it_should_return_too_many_parameters() {
+    fn returns_too_many_parameters_when_limit_exceeded() {
         // Arrange
         let options = ParseOptions::builder()
             .max_params(1)

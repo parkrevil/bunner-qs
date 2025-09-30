@@ -4,7 +4,7 @@ mod parse_arena_new {
     use super::*;
 
     #[test]
-    fn when_allocating_string_should_return_same_reference() {
+    fn allocates_string_and_returns_same_reference() {
         // Arrange
         let arena = ParseArena::new();
 
@@ -16,7 +16,7 @@ mod parse_arena_new {
     }
 
     #[test]
-    fn when_alloc_vec_should_return_empty_vector() {
+    fn alloc_vec_returns_empty_vector() {
         // Arrange
         let arena = ParseArena::new();
 
@@ -32,7 +32,7 @@ mod arena_query_map_insert {
     use super::*;
 
     #[test]
-    fn when_inserting_unique_key_should_store_value() {
+    fn stores_value_for_unique_key_insertion() {
         // Arrange
         let lease = acquire_parse_arena(0);
         let arena: &ParseArena = &lease;
@@ -49,7 +49,7 @@ mod arena_query_map_insert {
     }
 
     #[test]
-    fn when_inserting_duplicate_key_should_return_error() {
+    fn returns_error_for_duplicate_key_insertion() {
         // Arrange
         let lease = acquire_parse_arena(0);
         let arena: &ParseArena = &lease;
@@ -71,7 +71,7 @@ mod arena_query_map_get_mut {
     use super::*;
 
     #[test]
-    fn when_mutating_sequence_entry_should_store_values() {
+    fn stores_values_when_mutating_sequence_entry() {
         // Arrange
         let lease = acquire_parse_arena(0);
         let arena: &ParseArena = &lease;
@@ -102,7 +102,7 @@ mod arena_value_accessors {
     use super::*;
 
     #[test]
-    fn when_creating_map_with_capacity_should_return_empty_entries() {
+    fn creates_empty_map_with_requested_capacity() {
         // Arrange
         let lease = acquire_parse_arena(0);
         let arena: &ParseArena = &lease;
@@ -116,7 +116,7 @@ mod arena_value_accessors {
     }
 
     #[test]
-    fn when_creating_seq_with_capacity_should_return_empty_slice() {
+    fn creates_empty_sequence_with_requested_capacity() {
         // Arrange
         let lease = acquire_parse_arena(0);
         let arena: &ParseArena = &lease;

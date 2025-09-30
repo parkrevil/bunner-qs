@@ -6,7 +6,7 @@ mod value_struct_serializer {
     use super::*;
 
     #[test]
-    fn when_serializing_multiple_fields_it_should_collect_into_object() {
+    fn collects_multiple_fields_into_object() {
         // Arrange
         let mut serializer = ValueStructSerializer::new();
 
@@ -28,7 +28,7 @@ mod value_struct_serializer {
     }
 
     #[test]
-    fn when_field_serializes_to_none_it_should_skip_entry() {
+    fn skips_entry_when_field_serializes_to_none() {
         // Arrange
         let mut serializer = ValueStructSerializer::new();
 
@@ -46,7 +46,7 @@ mod value_struct_serializer {
     }
 
     #[test]
-    fn when_field_serializes_to_sequence_it_should_store_array() {
+    fn stores_array_when_field_serializes_to_sequence() {
         // Arrange
         let mut serializer = ValueStructSerializer::new();
 
@@ -75,7 +75,7 @@ mod map_key_serializer {
     use serde::ser::Serializer;
 
     #[test]
-    fn when_serializing_string_key_it_should_preserve_text() {
+    fn serializes_string_key_preserving_text() {
         // Arrange
 
         // Act
@@ -88,7 +88,7 @@ mod map_key_serializer {
     }
 
     #[test]
-    fn when_serializing_boolean_key_it_should_render_literal() {
+    fn serializes_boolean_key_as_literal() {
         // Arrange
 
         // Act
@@ -101,7 +101,7 @@ mod map_key_serializer {
     }
 
     #[test]
-    fn when_serializing_signed_numbers_it_should_render_decimal_strings() {
+    fn serializes_signed_numbers_as_decimal_strings() {
         // Arrange
 
         // Act
@@ -130,7 +130,7 @@ mod map_key_serializer {
     }
 
     #[test]
-    fn when_serializing_unsigned_numbers_it_should_render_decimal_strings() {
+    fn serializes_unsigned_numbers_as_decimal_strings() {
         // Arrange
 
         // Act
@@ -159,7 +159,7 @@ mod map_key_serializer {
     }
 
     #[test]
-    fn when_serializing_floats_it_should_preserve_precision_string() {
+    fn serializes_floats_preserving_precision() {
         // Arrange
 
         // Act
@@ -176,7 +176,7 @@ mod map_key_serializer {
     }
 
     #[test]
-    fn when_serializing_char_it_should_emit_single_character_string() {
+    fn serializes_char_as_single_character_string() {
         // Arrange
 
         // Act
@@ -189,7 +189,7 @@ mod map_key_serializer {
     }
 
     #[test]
-    fn when_serializing_bytes_it_should_decode_as_utf8_lossy() {
+    fn serializes_bytes_using_utf8_lossy() {
         // Arrange
         let bytes = b"caf\xC3\xA9";
 
@@ -203,7 +203,7 @@ mod map_key_serializer {
     }
 
     #[test]
-    fn when_serializing_unit_it_should_return_invalid_key_error() {
+    fn returns_invalid_key_for_unit() {
         // Arrange
 
         // Act
@@ -219,7 +219,7 @@ mod map_key_serializer {
     }
 
     #[test]
-    fn when_serializing_unit_struct_it_should_return_invalid_key_error() {
+    fn returns_invalid_key_for_unit_struct() {
         // Arrange
 
         // Act
@@ -237,7 +237,7 @@ mod map_key_serializer {
     }
 
     #[test]
-    fn when_serializing_unit_variant_it_should_return_variant_name() {
+    fn serializes_unit_variant_as_name() {
         // Arrange
 
         // Act
@@ -250,7 +250,7 @@ mod map_key_serializer {
     }
 
     #[test]
-    fn when_serializing_newtype_struct_it_should_delegate_to_inner_value() {
+    fn serializes_newtype_struct_via_inner_value() {
         // Arrange
 
         // Act
@@ -263,7 +263,7 @@ mod map_key_serializer {
     }
 
     #[test]
-    fn when_serializing_none_it_should_return_invalid_key_error() {
+    fn returns_invalid_key_for_none() {
         // Arrange
 
         // Act
@@ -279,7 +279,7 @@ mod map_key_serializer {
     }
 
     #[test]
-    fn when_serializing_some_it_should_serialize_inner_value() {
+    fn serializes_inner_value_for_some() {
         // Arrange
 
         // Act
@@ -291,7 +291,7 @@ mod map_key_serializer {
     }
 
     #[test]
-    fn when_serializing_newtype_variant_it_should_error_with_variant_details() {
+    fn errors_with_variant_details_for_newtype_variant() {
         // Arrange
 
         // Act
@@ -310,7 +310,7 @@ mod map_key_serializer {
     }
 
     #[test]
-    fn when_serializing_sequence_it_should_error_with_length_details() {
+    fn errors_with_length_details_for_sequence() {
         // Arrange
 
         // Act
@@ -327,7 +327,7 @@ mod map_key_serializer {
     }
 
     #[test]
-    fn when_serializing_tuple_it_should_error_with_length_details() {
+    fn errors_with_length_details_for_tuple() {
         // Arrange
 
         // Act
@@ -344,7 +344,7 @@ mod map_key_serializer {
     }
 
     #[test]
-    fn when_serializing_tuple_struct_it_should_error_with_name_and_length() {
+    fn errors_with_name_and_length_for_tuple_struct() {
         // Arrange
 
         // Act
@@ -364,7 +364,7 @@ mod map_key_serializer {
     }
 
     #[test]
-    fn when_serializing_tuple_variant_it_should_error_with_variant_details() {
+    fn errors_with_variant_details_for_tuple_variant() {
         // Arrange
 
         // Act
@@ -384,7 +384,7 @@ mod map_key_serializer {
     }
 
     #[test]
-    fn when_serializing_map_it_should_error_with_length_hint() {
+    fn errors_with_length_hint_for_map() {
         // Arrange
 
         // Act
@@ -401,7 +401,7 @@ mod map_key_serializer {
     }
 
     #[test]
-    fn when_serializing_struct_it_should_error_with_field_count() {
+    fn errors_with_field_count_for_struct() {
         // Arrange
 
         // Act
@@ -418,7 +418,7 @@ mod map_key_serializer {
     }
 
     #[test]
-    fn when_serializing_struct_variant_it_should_error_with_variant_details() {
+    fn errors_with_variant_details_for_struct_variant() {
         // Arrange
 
         // Act

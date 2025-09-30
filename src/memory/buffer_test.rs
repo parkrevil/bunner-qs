@@ -56,7 +56,7 @@ mod acquire_string {
     use super::*;
 
     #[test]
-    fn when_buffer_is_reused_it_should_clear_and_preserve_capacity() {
+    fn reuses_buffer_while_clearing_and_preserving_capacity() {
         // Arrange
         let recorded_capacity = record_string_capacity(|buf| buf.push_str("hello world"));
 
@@ -69,7 +69,7 @@ mod acquire_string {
     }
 
     #[test]
-    fn when_buffer_exceeds_limit_it_should_be_dropped_from_pool() {
+    fn drops_string_buffer_when_capacity_exceeds_limit() {
         // Arrange
         let oversized = MAX_STRING_BUFFER_CAPACITY + 1024;
         record_string_capacity(|buf| buf.reserve(oversized));
@@ -87,7 +87,7 @@ mod acquire_bytes {
     use super::*;
 
     #[test]
-    fn when_buffer_is_reused_it_should_clear_and_retain_capacity() {
+    fn reuses_byte_buffer_while_clearing_and_retaining_capacity() {
         // Arrange
         let recorded_capacity = record_byte_capacity(|buf| buf.extend_from_slice(&[1, 2, 3, 4]));
 
@@ -100,7 +100,7 @@ mod acquire_bytes {
     }
 
     #[test]
-    fn when_buffer_exceeds_limit_it_should_not_be_reused() {
+    fn drops_byte_buffer_when_capacity_exceeds_limit() {
         // Arrange
         let oversized = MAX_BYTE_BUFFER_CAPACITY + 4096;
         record_byte_capacity(|buf| buf.reserve(oversized));

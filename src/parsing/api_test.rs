@@ -1,5 +1,6 @@
-use super::{ParseError, parse, parse_with};
-use crate::config::ParseOptions;
+use super::{parse, parse_with};
+use crate::ParseOptions;
+use crate::parsing::ParseError;
 use serde::Deserialize;
 use serde_json::{Value, json};
 
@@ -9,11 +10,11 @@ struct Credentials {
     password: String,
 }
 
-mod parse_tests {
+mod parse_api {
     use super::*;
 
     #[test]
-    fn when_input_is_empty_it_returns_default_value() {
+    fn returns_default_for_empty_input() {
         // Arrange
         let query = "";
 
@@ -25,7 +26,7 @@ mod parse_tests {
     }
 
     #[test]
-    fn when_pairs_describe_struct_it_populates_fields() {
+    fn populates_struct_fields_from_pairs() {
         // Arrange
         let query = "username=neo&password=matrix";
 
@@ -41,7 +42,7 @@ mod parse_tests {
     }
 
     #[test]
-    fn when_target_is_json_value_it_returns_nested_map() {
+    fn produces_nested_map_for_json_value() {
         // Arrange
         let query = "user[name]=alice&user[role]=admin";
 
@@ -59,11 +60,11 @@ mod parse_tests {
     }
 }
 
-mod parse_with_tests {
+mod parse_with_api {
     use super::*;
 
     #[test]
-    fn when_space_as_plus_is_enabled_it_decodes_plus_signs() {
+    fn decodes_plus_signs_when_space_as_plus_enabled() {
         // Arrange
         let query = "message=hello+world";
         let options = ParseOptions {
@@ -80,7 +81,7 @@ mod parse_with_tests {
     }
 
     #[test]
-    fn when_parameter_limit_is_exceeded_it_returns_error() {
+    fn returns_error_when_parameter_limit_exceeded() {
         // Arrange
         let query = "a=1&b=2";
         let options = ParseOptions {

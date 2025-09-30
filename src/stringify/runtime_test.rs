@@ -1,9 +1,9 @@
-use super::{StringifyError, StringifyRuntime, stringify_query_map_with};
+use super::{StringifyError, StringifyRuntime};
 use crate::config::StringifyOptions;
 use crate::model::{OrderedMap, QueryMap, Value};
 
 fn stringify_map(map: QueryMap, options: StringifyOptions) -> Result<String, StringifyError> {
-    stringify_query_map_with(&map, &options)
+    super::stringify_query_map_with(&map, &options)
 }
 
 fn options(space_as_plus: bool) -> StringifyOptions {
@@ -25,11 +25,11 @@ fn nested_profile_map() -> QueryMap {
     QueryMap::from_iter([("profile", Value::Object(profile))])
 }
 
-mod stringify_query_map_with_tests {
+mod stringify_query_map_with {
     use super::*;
 
     #[test]
-    fn when_query_map_is_empty_it_should_return_empty_string() {
+    fn returns_empty_string_for_empty_map() {
         // Arrange
         let map = QueryMap::new();
         let options = StringifyOptions::default();
@@ -42,7 +42,7 @@ mod stringify_query_map_with_tests {
     }
 
     #[test]
-    fn when_space_as_plus_is_disabled_it_should_percent_encode_spaces() {
+    fn percent_encodes_spaces_when_plus_disabled() {
         // Arrange
         let map = QueryMap::from_iter([("space key", Value::from("space value"))]);
         let options = options(false);
@@ -55,7 +55,7 @@ mod stringify_query_map_with_tests {
     }
 
     #[test]
-    fn when_space_as_plus_is_enabled_it_should_convert_spaces_to_plus() {
+    fn converts_spaces_to_plus_when_enabled() {
         // Arrange
         let map = QueryMap::from_iter([("space key", Value::from("space value"))]);
         let options = options(true);
@@ -68,7 +68,7 @@ mod stringify_query_map_with_tests {
     }
 
     #[test]
-    fn when_value_contains_control_characters_it_should_return_invalid_value() {
+    fn errors_on_control_characters_in_value() {
         // Arrange
         let map = QueryMap::from_iter([("note", Value::from("line1\nline2"))]);
         let options = StringifyOptions::default();
@@ -84,7 +84,7 @@ mod stringify_query_map_with_tests {
     }
 
     #[test]
-    fn when_nested_structure_is_stringified_it_should_append_segments_in_order() {
+    fn stringifies_nested_structure_in_order() {
         // Arrange
         let map = nested_profile_map();
         let options = StringifyOptions::default();
@@ -100,7 +100,7 @@ mod stringify_query_map_with_tests {
     }
 
     #[test]
-    fn when_nested_key_contains_control_character_it_should_return_invalid_key() {
+    fn errors_on_control_character_in_nested_key() {
         // Arrange
         let profile: OrderedMap<String, Value> = OrderedMap::from_iter([
             ("valid".into(), Value::from("ok")),
@@ -120,11 +120,11 @@ mod stringify_query_map_with_tests {
     }
 }
 
-mod stringify_runtime_tests {
+mod stringify_runtime {
     use super::*;
 
     #[test]
-    fn when_creating_runtime_it_should_respect_space_option() {
+    fn respects_space_option_on_creation() {
         // Arrange
         let options = options(true);
 

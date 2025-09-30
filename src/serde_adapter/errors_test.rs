@@ -4,7 +4,7 @@ mod format_expected {
     use super::*;
 
     #[test]
-    fn when_given_no_fields_it_should_return_placeholder() {
+    fn formats_placeholder_when_no_fields_provided() {
         // Arrange
         const EMPTY_FIELDS: &[&str; 0] = &[];
 
@@ -16,7 +16,7 @@ mod format_expected {
     }
 
     #[test]
-    fn when_given_fields_it_should_join_with_commas() {
+    fn joins_fields_with_commas() {
         // Arrange
         const FIELDS: &[&str; 3] = &["alpha", "beta", "gamma"];
 
@@ -33,7 +33,7 @@ mod serialize_error {
     use serde::ser::Error as _;
 
     #[test]
-    fn when_using_custom_it_should_wrap_message() {
+    fn wraps_custom_message_for_serialize_error() {
         // Arrange
         let message = "serialization failed";
 
@@ -45,7 +45,7 @@ mod serialize_error {
     }
 
     #[test]
-    fn when_displaying_top_level_error_it_should_include_type() {
+    fn renders_top_level_error_with_type() {
         // Arrange
         let error = SerializeError::TopLevel("string".into());
 
@@ -62,7 +62,7 @@ mod deserialize_error {
     use serde::de::Error as _;
 
     #[test]
-    fn when_using_custom_it_should_wrap_message() {
+    fn wraps_custom_message_for_deserialize_error() {
         // Arrange
         let message = "deserialization failed";
 
@@ -74,7 +74,7 @@ mod deserialize_error {
     }
 
     #[test]
-    fn when_reporting_unknown_field_it_should_list_expected() {
+    fn lists_expected_fields_for_unknown_field() {
         // Arrange
         let error = DeserializeError::UnknownField {
             field: "mystery".into(),
@@ -96,7 +96,7 @@ mod serde_query_error {
     use super::*;
 
     #[test]
-    fn when_wrapping_serialize_error_it_should_prefix_message() {
+    fn prefixes_message_when_wrapping_serialize_error() {
         // Arrange
         let inner = SerializeError::Unsupported("tuple variant");
 
@@ -111,7 +111,7 @@ mod serde_query_error {
     }
 
     #[test]
-    fn when_wrapping_deserialize_error_it_should_prefix_message() {
+    fn prefixes_message_when_wrapping_deserialize_error() {
         // Arrange
         let inner = DeserializeError::InvalidBool {
             value: "YES".into(),

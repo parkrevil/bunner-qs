@@ -1,5 +1,5 @@
 use super::{ContainerType, PatternStateGuard, ResolvedSegment, acquire_pattern_state};
-use crate::ParseError;
+use crate::parsing_helpers::expect_duplicate_key;
 use std::borrow::Cow;
 
 fn make_segments<'a>(parts: &'a [&'a str]) -> Vec<ResolvedSegment<'a>> {
@@ -19,18 +19,11 @@ fn resolve_numeric<'a>(
         .expect("numeric segment should resolve")
 }
 
-fn expect_duplicate_key(error: ParseError, expected: &str) {
-    match error {
-        ParseError::DuplicateKey { key } => assert_eq!(key, expected),
-        other => panic!("expected duplicate key error, got {other:?}"),
-    }
-}
-
 mod resolve {
     use super::*;
 
     #[test]
-    fn when_numeric_segment_repeats_it_should_increment_indices() {
+    fn increments_indices_when_numeric_segment_repeats() {
         // Arrange
         let mut guard = acquire_pattern_state();
         let path = make_segments(&["items"]);
@@ -45,7 +38,7 @@ mod resolve {
     }
 
     #[test]
-    fn when_segment_kind_conflicts_it_should_return_duplicate_key() {
+    fn reports_duplicate_key_when_segment_kind_conflicts() {
         // Arrange
         let mut guard = acquire_pattern_state();
         let path = make_segments(&["items"]);
@@ -65,7 +58,7 @@ mod container_type {
     use super::*;
 
     #[test]
-    fn when_numeric_segments_seen_it_should_report_array() {
+    fn returns_array_when_numeric_segments_seen() {
         // Arrange
         let mut guard = acquire_pattern_state();
         let path = make_segments(&["items"]);
@@ -79,7 +72,7 @@ mod container_type {
     }
 
     #[test]
-    fn when_string_segments_seen_it_should_report_object() {
+    fn returns_object_when_string_segments_seen() {
         // Arrange
         let mut guard = acquire_pattern_state();
         let path = make_segments(&["props"]);
@@ -97,7 +90,7 @@ mod child_capacity {
     use super::*;
 
     #[test]
-    fn when_resolving_multiple_children_it_should_track_count() {
+    fn tracks_child_count_when_resolving_multiple_children() {
         // Arrange
         let mut guard = acquire_pattern_state();
         let path = make_segments(&["items"]);
@@ -117,7 +110,7 @@ mod acquire_pattern_state {
     use super::*;
 
     #[test]
-    fn when_guard_is_returned_to_pool_it_should_reset_state() {
+    fn resets_state_when_guard_returned_to_pool() {
         // Arrange
         {
             let mut guard = acquire_pattern_state();

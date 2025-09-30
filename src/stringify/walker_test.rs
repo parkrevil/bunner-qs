@@ -1,8 +1,8 @@
-use super::{Segment, append_segment};
+use super::Segment;
 
 fn append(initial: &str, segment: Segment<'_>) -> String {
     let mut buffer = String::from(initial);
-    append_segment(&mut buffer, segment);
+    super::append_segment(&mut buffer, segment);
     buffer
 }
 
@@ -10,16 +10,16 @@ fn append_all(initial: &str, segments: &[Segment<'_>]) -> String {
     segments
         .iter()
         .fold(String::from(initial), |mut buffer, segment| {
-            append_segment(&mut buffer, *segment);
+            super::append_segment(&mut buffer, *segment);
             buffer
         })
 }
 
-mod append_segment_tests {
+mod append_segment {
     use super::*;
 
     #[test]
-    fn when_appending_root_segment_it_should_write_key_directly() {
+    fn writes_key_for_root_segment() {
         // Arrange
         let initial = "";
 
@@ -31,7 +31,7 @@ mod append_segment_tests {
     }
 
     #[test]
-    fn when_appending_object_segment_it_should_bracket_sub_key() {
+    fn brackets_sub_key_for_object_segment() {
         // Arrange
         let initial = "profile";
 
@@ -43,7 +43,7 @@ mod append_segment_tests {
     }
 
     #[test]
-    fn when_appending_array_segment_it_should_use_decimal_index() {
+    fn uses_decimal_index_for_array_segment() {
         // Arrange
         let initial = "items";
 
@@ -55,7 +55,7 @@ mod append_segment_tests {
     }
 
     #[test]
-    fn when_array_index_is_zero_it_should_append_single_zero_digit() {
+    fn appends_zero_digit_for_zero_index() {
         // Arrange
         let initial = "list";
 
@@ -67,7 +67,7 @@ mod append_segment_tests {
     }
 
     #[test]
-    fn when_chaining_segments_it_should_build_full_key_path() {
+    fn builds_full_key_path_when_chained() {
         // Arrange
         let segments = [
             Segment::Root("order"),

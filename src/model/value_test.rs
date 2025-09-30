@@ -4,7 +4,7 @@ mod new {
     use super::*;
 
     #[test]
-    fn when_creating_new_query_map_it_should_be_empty() {
+    fn creates_empty_query_map_with_new() {
         // Arrange
         // Act
         let map = QueryMap::new();
@@ -18,7 +18,7 @@ mod with_capacity {
     use super::*;
 
     #[test]
-    fn when_reserving_zero_capacity_it_should_match_default() {
+    fn matches_default_when_reserving_zero_capacity() {
         // Arrange
         let baseline = QueryMap::new();
 
@@ -31,7 +31,7 @@ mod with_capacity {
     }
 
     #[test]
-    fn when_reserving_capacity_it_should_store_that_many_items() {
+    fn stores_items_when_reserving_capacity() {
         // Arrange
         let mut map = QueryMap::with_capacity(2);
 
@@ -48,7 +48,7 @@ mod from_iter {
     use super::*;
 
     #[test]
-    fn when_collecting_pairs_it_should_preserve_insertion_order() {
+    fn preserves_insertion_order_when_collecting_pairs() {
         // Arrange
         let pairs = [
             (String::from("first"), Value::from("one")),
@@ -68,7 +68,7 @@ mod into_iterator {
     use super::*;
 
     #[test]
-    fn when_iterating_immutably_it_should_yield_borrowed_values() {
+    fn yields_borrowed_values_when_iterating_immutably() {
         // Arrange
         let mut map = QueryMap::new();
         map.insert(String::from("flag"), Value::from("on"));
@@ -84,7 +84,7 @@ mod into_iterator {
     }
 
     #[test]
-    fn when_iterating_mutably_it_should_allow_updates() {
+    fn allows_updates_when_iterating_mutably() {
         // Arrange
         let mut map = QueryMap::new();
         map.insert(String::from("flag"), Value::from("off"));
@@ -103,7 +103,7 @@ mod value_from {
     use super::*;
 
     #[test]
-    fn when_converting_owned_string_it_should_wrap_as_value_string() {
+    fn wraps_owned_string_as_value_string() {
         // Arrange
         let source = String::from("hello");
 
@@ -115,7 +115,7 @@ mod value_from {
     }
 
     #[test]
-    fn when_converting_str_slice_it_should_clone_into_value_string() {
+    fn clones_str_slice_into_value_string() {
         // Arrange
         let source = "world";
 

@@ -13,7 +13,7 @@ mod serialize_to_query_map {
     }
 
     #[test]
-    fn when_serializing_struct_it_should_return_ordered_map() {
+    fn serializes_struct_to_ordered_map() {
         // Arrange
         let profile = Profile {
             name: "Mina",
@@ -30,7 +30,7 @@ mod serialize_to_query_map {
     }
 
     #[test]
-    fn when_top_level_is_string_it_should_report_top_level_error() {
+    fn rejects_string_top_level_with_top_level_error() {
         // Arrange
         let value = "hello";
 
@@ -45,7 +45,7 @@ mod serialize_to_query_map {
     }
 
     #[test]
-    fn when_top_level_option_is_none_it_should_report_unexpected_skip() {
+    fn reports_unexpected_skip_for_none_top_level_option() {
         // Arrange
         let value = Option::<String>::None;
 
@@ -60,7 +60,7 @@ mod serialize_to_query_map {
     }
 
     #[test]
-    fn when_top_level_is_array_it_should_report_top_level_error() {
+    fn rejects_array_top_level_with_top_level_error() {
         // Arrange
         let values = vec!["hello", "world"];
 
@@ -79,7 +79,7 @@ mod value_serializer {
     use super::*;
 
     #[test]
-    fn when_serializing_boolean_true_it_should_return_string_true() {
+    fn serializes_true_bool_to_string_true() {
         // Arrange
         let serializer = ValueSerializer::root();
 
@@ -93,7 +93,7 @@ mod value_serializer {
     }
 
     #[test]
-    fn when_serializing_bytes_it_should_convert_to_utf8_string() {
+    fn serializes_bytes_to_utf8_string() {
         // Arrange
         let serializer = ValueSerializer::root();
         let bytes = b"cafe";
@@ -108,7 +108,7 @@ mod value_serializer {
     }
 
     #[test]
-    fn when_serializing_none_at_root_it_should_return_none() {
+    fn returns_none_when_serializing_root_none() {
         // Arrange
         let serializer = ValueSerializer::root();
 
@@ -122,7 +122,7 @@ mod value_serializer {
     }
 
     #[test]
-    fn when_serializing_newtype_variant_it_should_return_unsupported_error() {
+    fn errors_for_newtype_variant_as_unsupported() {
         // Arrange
         let serializer = ValueSerializer::root();
 
@@ -139,7 +139,7 @@ mod value_serializer {
     }
 
     #[test]
-    fn when_preserving_none_in_sequence_it_should_emit_empty_string() {
+    fn preserves_none_in_sequence_as_empty_string() {
         // Arrange
         let mut seq = ValueSeqSerializer::new(Some(2));
 
@@ -161,7 +161,7 @@ mod value_serializer {
     }
 
     #[test]
-    fn when_serializing_signed_integer_it_should_return_string_value() {
+    fn serializes_signed_integer_to_string() {
         // Arrange
         let serializer = ValueSerializer::root();
 
@@ -175,7 +175,7 @@ mod value_serializer {
     }
 
     #[test]
-    fn when_serializing_unsigned_integer_it_should_return_string_value() {
+    fn serializes_unsigned_integer_to_string() {
         // Arrange
         let serializer = ValueSerializer::root();
 
@@ -189,7 +189,7 @@ mod value_serializer {
     }
 
     #[test]
-    fn when_serializing_float_it_should_return_string_value() {
+    fn serializes_float_to_string() {
         // Arrange
         let serializer = ValueSerializer::root();
 
@@ -203,7 +203,7 @@ mod value_serializer {
     }
 
     #[test]
-    fn when_serializing_char_it_should_return_string_value() {
+    fn serializes_char_to_string() {
         // Arrange
         let serializer = ValueSerializer::root();
 
@@ -217,7 +217,7 @@ mod value_serializer {
     }
 
     #[test]
-    fn when_serializing_some_value_it_should_delegate_to_inner_serializer() {
+    fn delegates_some_to_inner_serializer() {
         // Arrange
         let serializer = ValueSerializer::root();
 
@@ -231,7 +231,7 @@ mod value_serializer {
     }
 
     #[test]
-    fn when_serializing_unit_struct_it_should_return_empty_string() {
+    fn serializes_unit_struct_to_empty_string() {
         // Arrange
         let serializer = ValueSerializer::root();
 
@@ -245,7 +245,7 @@ mod value_serializer {
     }
 
     #[test]
-    fn when_serializing_unit_variant_it_should_return_variant_name() {
+    fn serializes_unit_variant_to_name() {
         // Arrange
         let serializer = ValueSerializer::root();
 
@@ -259,7 +259,7 @@ mod value_serializer {
     }
 
     #[test]
-    fn when_serializing_newtype_struct_it_should_delegate_to_inner_value() {
+    fn serializes_newtype_struct_via_inner_value() {
         // Arrange
         let serializer = ValueSerializer::root();
 
@@ -273,7 +273,7 @@ mod value_serializer {
     }
 
     #[test]
-    fn when_serializing_tuple_it_should_collect_elements_into_array() {
+    fn collects_tuple_elements_into_array() {
         // Arrange
         let mut tuple = Serializer::serialize_tuple(ValueSerializer::root(), 2)
             .expect("tuple serializer should be created");
@@ -296,7 +296,7 @@ mod value_serializer {
     }
 
     #[test]
-    fn when_serializing_map_it_should_collect_entries_into_object() {
+    fn collects_map_entries_into_object() {
         // Arrange
         let mut map = Serializer::serialize_map(ValueSerializer::root(), Some(1))
             .expect("map serializer should be created");
@@ -316,7 +316,7 @@ mod value_serializer {
     }
 
     #[test]
-    fn when_serializing_tuple_variant_it_should_return_unsupported_error() {
+    fn errors_for_tuple_variant_as_unsupported() {
         // Arrange
         let serializer = ValueSerializer::root();
 
@@ -334,7 +334,7 @@ mod value_serializer {
     }
 
     #[test]
-    fn when_serializing_struct_variant_it_should_return_unsupported_error() {
+    fn errors_for_struct_variant_as_unsupported() {
         // Arrange
         let serializer = ValueSerializer::root();
 

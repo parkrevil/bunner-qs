@@ -5,7 +5,7 @@ mod validate_brackets {
     use super::*;
 
     #[test]
-    fn when_brackets_are_balanced_it_returns_ok() {
+    fn returns_ok_for_balanced_brackets() {
         // Arrange
         let key = "user[address][street]";
 
@@ -17,7 +17,7 @@ mod validate_brackets {
     }
 
     #[test]
-    fn when_closing_bracket_appears_without_opening_it_returns_error() {
+    fn returns_error_for_unmatched_closing_bracket() {
         // Arrange
         let key = "user]";
 
@@ -32,7 +32,7 @@ mod validate_brackets {
     }
 
     #[test]
-    fn when_open_brackets_remain_unmatched_it_returns_error() {
+    fn returns_error_for_unmatched_open_brackets() {
         // Arrange
         let key = "user[address";
 
@@ -47,7 +47,7 @@ mod validate_brackets {
     }
 
     #[test]
-    fn when_total_pairs_exceed_limit_it_reports_depth_exceeded() {
+    fn reports_depth_exceeded_when_pair_limit_exceeded() {
         // Arrange
         let key = "a[][][]";
 
@@ -69,7 +69,7 @@ mod duplicate_key_label {
     use super::*;
 
     #[test]
-    fn when_called_it_returns_owned_copy_of_input() {
+    fn clones_input_when_requested() {
         // Arrange
         let key = "session";
 
@@ -90,7 +90,7 @@ mod estimate_param_capacity {
     use super::*;
 
     #[test]
-    fn when_input_is_empty_it_returns_zero() {
+    fn counts_zero_parameters_for_empty_input() {
         // Arrange
         let query = "";
 
@@ -102,7 +102,7 @@ mod estimate_param_capacity {
     }
 
     #[test]
-    fn when_input_has_multiple_parameters_it_counts_them() {
+    fn counts_multiple_parameters_correctly() {
         // Arrange
         let query = "a=1&b=2&c=3";
 
@@ -114,7 +114,7 @@ mod estimate_param_capacity {
     }
 
     #[test]
-    fn when_input_contains_trailing_ampersand_it_accounts_for_empty_parameter() {
+    fn counts_trailing_empty_parameter() {
         // Arrange
         let query = "token=&";
 
