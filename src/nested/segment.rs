@@ -75,3 +75,7 @@ pub(crate) enum ContainerType {
     Array,
     Object,
 }
+
+#[cfg(test)]
+#[path = "segment_test.rs"]
+mod segment_test;
