@@ -1,6 +1,6 @@
 use super::*;
 use crate::model::Value;
-use serde::ser::{SerializeSeq, SerializeTupleVariant};
+use serde::ser::{SerializeSeq, SerializeTuple, SerializeTupleStruct, SerializeTupleVariant};
 
 mod value_seq_serializer {
     use super::*;
@@ -53,6 +53,44 @@ mod value_seq_serializer {
         assert_eq!(inner.len(), 2);
         assert_eq!(inner[0], Value::String("one".into()));
         assert_eq!(inner[1], Value::String("two".into()));
+    }
+
+    #[test]
+    fn when_tuple_serializer_collects_elements_it_should_return_array_value() {
+        // Arrange
+        let mut serializer = ValueSeqSerializer::new(Some(2));
+
+        // Act
+        SerializeTuple::serialize_element(&mut serializer, &"left")
+            .expect("first tuple element should serialize");
+        SerializeTuple::serialize_element(&mut serializer, &"right")
+            .expect("second tuple element should serialize");
+        let result = SerializeTuple::end(serializer).expect("tuple should finish");
+
+        // Assert
+        let items = match result.expect("tuple serializer should produce a value") {
+            Value::Array(items) => items,
+            other => panic!("unexpected value: {other:?}"),
+        };
+        assert_eq!(items, vec![Value::String("left".into()), Value::String("right".into())]);
+    }
+
+    #[test]
+    fn when_tuple_struct_serializer_collects_fields_it_should_return_array_value() {
+        // Arrange
+        let mut serializer = ValueSeqSerializer::new(Some(1));
+
+        // Act
+        SerializeTupleStruct::serialize_field(&mut serializer, &123_i32)
+            .expect("tuple struct field should serialize");
+        let result = SerializeTupleStruct::end(serializer).expect("tuple struct should finish");
+
+        // Assert
+        let items = match result.expect("tuple struct serializer should produce a value") {
+            Value::Array(items) => items,
+            other => panic!("unexpected value: {other:?}"),
+        };
+        assert_eq!(items, vec![Value::String("123".into())]);
     }
 
     #[test]
