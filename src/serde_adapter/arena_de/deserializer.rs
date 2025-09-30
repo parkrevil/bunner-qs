@@ -521,3 +521,7 @@ impl<'de> MapAccess<'de> for ArenaStructDeserializer<'de> {
         })
     }
 }
+
+#[cfg(test)]
+#[path = "deserializer_test.rs"]
+mod deserializer_test;
