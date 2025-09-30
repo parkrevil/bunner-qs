@@ -57,3 +57,57 @@ mod arena_lease_acquire_tests {
         }
     }
 }
+
+mod arena_lease_deref_tests {
+    use super::*;
+
+    #[test]
+    fn when_guard_is_dereferenced_it_should_allow_shared_access() {
+        // Arrange
+        let lease = ArenaLease::acquire(1);
+
+        // Act
+        let stored = lease.alloc_str("shared");
+
+        // Assert
+        assert_eq!(stored, "shared");
+    }
+
+    #[test]
+    fn when_guard_is_mutably_dereferenced_it_should_allow_mutations() {
+        // Arrange
+        let mut lease = ArenaLease::acquire(8);
+
+        // Act
+        lease.prepare(0);
+        let stored = lease.alloc_str("mutated");
+
+        // Assert
+        assert_eq!(stored, "mutated");
+    }
+
+    #[test]
+    fn when_owned_is_dereferenced_it_should_allow_shared_access() {
+        // Arrange
+        let lease = ArenaLease::acquire(ARENA_REUSE_UPPER_BOUND + 1);
+
+        // Act
+        let stored = lease.alloc_str("owned");
+
+        // Assert
+        assert_eq!(stored, "owned");
+    }
+
+    #[test]
+    fn when_owned_is_mutably_dereferenced_it_should_allow_mutations() {
+        // Arrange
+        let mut lease = ArenaLease::acquire(ARENA_REUSE_UPPER_BOUND + 1);
+
+        // Act
+        lease.prepare(ARENA_REUSE_UPPER_BOUND + 2);
+        let stored = lease.alloc_str("resized");
+
+        // Assert
+        assert_eq!(stored, "resized");
+    }
+}
