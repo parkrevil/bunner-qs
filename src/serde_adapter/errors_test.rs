@@ -6,7 +6,7 @@ mod format_expected {
     #[test]
     fn when_given_no_fields_it_should_return_placeholder() {
         // Arrange
-    const EMPTY_FIELDS: &[&str; 0] = &[];
+        const EMPTY_FIELDS: &[&str; 0] = &[];
 
         // Act
         let formatted = format_expected(EMPTY_FIELDS);
@@ -18,7 +18,7 @@ mod format_expected {
     #[test]
     fn when_given_fields_it_should_join_with_commas() {
         // Arrange
-    const FIELDS: &[&str; 3] = &["alpha", "beta", "gamma"];
+        const FIELDS: &[&str; 3] = &["alpha", "beta", "gamma"];
 
         // Act
         let formatted = format_expected(FIELDS);
@@ -85,7 +85,10 @@ mod deserialize_error {
         let rendered = error.to_string();
 
         // Assert
-        assert_eq!(rendered, "unknown field `mystery`; expected one of: alpha, beta");
+        assert_eq!(
+            rendered,
+            "unknown field `mystery`; expected one of: alpha, beta"
+        );
     }
 }
 
@@ -101,7 +104,10 @@ mod serde_query_error {
         let error = SerdeQueryError::from(inner);
 
         // Assert
-        assert_eq!(error.to_string(), "failed to serialize values into query map: unsupported serialization form: tuple variant");
+        assert_eq!(
+            error.to_string(),
+            "failed to serialize values into query map: unsupported serialization form: tuple variant"
+        );
     }
 
     #[test]
@@ -115,6 +121,9 @@ mod serde_query_error {
         let error = SerdeQueryError::from(inner);
 
         // Assert
-        assert_eq!(error.to_string(), "failed to deserialize query map: invalid boolean literal `YES`");
+        assert_eq!(
+            error.to_string(),
+            "failed to deserialize query map: invalid boolean literal `YES`"
+        );
     }
 }

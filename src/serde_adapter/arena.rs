@@ -25,3 +25,7 @@ fn arena_value_to_json(value: &ArenaValue<'_>) -> JsonValue {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "arena_test.rs"]
+mod arena_test;
