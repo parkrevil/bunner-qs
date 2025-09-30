@@ -23,6 +23,10 @@ fn describe_value(value: &Value) -> String {
     }
 }
 
+#[cfg(test)]
+#[path = "value_test.rs"]
+mod value_test;
+
 #[derive(Clone, Copy)]
 pub(crate) struct ValueSerializer {
     preserve_none: bool,
