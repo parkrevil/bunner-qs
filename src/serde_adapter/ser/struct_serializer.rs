@@ -37,6 +37,10 @@ impl SerializeStruct for ValueStructSerializer {
     }
 }
 
+#[cfg(test)]
+#[path = "struct_serializer_test.rs"]
+mod struct_serializer_test;
+
 pub(crate) struct MapKeySerializer;
 
 impl MapKeySerializer {
