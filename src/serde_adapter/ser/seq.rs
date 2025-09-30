@@ -82,3 +82,7 @@ impl SerializeTupleVariant for ValueSeqSerializer {
         ))
     }
 }
+
+#[cfg(test)]
+#[path = "seq_test.rs"]
+mod seq_test;
