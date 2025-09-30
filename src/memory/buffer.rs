@@ -75,3 +75,7 @@ pub(crate) fn acquire_bytes() -> ByteGuard {
         ByteGuard { buffer: Some(buf) }
     })
 }
+
+#[cfg(test)]
+#[path = "buffer_test.rs"]
+mod buffer_test;

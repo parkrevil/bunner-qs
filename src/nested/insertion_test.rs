@@ -1,7 +1,7 @@
 use super::{insert_nested_value_arena, resolve_segments};
+use crate::ParseError;
 use crate::nested::pattern_state::acquire_pattern_state;
 use crate::parsing::arena::{ArenaQueryMap, ArenaValue, ParseArena};
-use crate::ParseError;
 
 fn map_with_capacity<'arena>(arena: &'arena ParseArena, capacity: usize) -> ArenaQueryMap<'arena> {
     ArenaQueryMap::with_capacity(arena, capacity)

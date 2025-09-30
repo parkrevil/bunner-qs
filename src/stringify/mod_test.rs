@@ -32,7 +32,9 @@ mod stringify_mod_tests {
         let message = Message {
             body: "hello world",
         };
-        let options = StringifyOptions { space_as_plus: true };
+        let options = StringifyOptions {
+            space_as_plus: true,
+        };
 
         let result = stringify_with(&message, &options).expect("stringify_with should succeed");
 
