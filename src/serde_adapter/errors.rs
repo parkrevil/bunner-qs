@@ -70,3 +70,7 @@ pub enum SerdeQueryError {
     #[error("failed to deserialize query map: {0}")]
     Deserialize(#[from] DeserializeError),
 }
+
+#[cfg(test)]
+#[path = "errors_test.rs"]
+mod errors_test;

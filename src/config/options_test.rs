@@ -51,7 +51,10 @@ mod parse_options_builder {
             .expect_err("zero max_params should be rejected");
 
         // Assert
-        assert_eq!(error.to_string(), "max_params must be greater than 0 when using the builder");
+        assert_eq!(
+            error.to_string(),
+            "max_params must be greater than 0 when using the builder"
+        );
     }
 
     #[test]
@@ -66,7 +69,10 @@ mod parse_options_builder {
             .expect_err("zero max_length should be rejected");
 
         // Assert
-        assert_eq!(error.to_string(), "max_length must be greater than 0 when using the builder");
+        assert_eq!(
+            error.to_string(),
+            "max_length must be greater than 0 when using the builder"
+        );
     }
 
     #[test]
@@ -81,7 +87,10 @@ mod parse_options_builder {
             .expect_err("zero max_depth should be rejected");
 
         // Assert
-        assert_eq!(error.to_string(), "max_depth must be greater than 0 when using the builder");
+        assert_eq!(
+            error.to_string(),
+            "max_depth must be greater than 0 when using the builder"
+        );
     }
 }
 
