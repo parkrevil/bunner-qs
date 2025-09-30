@@ -43,3 +43,7 @@ pub(crate) fn arena_ensure_container<'arena>(
         },
     }
 }
+
+#[cfg(test)]
+#[path = "container_test.rs"]
+mod container_test;
