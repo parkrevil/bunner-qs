@@ -1,4 +1,4 @@
-use super::{ContainerType, ResolvedSegment, acquire_pattern_state};
+use super::{ContainerType, PatternStateGuard, ResolvedSegment, acquire_pattern_state};
 use crate::ParseError;
 use std::borrow::Cow;
 
@@ -7,6 +7,23 @@ fn make_segments<'a>(parts: &'a [&'a str]) -> Vec<ResolvedSegment<'a>> {
         .iter()
         .map(|segment| ResolvedSegment::new(Cow::Borrowed(*segment)))
         .collect()
+}
+
+fn resolve_numeric<'a>(
+    guard: &mut PatternStateGuard,
+    path: &[ResolvedSegment<'a>],
+    alias: &str,
+) -> Cow<'a, str> {
+    guard
+        .resolve(path, "", alias)
+        .expect("numeric segment should resolve")
+}
+
+fn expect_duplicate_key(error: ParseError, expected: &str) {
+    match error {
+        ParseError::DuplicateKey { key } => assert_eq!(key, expected),
+        _ => panic!("expected duplicate key"),
+    }
 }
 
 mod resolve {
@@ -19,8 +36,8 @@ mod resolve {
         let path = make_segments(&["items"]);
 
         // Act
-        let first = guard.resolve(&path, "", "items").expect("first");
-        let second = guard.resolve(&path, "", "items").expect("second");
+        let first = resolve_numeric(&mut guard, &path, "items");
+        let second = resolve_numeric(&mut guard, &path, "items");
 
         // Assert
         assert_eq!(first, "0");
@@ -32,7 +49,7 @@ mod resolve {
         // Arrange
         let mut guard = acquire_pattern_state();
         let path = make_segments(&["items"]);
-        guard.resolve(&path, "0", "items").expect("numeric");
+        resolve_numeric(&mut guard, &path, "items");
 
         // Act
         let error = guard
@@ -40,10 +57,7 @@ mod resolve {
             .expect_err("conflict");
 
         // Assert
-        match error {
-            ParseError::DuplicateKey { key } => assert_eq!(key, "items"),
-            _ => panic!("expected duplicate key"),
-        }
+        expect_duplicate_key(error, "items");
     }
 }
 
@@ -55,7 +69,7 @@ mod container_type {
         // Arrange
         let mut guard = acquire_pattern_state();
         let path = make_segments(&["items"]);
-        guard.resolve(&path, "", "items").expect("numeric");
+        resolve_numeric(&mut guard, &path, "items");
 
         // Act
         let container = guard.container_type(&["items"]);
@@ -88,7 +102,7 @@ mod child_capacity {
         let mut guard = acquire_pattern_state();
         let path = make_segments(&["items"]);
         for _ in 0..3 {
-            guard.resolve(&path, "", "items").unwrap();
+            resolve_numeric(&mut guard, &path, "items");
         }
 
         // Act
