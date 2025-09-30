@@ -42,3 +42,7 @@ impl SerializeMap for ValueMapSerializer {
         Ok(Some(Value::Object(self.entries)))
     }
 }
+
+#[cfg(test)]
+#[path = "map_test.rs"]
+mod map_test;

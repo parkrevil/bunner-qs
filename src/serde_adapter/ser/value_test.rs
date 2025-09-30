@@ -1,7 +1,7 @@
 use super::*;
 use crate::model::Value;
-use serde::ser::{SerializeSeq, Serializer};
 use serde::Serialize;
+use serde::ser::{SerializeSeq, Serializer};
 
 mod serialize_to_query_map {
     use super::*;
@@ -21,8 +21,7 @@ mod serialize_to_query_map {
         };
 
         // Act
-        let map = serialize_to_query_map(&profile)
-            .expect("struct should serialize into a map");
+        let map = serialize_to_query_map(&profile).expect("struct should serialize into a map");
 
         // Assert
         assert_eq!(map.len(), 2);
@@ -36,8 +35,7 @@ mod serialize_to_query_map {
         let value = "hello";
 
         // Act
-        let error = serialize_to_query_map(&value)
-            .expect_err("non-object top level should fail");
+        let error = serialize_to_query_map(&value).expect_err("non-object top level should fail");
 
         // Assert
         match error {
@@ -52,8 +50,7 @@ mod serialize_to_query_map {
         let value = Option::<String>::None;
 
         // Act
-        let error = serialize_to_query_map(&value)
-            .expect_err("none should yield unexpected skip");
+        let error = serialize_to_query_map(&value).expect_err("none should yield unexpected skip");
 
         // Assert
         match error {

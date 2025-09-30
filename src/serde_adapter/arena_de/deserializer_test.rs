@@ -1,9 +1,9 @@
+use super::super::value_ref::ArenaValueRef;
+use super::ArenaValueDeserializer;
+use super::deserialize_from_arena_map;
 use crate::parsing::arena::{ArenaQueryMap, ArenaValue, ParseArena};
 use crate::serde_adapter::errors::DeserializeError;
 use serde::Deserialize;
-use super::deserialize_from_arena_map;
-use super::super::value_ref::ArenaValueRef;
-use super::ArenaValueDeserializer;
 
 fn make_string<'arena>(arena: &'arena ParseArena, value: &str) -> ArenaValue<'arena> {
     ArenaValue::string(arena.alloc_str(value))
@@ -51,8 +51,8 @@ mod deserialize_from_arena_map {
             .expect("unique key should insert");
 
         // Act
-        let result = deserialize_from_arena_map::<Profile>(&map)
-            .expect("deserialization should succeed");
+        let result =
+            deserialize_from_arena_map::<Profile>(&map).expect("deserialization should succeed");
 
         // Assert
         assert_eq!(
@@ -94,8 +94,8 @@ mod deserialize_from_arena_map {
             .expect("unique key should insert");
 
         // Act
-        let error = deserialize_from_arena_map::<Profile>(&map)
-            .expect_err("unknown field should fail");
+        let error =
+            deserialize_from_arena_map::<Profile>(&map).expect_err("unknown field should fail");
 
         // Assert
         match error {
@@ -133,8 +133,8 @@ mod arena_value_deserializer {
         };
 
         // Act
-        let error = <(u8, u8)>::deserialize(deserializer)
-            .expect_err("tuple length mismatch should fail");
+        let error =
+            <(u8, u8)>::deserialize(deserializer).expect_err("tuple length mismatch should fail");
 
         // Assert
         assert_eq!(error.to_string(), "expected tuple of length 2, found 1");
@@ -145,14 +145,8 @@ mod arena_value_deserializer {
         // Arrange
         let arena = ParseArena::new();
         let mut entries = arena.alloc_vec();
-        entries.push((
-            alloc_key(&arena, "count"),
-            make_string(&arena, "1"),
-        ));
-        entries.push((
-            alloc_key(&arena, "count"),
-            make_string(&arena, "2"),
-        ));
+        entries.push((alloc_key(&arena, "count"), make_string(&arena, "1")));
+        entries.push((alloc_key(&arena, "count"), make_string(&arena, "2")));
         let map_value = ArenaValue::Map {
             entries,
             index: Default::default(),
@@ -162,8 +156,8 @@ mod arena_value_deserializer {
         };
 
         // Act
-        let error = Count::deserialize(deserializer)
-            .expect_err("duplicate field should be rejected");
+        let error =
+            Count::deserialize(deserializer).expect_err("duplicate field should be rejected");
 
         // Assert
         match error {
@@ -182,8 +176,7 @@ mod arena_value_deserializer {
         };
 
         // Act
-        let error = <()>::deserialize(deserializer)
-            .expect_err("non-empty unit should fail");
+        let error = <()>::deserialize(deserializer).expect_err("non-empty unit should fail");
 
         // Assert
         match error {
