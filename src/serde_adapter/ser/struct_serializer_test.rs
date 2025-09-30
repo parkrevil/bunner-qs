@@ -105,7 +105,9 @@ mod map_key_serializer {
         // Arrange
 
         // Act
-        let i8_value = MapKeySerializer.serialize_i8(-3).expect("i8 should serialize");
+        let i8_value = MapKeySerializer
+            .serialize_i8(-3)
+            .expect("i8 should serialize");
         let i16_value = MapKeySerializer
             .serialize_i16(-4)
             .expect("i16 should serialize");
@@ -132,7 +134,9 @@ mod map_key_serializer {
         // Arrange
 
         // Act
-        let u8_value = MapKeySerializer.serialize_u8(3).expect("u8 should serialize");
+        let u8_value = MapKeySerializer
+            .serialize_u8(3)
+            .expect("u8 should serialize");
         let u16_value = MapKeySerializer
             .serialize_u16(4)
             .expect("u16 should serialize");
@@ -250,12 +254,9 @@ mod map_key_serializer {
         // Arrange
 
         // Act
-        let result = serde::ser::Serializer::serialize_newtype_struct(
-            MapKeySerializer,
-            "Wrapper",
-            &42u8,
-        )
-        .expect("newtype struct should serialize inner");
+        let result =
+            serde::ser::Serializer::serialize_newtype_struct(MapKeySerializer, "Wrapper", &42u8)
+                .expect("newtype struct should serialize inner");
 
         // Assert
         assert_eq!(result, "42");

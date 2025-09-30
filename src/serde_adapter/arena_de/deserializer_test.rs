@@ -123,6 +123,15 @@ mod arena_value_deserializer {
         Slow,
     }
 
+    #[derive(Debug, Deserialize, PartialEq)]
+    struct Wrapper(String);
+
+    #[derive(Debug, Deserialize, PartialEq)]
+    struct Pair(u8, u8);
+
+    #[derive(Debug, Deserialize, PartialEq)]
+    struct Marker;
+
     #[test]
     fn when_sequence_length_is_incorrect_it_should_return_descriptive_message() {
         // Arrange
@@ -186,6 +195,105 @@ mod arena_value_deserializer {
             }
             other => panic!("unexpected error: {other:?}"),
         }
+    }
+
+    #[test]
+    fn when_char_is_single_character_it_should_deserialize_successfully() {
+        // Arrange
+        let arena = ParseArena::new();
+        let value = make_string(&arena, "ß");
+        let deserializer = ArenaValueDeserializer {
+            value: ArenaValueRef::from_value(&value),
+        };
+
+        // Act
+        let result = char::deserialize(deserializer).expect("single character should deserialize");
+
+        // Assert
+        assert_eq!(result, 'ß');
+    }
+
+    #[test]
+    fn when_char_contains_multiple_characters_it_should_report_invalid_number() {
+        // Arrange
+        let arena = ParseArena::new();
+        let value = make_string(&arena, "no");
+        let deserializer = ArenaValueDeserializer {
+            value: ArenaValueRef::from_value(&value),
+        };
+
+        // Act
+        let error = char::deserialize(deserializer).expect_err("multi-character should fail");
+
+        // Assert
+        match error {
+            DeserializeError::InvalidNumber { value } => assert_eq!(value, "no"),
+            other => panic!("unexpected error: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn when_unit_is_backed_by_empty_string_it_should_deserialize_successfully() {
+        // Arrange
+        let arena = ParseArena::new();
+        let value = make_string(&arena, "");
+        let deserializer = ArenaValueDeserializer {
+            value: ArenaValueRef::from_value(&value),
+        };
+
+        // Act
+        let result = <()>::deserialize(deserializer);
+
+        // Assert
+        assert!(result.is_ok(), "empty string should deserialize unit");
+    }
+
+    #[test]
+    fn when_unit_struct_is_backed_by_empty_string_it_should_deserialize_successfully() {
+        // Arrange
+        let arena = ParseArena::new();
+        let value = make_string(&arena, "");
+        let deserializer = ArenaValueDeserializer {
+            value: ArenaValueRef::from_value(&value),
+        };
+
+        // Act
+        let result = Marker::deserialize(deserializer).expect("unit struct should deserialize");
+
+        // Assert
+        assert_eq!(result, Marker);
+    }
+
+    #[test]
+    fn when_newtype_struct_is_backed_by_string_it_should_deserialize_inner_value() {
+        // Arrange
+        let arena = ParseArena::new();
+        let value = make_string(&arena, "neo");
+        let deserializer = ArenaValueDeserializer {
+            value: ArenaValueRef::from_value(&value),
+        };
+
+        // Act
+        let result = Wrapper::deserialize(deserializer).expect("newtype struct should deserialize");
+
+        // Assert
+        assert_eq!(result, Wrapper("neo".into()));
+    }
+
+    #[test]
+    fn when_tuple_struct_has_matching_length_it_should_deserialize_elements() {
+        // Arrange
+        let arena = ParseArena::new();
+        let value = make_sequence(&arena, &["5", "7"]);
+        let deserializer = ArenaValueDeserializer {
+            value: ArenaValueRef::from_value(&value),
+        };
+
+        // Act
+        let result = Pair::deserialize(deserializer).expect("tuple struct should deserialize");
+
+        // Assert
+        assert_eq!(result, Pair(5, 7));
     }
 
     #[test]

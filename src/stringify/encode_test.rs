@@ -51,6 +51,18 @@ mod encode_key_into_tests {
         // Assert
         assert_eq!(encoded, "existing");
     }
+
+    #[test]
+    fn when_space_as_plus_is_enabled_it_should_replace_each_space_with_plus() {
+        // Arrange
+        let input = " dev ops/team ";
+
+        // Act
+        let encoded = encode_key("", input, true);
+
+        // Assert
+        assert_eq!(encoded, "+dev+ops%2Fteam+");
+    }
 }
 
 mod encode_value_into_tests {
@@ -90,5 +102,17 @@ mod encode_value_into_tests {
 
         // Assert
         assert_eq!(encoded, "existing");
+    }
+
+    #[test]
+    fn when_space_as_plus_is_enabled_without_spaces_it_should_percent_encode_reserved_characters() {
+        // Arrange
+        let input = "café/tea";
+
+        // Act
+        let encoded = encode_value("seed=", input, true);
+
+        // Assert
+        assert_eq!(encoded, "seed=caf%C3%A9%2Ftea");
     }
 }
