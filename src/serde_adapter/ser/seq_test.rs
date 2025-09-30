@@ -65,9 +65,7 @@ mod value_seq_serializer {
             .expect_err("tuple variant field should be unsupported");
 
         // Assert
-        assert!(error
-            .to_string()
-            .contains("tuple variants are unsupported"));
+        assert!(error.to_string().contains("tuple variants are unsupported"));
     }
 
     #[test]
@@ -76,8 +74,8 @@ mod value_seq_serializer {
         let serializer = ValueSeqSerializer::new(None);
 
         // Act
-        let error = SerializeTupleVariant::end(serializer)
-            .expect_err("tuple variant end should fail");
+        let error =
+            SerializeTupleVariant::end(serializer).expect_err("tuple variant end should fail");
 
         // Assert
         assert_eq!(

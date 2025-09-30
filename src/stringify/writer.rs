@@ -26,3 +26,7 @@ pub(crate) fn write_pair(
     output.push('=');
     encode_value_into(output, value, space_as_plus);
 }
+
+#[cfg(test)]
+#[path = "writer_test.rs"]
+mod writer_test;
