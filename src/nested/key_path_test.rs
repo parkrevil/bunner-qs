@@ -1,6 +1,6 @@
 use super::parse_key_path;
 
-mod parse_key_path_mod {
+mod parse_key_path {
     use super::*;
 
     #[test]
