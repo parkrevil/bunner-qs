@@ -217,3 +217,7 @@ fn parse_segments_into_map<'arena>(
 
     Ok(())
 }
+
+#[cfg(test)]
+#[path = "builder_test.rs"]
+mod builder_test;
