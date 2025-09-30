@@ -68,11 +68,7 @@ mod arena_map_to_json_value {
         let arena = ParseArena::new();
         let mut query_map = ArenaQueryMap::with_capacity(&arena, 2);
         query_map
-            .try_insert_str(
-                &arena,
-                "name",
-                ArenaValue::string(arena.alloc_str("Jane")),
-            )
+            .try_insert_str(&arena, "name", ArenaValue::string(arena.alloc_str("Jane")))
             .expect("unique key should insert");
 
         let mut hobbies_items = arena.alloc_vec();

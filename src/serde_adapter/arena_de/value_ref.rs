@@ -16,3 +16,7 @@ impl<'de> ArenaValueRef<'de> {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "value_ref_test.rs"]
+mod value_ref_test;
