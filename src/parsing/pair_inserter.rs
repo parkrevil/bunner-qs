@@ -37,3 +37,7 @@ pub(crate) fn insert_pair_arena<'arena>(
     let value_ref = arena.alloc_str(value.as_ref());
     insert_nested_value_arena(arena, map, &key_segments, value_ref, pattern_state)
 }
+
+#[cfg(test)]
+#[path = "pair_inserter_test.rs"]
+mod pair_inserter_test;

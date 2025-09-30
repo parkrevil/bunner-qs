@@ -1,7 +1,7 @@
 use super::*;
 use crate::config::ParseOptions;
-use crate::parsing::arena::ArenaValue;
 use crate::parsing::ParseError;
+use crate::parsing::arena::ArenaValue;
 
 mod with_arena_query_map {
     use super::*;
@@ -75,5 +75,40 @@ mod with_arena_query_map {
             }
             other => panic!("expected TooManyParameters error, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn decodes_plus_signs_when_enabled() {
+        let options = ParseOptions::builder()
+            .space_as_plus(true)
+            .build()
+            .expect("builder should succeed");
+
+        let result = with_arena_query_map("hello+world=value+here", 0, &options, |_, map| {
+            let entries = map.entries_slice();
+            assert_eq!(entries.len(), 1);
+            let (key, value) = &entries[0];
+            assert_eq!(*key, "hello world");
+            match value {
+                ArenaValue::String(text) => assert_eq!(*text, "value here"),
+                _ => panic!("expected string value"),
+            }
+            Ok(())
+        });
+
+        result.expect("space-as-plus decoding should succeed");
+    }
+
+    #[test]
+    fn reports_unmatched_bracket_error() {
+        let options = ParseOptions::default();
+
+        let error = with_arena_query_map("foo[=bar", 0, &options, |_, _| Ok(()))
+            .expect_err("unmatched bracket should error");
+
+        assert!(matches!(
+            error,
+            ParseError::UnmatchedBracket { ref key } if key == "foo["
+        ));
     }
 }

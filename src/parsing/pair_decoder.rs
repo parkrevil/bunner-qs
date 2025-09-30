@@ -26,3 +26,7 @@ pub(crate) fn decode_pair<'a>(
 
     Ok((key, value))
 }
+
+#[cfg(test)]
+#[path = "pair_decoder_test.rs"]
+mod pair_decoder_test;
