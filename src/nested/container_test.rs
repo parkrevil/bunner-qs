@@ -39,6 +39,13 @@ fn make_string<'arena>(arena: &'arena ParseArena, text: &str) -> ArenaValue<'are
     ArenaValue::string(arena.alloc_str(text))
 }
 
+fn expect_duplicate_key(error: ParseError, expected_key: &str) {
+    match error {
+        ParseError::DuplicateKey { key } => assert_eq!(key, expected_key),
+        other => panic!("expected duplicate key error, got {other:?}"),
+    }
+}
+
 mod arena_initial_container {
     use super::*;
 
@@ -123,7 +130,7 @@ mod arena_ensure_container {
             .expect_err("string should conflict with array expectation");
 
         // Assert
-        assert_duplicate_key(error, "profile");
+        expect_duplicate_key(error, "profile");
     }
 
     #[test]
@@ -137,13 +144,6 @@ mod arena_ensure_container {
             .expect_err("string should conflict with object expectation");
 
         // Assert
-        assert_duplicate_key(error, "settings");
-    }
-
-    fn assert_duplicate_key(error: ParseError, expected_key: &str) {
-        match error {
-            ParseError::DuplicateKey { key } => assert_eq!(key, expected_key),
-            _ => panic!("expected duplicate key"),
-        }
+        expect_duplicate_key(error, "settings");
     }
 }
