@@ -337,3 +337,7 @@ pub(crate) fn resolve_segments<'a>(
 
     Ok(resolved)
 }
+
+#[cfg(test)]
+#[path = "insertion_test.rs"]
+mod insertion_test;

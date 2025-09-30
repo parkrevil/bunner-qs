@@ -1,4 +1,4 @@
-use super::{acquire_pattern_state, ContainerType, ResolvedSegment};
+use super::{ContainerType, ResolvedSegment, acquire_pattern_state};
 use std::borrow::Cow;
 
 fn make_segments<'a>(parts: &'a [&'a str]) -> Vec<ResolvedSegment<'a>> {
@@ -62,7 +62,10 @@ fn container_type_reflects_recorded_segment_kind() {
         .resolve(&path, "field", "props")
         .expect("string segment should succeed");
 
-    assert_eq!(guard.container_type(&["props"]), Some(ContainerType::Object));
+    assert_eq!(
+        guard.container_type(&["props"]),
+        Some(ContainerType::Object)
+    );
 }
 
 #[test]
