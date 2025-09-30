@@ -52,3 +52,7 @@ pub(crate) fn estimate_param_capacity(input: &str) -> usize {
 
     memchr_iter(b'&', input.as_bytes()).count() + 1
 }
+
+#[cfg(test)]
+#[path = "key_path_test.rs"]
+mod key_path_test;
