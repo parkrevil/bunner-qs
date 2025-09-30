@@ -107,3 +107,7 @@ impl<'a> IntoIterator for &'a mut QueryMap {
         self.0.iter_mut()
     }
 }
+
+#[cfg(test)]
+#[path = "value_test.rs"]
+mod value_test;
