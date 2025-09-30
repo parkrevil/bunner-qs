@@ -52,7 +52,7 @@ fn assert_byte_dropped(buf: &Vec<u8>, max_capacity: usize) {
     assert_eq!(buf.len(), 0);
 }
 
-mod acquire_string_mod {
+mod acquire_string {
     use super::*;
 
     #[test]
@@ -83,7 +83,7 @@ mod acquire_string_mod {
     }
 }
 
-mod acquire_bytes_mod {
+mod acquire_bytes {
     use super::*;
 
     #[test]
