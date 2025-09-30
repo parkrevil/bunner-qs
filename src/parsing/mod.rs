@@ -2,6 +2,8 @@ pub mod builder;
 mod decoder;
 mod errors;
 mod key_path;
+mod pair_decoder;
+mod pair_inserter;
 mod preflight;
 mod state;
 

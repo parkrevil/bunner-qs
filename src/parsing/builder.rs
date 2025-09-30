@@ -1,18 +1,13 @@
-use std::borrow::Cow;
-
 use crate::config::ParseOptions;
 use crate::memory::acquire_bytes;
-use crate::nested::{
-    insertion::insert_nested_value_arena,
-    parse_key_path,
-    pattern_state::{PatternState, acquire_pattern_state},
-};
+use crate::nested::pattern_state::{PatternState, acquire_pattern_state};
 use crate::parsing::{ParseError, ParseResult};
 use memchr::{memchr, memchr2};
 
-use super::arena::{ArenaQueryMap, ArenaValue, ParseArena};
-use super::decoder::decode_component;
-use super::key_path::{duplicate_key_label, estimate_param_capacity, validate_brackets};
+use super::arena::{ArenaQueryMap, ParseArena};
+use super::key_path::estimate_param_capacity;
+use super::pair_decoder::decode_pair;
+use super::pair_inserter::insert_pair_arena;
 use super::state::ArenaLease;
 
 pub fn with_arena_query_map<R, F>(
@@ -96,58 +91,6 @@ fn process_segment<'arena>(
     )?;
 
     insert_pair_arena(arena, arena_map, pattern_state, key, value)
-}
-
-fn decode_pair<'a>(
-    raw_key: &'a str,
-    raw_value: &'a str,
-    key_start: usize,
-    value_offset: usize,
-    options: &ParseOptions,
-    decode_scratch: &mut Vec<u8>,
-) -> ParseResult<(Cow<'a, str>, Cow<'a, str>)> {
-    let key = decode_component(raw_key, options.space_as_plus, key_start, decode_scratch)?;
-    validate_brackets(key.as_ref(), options.max_depth)?;
-
-    let value = decode_component(
-        raw_value,
-        options.space_as_plus,
-        value_offset,
-        decode_scratch,
-    )?;
-
-    Ok((key, value))
-}
-
-fn insert_pair_arena<'arena>(
-    arena: &'arena ParseArena,
-    map: &mut ArenaQueryMap<'arena>,
-    pattern_state: &mut PatternState,
-    key: Cow<'_, str>,
-    value: Cow<'_, str>,
-) -> ParseResult<()> {
-    if key.is_empty() {
-        let value_ref = arena.alloc_str(value.as_ref());
-        map.try_insert_str(arena, "", ArenaValue::string(value_ref))
-            .map_err(|_| ParseError::DuplicateKey {
-                key: duplicate_key_label(""),
-            })?;
-        return Ok(());
-    }
-
-    if !key.is_empty() && !key.contains('[') {
-        let key_str = key.as_ref();
-        let value_ref = arena.alloc_str(value.as_ref());
-        map.try_insert_str(arena, key_str, ArenaValue::string(value_ref))
-            .map_err(|_| ParseError::DuplicateKey {
-                key: duplicate_key_label(key_str),
-            })?;
-        return Ok(());
-    }
-
-    let key_segments = parse_key_path(key.as_ref());
-    let value_ref = arena.alloc_str(value.as_ref());
-    insert_nested_value_arena(arena, map, &key_segments, value_ref, pattern_state)
 }
 
 #[allow(clippy::too_many_arguments)]

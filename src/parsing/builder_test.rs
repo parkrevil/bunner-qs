@@ -1,5 +1,6 @@
 use super::*;
 use crate::config::ParseOptions;
+use crate::parsing::arena::ArenaValue;
 use crate::parsing::ParseError;
 
 mod with_arena_query_map {
