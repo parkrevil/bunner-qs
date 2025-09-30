@@ -238,6 +238,20 @@ fn rejects_control_characters_in_value() {
 }
 
 #[test]
+fn rejects_delete_control_character_in_value() {
+    let map = json!({
+        "note": format!("alert{}signal", '\u{007F}')
+    });
+
+    asserts::assert_err_matches!(
+        stringify(&map),
+        SerdeStringifyError::Stringify(StringifyError::InvalidValue { key }) => |_message| {
+            assert_eq!(key, "note");
+        }
+    );
+}
+
+#[test]
 fn rejects_control_characters_in_nested_value() {
     let map = json!({
         "profile": {

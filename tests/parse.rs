@@ -499,6 +499,23 @@ mod error_handling_tests {
     }
 
     #[test]
+    fn reports_position_when_percent_decoding_control_character() {
+        // Arrange
+        let query = "bad=%07";
+
+        // Act
+        let (character, index, message) = expect_invalid_character(query);
+
+        // Assert
+        assert_eq!(character, '\u{0007}');
+        assert_eq!(index, 4);
+        assert_eq!(
+            message,
+            "query contains invalid character `\u{7}` at byte offset 4"
+        );
+    }
+
+    #[test]
     fn reports_unexpected_character_when_question_mark_in_key() {
         // Arrange
         let query = "foo?bar=1";
