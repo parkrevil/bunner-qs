@@ -1,4 +1,4 @@
-mod builder;
+pub mod builder;
 mod decoder;
 mod errors;
 mod key_path;

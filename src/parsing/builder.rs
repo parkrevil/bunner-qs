@@ -15,7 +15,7 @@ use super::decoder::decode_component;
 use super::key_path::{duplicate_key_label, estimate_param_capacity, validate_brackets};
 use super::state::ArenaLease;
 
-pub(crate) fn with_arena_query_map<R, F>(
+pub fn with_arena_query_map<R, F>(
     trimmed: &str,
     offset: usize,
     options: &ParseOptions,
