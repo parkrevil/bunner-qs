@@ -1,4 +1,4 @@
-use super::{stringify_query_map_with, StringifyError, StringifyRuntime};
+use super::{StringifyError, StringifyRuntime, stringify_query_map_with};
 use crate::config::StringifyOptions;
 use crate::model::{OrderedMap, QueryMap, Value};
 
@@ -17,9 +17,11 @@ mod stringify_runtime_tests {
 
     #[test]
     fn when_creating_runtime_it_should_respect_space_option() {
-    let options = StringifyOptions { space_as_plus: true };
+        let options = StringifyOptions {
+            space_as_plus: true,
+        };
 
-    let runtime = StringifyRuntime::new(&options);
+        let runtime = StringifyRuntime::new(&options);
 
         assert!(runtime.space_as_plus);
     }
@@ -27,7 +29,9 @@ mod stringify_runtime_tests {
     #[test]
     fn when_space_as_plus_is_disabled_it_should_percent_encode_spaces() {
         let map = QueryMap::from_iter([("space key", Value::from("space value"))]);
-        let options = StringifyOptions { space_as_plus: false };
+        let options = StringifyOptions {
+            space_as_plus: false,
+        };
 
         let result = stringify_query_map_with(&map, &options).expect("stringify should succeed");
 
@@ -37,7 +41,9 @@ mod stringify_runtime_tests {
     #[test]
     fn when_space_as_plus_is_enabled_it_should_convert_spaces_to_plus() {
         let map = QueryMap::from_iter([("space key", Value::from("space value"))]);
-        let options = StringifyOptions { space_as_plus: true };
+        let options = StringifyOptions {
+            space_as_plus: true,
+        };
 
         let result = stringify_query_map_with(&map, &options).expect("stringify should succeed");
 
@@ -49,7 +55,8 @@ mod stringify_runtime_tests {
         let map = QueryMap::from_iter([("note", Value::from("line1\nline2"))]);
         let options = StringifyOptions::default();
 
-        let error = stringify_query_map_with(&map, &options).expect_err("control characters should fail");
+        let error =
+            stringify_query_map_with(&map, &options).expect_err("control characters should fail");
 
         match error {
             StringifyError::InvalidValue { key } => assert_eq!(key, "note"),
@@ -89,7 +96,8 @@ mod stringify_runtime_tests {
         let map = QueryMap::from_iter([("profile", Value::Object(profile))]);
         let options = StringifyOptions::default();
 
-        let error = stringify_query_map_with(&map, &options).expect_err("invalid subkey should fail");
+        let error =
+            stringify_query_map_with(&map, &options).expect_err("invalid subkey should fail");
 
         match error {
             StringifyError::InvalidKey { key } => {

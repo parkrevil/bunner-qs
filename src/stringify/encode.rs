@@ -75,3 +75,7 @@ fn append_encoded(segment: &str, buffer: &mut String) {
         utf8_percent_encode(segment, COMPONENT_ENCODE_SET)
     );
 }
+
+#[cfg(test)]
+#[path = "encode_test.rs"]
+mod encode_test;
