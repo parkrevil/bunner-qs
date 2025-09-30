@@ -3,6 +3,42 @@ use crate::ParseError;
 use crate::nested::segment::ContainerType;
 use crate::parsing::arena::{ArenaValue, ParseArena};
 
+fn make_sequence<'arena>(arena: &'arena ParseArena, items: &[&str]) -> ArenaValue<'arena> {
+    let mut value = ArenaValue::seq_with_capacity(arena, items.len());
+    if let ArenaValue::Seq(entries) = &mut value {
+        for item in items.iter() {
+            entries.push(ArenaValue::string(arena.alloc_str(item)));
+        }
+    }
+    value
+}
+
+fn assert_sequence_items(value: &ArenaValue<'_>, expected: &[&str]) {
+    match value {
+        ArenaValue::Seq(items) => {
+            assert_eq!(items.len(), expected.len());
+            for (item, expected_text) in items.iter().zip(expected.iter()) {
+                match item {
+                    ArenaValue::String(text) => assert_eq!(*text, *expected_text),
+                    _ => panic!("expected string item"),
+                }
+            }
+        }
+        _ => panic!("expected sequence"),
+    }
+}
+
+fn assert_empty_map(value: &ArenaValue<'_>) {
+    match value {
+        ArenaValue::Map { entries, .. } => assert!(entries.is_empty()),
+        _ => panic!("expected map"),
+    }
+}
+
+fn make_string<'arena>(arena: &'arena ParseArena, text: &str) -> ArenaValue<'arena> {
+    ArenaValue::string(arena.alloc_str(text))
+}
+
 mod arena_initial_container {
     use super::*;
 
@@ -15,10 +51,7 @@ mod arena_initial_container {
         let container = arena_initial_container(&arena, ContainerType::Array, 8);
 
         // Assert
-        match container {
-            ArenaValue::Seq(items) => assert!(items.is_empty()),
-            _ => panic!("expected sequence container"),
-        }
+        assert_sequence_items(&container, &[]);
     }
 
     #[test]
@@ -30,10 +63,7 @@ mod arena_initial_container {
         let container = arena_initial_container(&arena, ContainerType::Object, 4);
 
         // Assert
-        match container {
-            ArenaValue::Map { entries, .. } => assert!(entries.is_empty()),
-            _ => panic!("expected map container"),
-        }
+        assert_empty_map(&container);
     }
 }
 
@@ -44,26 +74,14 @@ mod arena_ensure_container {
     fn when_sequence_matches_array_expectation_it_should_be_reused() {
         // Arrange
         let arena = ParseArena::new();
-        let mut value = ArenaValue::seq_with_capacity(&arena, 0);
-        if let ArenaValue::Seq(items) = &mut value {
-            items.push(ArenaValue::string(arena.alloc_str("existing")));
-        }
+        let mut value = make_sequence(&arena, &["existing"]);
 
         // Act
         arena_ensure_container(&arena, &mut value, ContainerType::Array, "profile")
             .expect("sequence should satisfy expectation");
 
         // Assert
-        match value {
-            ArenaValue::Seq(items) => {
-                assert_eq!(items.len(), 1);
-                match &items[0] {
-                    ArenaValue::String(text) => assert_eq!(*text, "existing"),
-                    _ => panic!("expected string item"),
-                }
-            }
-            _ => panic!("sequence should remain sequence"),
-        }
+        assert_sequence_items(&value, &["existing"]);
     }
 
     #[test]
@@ -77,34 +95,28 @@ mod arena_ensure_container {
             .expect("map should convert to sequence");
 
         // Assert
-        match value {
-            ArenaValue::Seq(items) => assert!(items.is_empty()),
-            _ => panic!("expected sequence"),
-        }
+        assert_sequence_items(&value, &[]);
     }
 
     #[test]
     fn when_object_expected_but_sequence_provided_it_should_convert_to_map() {
         // Arrange
         let arena = ParseArena::new();
-        let mut value = ArenaValue::seq_with_capacity(&arena, 0);
+        let mut value = make_sequence(&arena, &[]);
 
         // Act
         arena_ensure_container(&arena, &mut value, ContainerType::Object, "profile")
             .expect("sequence should convert to map");
 
         // Assert
-        match value {
-            ArenaValue::Map { entries, .. } => assert!(entries.is_empty()),
-            _ => panic!("expected map"),
-        }
+        assert_empty_map(&value);
     }
 
     #[test]
     fn when_string_conflicts_with_array_expectation_it_should_error() {
         // Arrange
         let arena = ParseArena::new();
-        let mut value = ArenaValue::string(arena.alloc_str("leaf"));
+        let mut value = make_string(&arena, "leaf");
 
         // Act
         let error = arena_ensure_container(&arena, &mut value, ContainerType::Array, "profile")
@@ -118,7 +130,7 @@ mod arena_ensure_container {
     fn when_string_conflicts_with_object_expectation_it_should_error() {
         // Arrange
         let arena = ParseArena::new();
-        let mut value = ArenaValue::string(arena.alloc_str("leaf"));
+        let mut value = make_string(&arena, "leaf");
 
         // Act
         let error = arena_ensure_container(&arena, &mut value, ContainerType::Object, "settings")
