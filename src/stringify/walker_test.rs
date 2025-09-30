@@ -1,53 +1,85 @@
 use super::{Segment, append_segment};
 
-mod walker_tests {
-    use super::{Segment, append_segment};
+fn append(initial: &str, segment: Segment<'_>) -> String {
+    let mut buffer = String::from(initial);
+    append_segment(&mut buffer, segment);
+    buffer
+}
+
+fn append_all(initial: &str, segments: &[Segment<'_>]) -> String {
+    segments
+        .iter()
+        .fold(String::from(initial), |mut buffer, segment| {
+            append_segment(&mut buffer, *segment);
+            buffer
+        })
+}
+
+mod append_segment_tests {
+    use super::*;
 
     #[test]
     fn when_appending_root_segment_it_should_write_key_directly() {
-        let mut buffer = String::new();
+        // Arrange
+        let initial = "";
 
-        append_segment(&mut buffer, Segment::Root("profile"));
+        // Act
+        let result = append(initial, Segment::Root("profile"));
 
-        assert_eq!(buffer, "profile");
+        // Assert
+        assert_eq!(result, "profile");
     }
 
     #[test]
     fn when_appending_object_segment_it_should_bracket_sub_key() {
-        let mut buffer = String::from("profile");
+        // Arrange
+        let initial = "profile";
 
-        append_segment(&mut buffer, Segment::Object("details"));
+        // Act
+        let result = append(initial, Segment::Object("details"));
 
-        assert_eq!(buffer, "profile[details]");
+        // Assert
+        assert_eq!(result, "profile[details]");
     }
 
     #[test]
     fn when_appending_array_segment_it_should_use_decimal_index() {
-        let mut buffer = String::from("items");
+        // Arrange
+        let initial = "items";
 
-        append_segment(&mut buffer, Segment::Array(42));
+        // Act
+        let result = append(initial, Segment::Array(42));
 
-        assert_eq!(buffer, "items[42]");
+        // Assert
+        assert_eq!(result, "items[42]");
     }
 
     #[test]
     fn when_array_index_is_zero_it_should_append_single_zero_digit() {
-        let mut buffer = String::from("list");
+        // Arrange
+        let initial = "list";
 
-        append_segment(&mut buffer, Segment::Array(0));
+        // Act
+        let result = append(initial, Segment::Array(0));
 
-        assert_eq!(buffer, "list[0]");
+        // Assert
+        assert_eq!(result, "list[0]");
     }
 
     #[test]
     fn when_chaining_segments_it_should_build_full_key_path() {
-        let mut buffer = String::new();
+        // Arrange
+        let segments = [
+            Segment::Root("order"),
+            Segment::Object("items"),
+            Segment::Array(7),
+            Segment::Object("sku"),
+        ];
 
-        append_segment(&mut buffer, Segment::Root("order"));
-        append_segment(&mut buffer, Segment::Object("items"));
-        append_segment(&mut buffer, Segment::Array(7));
-        append_segment(&mut buffer, Segment::Object("sku"));
+        // Act
+        let result = append_all("", &segments);
 
-        assert_eq!(buffer, "order[items][7][sku]");
+        // Assert
+        assert_eq!(result, "order[items][7][sku]");
     }
 }
