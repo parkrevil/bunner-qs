@@ -142,3 +142,7 @@ fn process_pairs(
 
     Ok(())
 }
+
+#[cfg(test)]
+#[path = "runtime_test.rs"]
+mod runtime_test;

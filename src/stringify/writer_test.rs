@@ -14,7 +14,10 @@ mod write_pair_tests {
 
         // Assert
         assert_eq!(output, "user=alice");
-        assert!(!first_pair, "first_pair flag should flip to false after first write");
+        assert!(
+            !first_pair,
+            "first_pair flag should flip to false after first write"
+        );
     }
 
     #[test]
@@ -24,15 +27,23 @@ mod write_pair_tests {
         let mut first_pair = false;
 
         // Act
-        write_pair(&mut output, "second field", "two & two", false, &mut first_pair);
+        write_pair(
+            &mut output,
+            "second field",
+            "two & two",
+            false,
+            &mut first_pair,
+        );
 
         // Assert
         assert_eq!(
-            output,
-            "first=one&second%20field=two%20%26%20two",
+            output, "first=one&second%20field=two%20%26%20two",
             "second pair should be prefixed with '&' and percent encoded"
         );
-        assert!(!first_pair, "first_pair flag should remain false for subsequent writes");
+        assert!(
+            !first_pair,
+            "first_pair flag should remain false for subsequent writes"
+        );
     }
 
     #[test]
@@ -42,7 +53,13 @@ mod write_pair_tests {
         let mut first_pair = true;
 
         // Act
-        write_pair(&mut output, "space key", "space value", true, &mut first_pair);
+        write_pair(
+            &mut output,
+            "space key",
+            "space value",
+            true,
+            &mut first_pair,
+        );
 
         // Assert
         assert_eq!(output, "space+key=space+value");
@@ -66,8 +83,7 @@ mod write_pair_tests {
 
         // Assert
         assert_eq!(
-            output,
-            "name%2Brole%3F=value%2Fwith%3Dreserved%26stuff",
+            output, "name%2Brole%3F=value%2Fwith%3Dreserved%26stuff",
             "reserved characters should be percent encoded"
         );
         assert!(!first_pair);
