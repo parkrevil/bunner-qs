@@ -17,6 +17,18 @@ fn insert_value<'arena>(
     insert_nested_value_arena(arena, map, path, arena.alloc_str(value), state)
 }
 
+fn insert_sequence_values<'arena>(
+    arena: &'arena ParseArena,
+    map: &mut ArenaQueryMap<'arena>,
+    path: &[&str],
+    values: &[&str],
+    state: &mut PatternStateGuard,
+) {
+    for value in values {
+        insert_value(arena, map, path, value, state).expect("sequence insert should succeed");
+    }
+}
+
 fn assert_single_string_entry<'arena>(map: &ArenaQueryMap<'arena>, key: &str, expected: &str) {
     let entries = map.entries_slice();
     assert_eq!(entries.len(), 1);
@@ -64,7 +76,7 @@ fn expect_duplicate_key(error: ParseError, expected: &str) {
     }
 }
 
-mod insert_nested_value_arena_mod {
+mod insert_nested_value_arena {
     use super::*;
 
     #[test]
@@ -88,18 +100,10 @@ mod insert_nested_value_arena_mod {
         let arena = ParseArena::new();
         let mut map = map_with_capacity(&arena, 0);
         let mut state = acquire_pattern_state();
+        let path = ["items", "", "name"];
 
         // Act
-        insert_value(
-            &arena,
-            &mut map,
-            &["items", "", "name"],
-            "alice",
-            &mut state,
-        )
-        .expect("first insert");
-        insert_value(&arena, &mut map, &["items", "", "name"], "bob", &mut state)
-            .expect("second insert");
+        insert_sequence_values(&arena, &mut map, &path, &["alice", "bob"], &mut state);
 
         // Assert
         assert_sequence_of_maps(&map, "items", "name", &["alice", "bob"]);
@@ -122,7 +126,7 @@ mod insert_nested_value_arena_mod {
     }
 }
 
-mod resolve_segments_mod {
+mod resolve_segments {
     use super::*;
 
     #[test]
