@@ -1,7 +1,7 @@
 use super::{Segment, append_segment};
 
 mod walker_tests {
-    use super::{append_segment, Segment};
+    use super::{Segment, append_segment};
 
     #[test]
     fn when_appending_root_segment_it_should_write_key_directly() {

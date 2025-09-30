@@ -34,3 +34,7 @@ where
     let query_map = QueryMap::from(map);
     stringify_query_map_with(&query_map, options).map_err(SerdeStringifyError::from)
 }
+
+#[cfg(test)]
+#[path = "mod_test.rs"]
+mod mod_test;
