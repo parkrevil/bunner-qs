@@ -266,3 +266,7 @@ impl<'arena> ArenaValue<'arena> {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "arena_test.rs"]
+mod arena_test;
