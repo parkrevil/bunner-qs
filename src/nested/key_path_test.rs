@@ -1,37 +1,77 @@
 use super::parse_key_path;
 
-#[test]
-fn parses_plain_key_without_brackets() {
-    let segments = parse_key_path("profile");
-    assert_eq!(segments.as_slice(), ["profile"]);
-}
+mod parse_key_path_mod {
+    use super::*;
 
-#[test]
-fn parses_nested_bracket_segments() {
-    let segments = parse_key_path("user[0][name]");
-    assert_eq!(segments.as_slice(), ["user", "0", "name"]);
-}
+    #[test]
+    fn when_key_has_no_brackets_it_should_return_single_segment() {
+        // Arrange
+        let input = "profile";
 
-#[test]
-fn parses_trailing_segment_after_brackets() {
-    let segments = parse_key_path("items[42]status");
-    assert_eq!(segments.as_slice(), ["items", "42", "status"]);
-}
+        // Act
+        let segments = parse_key_path(input);
 
-#[test]
-fn parses_empty_bracket_as_empty_segment() {
-    let segments = parse_key_path("flag[]");
-    assert_eq!(segments.as_slice(), ["flag", ""]);
-}
+        // Assert
+        assert_eq!(segments.as_slice(), ["profile"]);
+    }
 
-#[test]
-fn handles_unmatched_open_bracket() {
-    let segments = parse_key_path("foo[bar");
-    assert_eq!(segments.as_slice(), ["foo", "bar"]);
-}
+    #[test]
+    fn when_key_has_nested_indices_it_should_expand_all_segments() {
+        // Arrange
+        let input = "user[0][name]";
 
-#[test]
-fn returns_empty_for_empty_input() {
-    let segments = parse_key_path("");
-    assert!(segments.is_empty());
+        // Act
+        let segments = parse_key_path(input);
+
+        // Assert
+        assert_eq!(segments.as_slice(), ["user", "0", "name"]);
+    }
+
+    #[test]
+    fn when_key_has_trailing_segment_it_should_append_tail() {
+        // Arrange
+        let input = "items[42]status";
+
+        // Act
+        let segments = parse_key_path(input);
+
+        // Assert
+        assert_eq!(segments.as_slice(), ["items", "42", "status"]);
+    }
+
+    #[test]
+    fn when_key_has_empty_brackets_it_should_include_empty_segment() {
+        // Arrange
+        let input = "flag[]";
+
+        // Act
+        let segments = parse_key_path(input);
+
+        // Assert
+        assert_eq!(segments.as_slice(), ["flag", ""]);
+    }
+
+    #[test]
+    fn when_bracket_is_unmatched_it_should_collect_remaining_text() {
+        // Arrange
+        let input = "foo[bar";
+
+        // Act
+        let segments = parse_key_path(input);
+
+        // Assert
+        assert_eq!(segments.as_slice(), ["foo", "bar"]);
+    }
+
+    #[test]
+    fn when_input_is_empty_it_should_return_empty_segments() {
+        // Arrange
+        let input = "";
+
+        // Act
+        let segments = parse_key_path(input);
+
+        // Assert
+        assert!(segments.is_empty());
+    }
 }
