@@ -49,3 +49,7 @@ fn push_usize_decimal(buffer: &mut String, mut value: usize) {
     // SAFETY: slice contains only ASCII digit bytes written above.
     buffer.push_str(unsafe { std::str::from_utf8_unchecked(slice) });
 }
+
+#[cfg(test)]
+#[path = "walker_test.rs"]
+mod walker_test;
