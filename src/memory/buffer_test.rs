@@ -1,87 +1,115 @@
 use super::{MAX_BYTE_BUFFER_CAPACITY, MAX_STRING_BUFFER_CAPACITY, acquire_bytes, acquire_string};
 
-#[test]
-fn string_guard_reuses_buffer_and_clears_contents() {
-    let recorded_capacity;
-    {
+fn record_string_capacity<F>(mut fill: F) -> usize
+where
+    F: FnMut(&mut String),
+{
+    let mut guard = acquire_string();
+    let buf = guard.as_mut();
+    fill(buf);
+    buf.capacity()
+}
+
+fn assert_string_reuse(buf: &String, min_capacity: usize) {
+    assert_eq!(buf.len(), 0, "reused buffer should be cleared");
+    assert!(
+        buf.capacity() >= min_capacity,
+        "buffer should retain at least prior capacity"
+    );
+}
+
+fn assert_string_dropped(buf: &String, max_capacity: usize) {
+    assert!(
+        buf.capacity() <= max_capacity,
+        "oversized buffers should not be reused"
+    );
+    assert_eq!(buf.len(), 0);
+}
+
+fn record_byte_capacity<F>(mut fill: F) -> usize
+where
+    F: FnMut(&mut Vec<u8>),
+{
+    let mut guard = acquire_bytes();
+    let buf = guard.as_mut();
+    fill(buf);
+    buf.capacity()
+}
+
+fn assert_byte_reuse(buf: &Vec<u8>, min_capacity: usize) {
+    assert_eq!(buf.len(), 0, "byte buffer should be cleared on reuse");
+    assert!(
+        buf.capacity() >= min_capacity,
+        "byte buffer should retain previous capacity"
+    );
+}
+
+fn assert_byte_dropped(buf: &Vec<u8>, max_capacity: usize) {
+    assert!(
+        buf.capacity() <= max_capacity,
+        "oversized byte buffers should not be reused"
+    );
+    assert_eq!(buf.len(), 0);
+}
+
+mod acquire_string_mod {
+    use super::*;
+
+    #[test]
+    fn when_buffer_is_reused_it_should_clear_and_preserve_capacity() {
+        // Arrange
+        let recorded_capacity = record_string_capacity(|buf| buf.push_str("hello world"));
+
+        // Act
         let mut guard = acquire_string();
         let buf = guard.as_mut();
-        buf.push_str("hello world");
-        recorded_capacity = buf.capacity();
+
+        // Assert
+        assert_string_reuse(buf, recorded_capacity);
     }
 
-    {
+    #[test]
+    fn when_buffer_exceeds_limit_it_should_be_dropped_from_pool() {
+        // Arrange
+        let oversized = MAX_STRING_BUFFER_CAPACITY + 1024;
+        record_string_capacity(|buf| buf.reserve(oversized));
+
+        // Act
         let mut guard = acquire_string();
         let buf = guard.as_mut();
-        assert_eq!(buf.len(), 0, "reused buffer should be cleared");
-        assert!(
-            buf.capacity() >= recorded_capacity,
-            "buffer should retain at least prior capacity"
-        );
+
+        // Assert
+        assert_string_dropped(buf, MAX_STRING_BUFFER_CAPACITY);
     }
 }
 
-#[test]
-fn string_guard_discards_oversized_buffer() {
-    let oversized_capacity = MAX_STRING_BUFFER_CAPACITY + 1024;
+mod acquire_bytes_mod {
+    use super::*;
 
-    {
-        let mut guard = acquire_string();
-        let buf = guard.as_mut();
-        buf.reserve(oversized_capacity);
-        assert!(buf.capacity() > MAX_STRING_BUFFER_CAPACITY);
-    }
+    #[test]
+    fn when_buffer_is_reused_it_should_clear_and_retain_capacity() {
+        // Arrange
+        let recorded_capacity = record_byte_capacity(|buf| buf.extend_from_slice(&[1, 2, 3, 4]));
 
-    {
-        let mut guard = acquire_string();
-        let buf = guard.as_mut();
-        assert!(
-            buf.capacity() <= MAX_STRING_BUFFER_CAPACITY,
-            "oversized buffers should not be reused"
-        );
-        assert_eq!(buf.len(), 0);
-    }
-}
-
-#[test]
-fn byte_guard_reuses_buffer_and_clears_contents() {
-    let recorded_capacity;
-    {
+        // Act
         let mut guard = acquire_bytes();
         let buf = guard.as_mut();
-        buf.extend_from_slice(&[1, 2, 3, 4]);
-        recorded_capacity = buf.capacity();
+
+        // Assert
+        assert_byte_reuse(buf, recorded_capacity);
     }
 
-    {
+    #[test]
+    fn when_buffer_exceeds_limit_it_should_not_be_reused() {
+        // Arrange
+        let oversized = MAX_BYTE_BUFFER_CAPACITY + 4096;
+        record_byte_capacity(|buf| buf.reserve(oversized));
+
+        // Act
         let mut guard = acquire_bytes();
         let buf = guard.as_mut();
-        assert_eq!(buf.len(), 0, "byte buffer should be cleared on reuse");
-        assert!(
-            buf.capacity() >= recorded_capacity,
-            "byte buffer should retain previous capacity"
-        );
-    }
-}
 
-#[test]
-fn byte_guard_discards_oversized_buffer() {
-    let oversized_capacity = MAX_BYTE_BUFFER_CAPACITY + 4096;
-
-    {
-        let mut guard = acquire_bytes();
-        let buf = guard.as_mut();
-        buf.reserve(oversized_capacity);
-        assert!(buf.capacity() > MAX_BYTE_BUFFER_CAPACITY);
-    }
-
-    {
-        let mut guard = acquire_bytes();
-        let buf = guard.as_mut();
-        assert!(
-            buf.capacity() <= MAX_BYTE_BUFFER_CAPACITY,
-            "oversized byte buffers should not be reused"
-        );
-        assert_eq!(buf.len(), 0);
+        // Assert
+        assert_byte_dropped(buf, MAX_BYTE_BUFFER_CAPACITY);
     }
 }
