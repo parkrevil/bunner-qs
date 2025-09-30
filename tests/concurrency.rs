@@ -1,0 +1,34 @@
+use bunner_qs::{parse, stringify};
+use serde_json::Value;
+use std::thread;
+
+fn make_query() -> &'static str {
+    "profile[name]=Ada&profile[contacts][email]=ada@example.com&tags[]=rust&tags[]=serde"
+}
+
+#[test]
+fn concurrent_parse_and_stringify_roundtrip_without_panics() {
+    let query = make_query().to_string();
+    let threads = 8;
+    let iterations = 100;
+
+    let handles: Vec<_> = (0..threads)
+        .map(|_| {
+            let query = query.clone();
+            thread::spawn(move || {
+                for _ in 0..iterations {
+                    let parsed: Value = parse(&query).expect("parse should succeed");
+                    assert_eq!(parsed["profile"]["name"], "Ada");
+
+                    let encoded = stringify(&parsed).expect("stringify should succeed");
+                    let reparsed: Value = parse(&encoded).expect("roundtrip parse should succeed");
+                    assert_eq!(parsed, reparsed);
+                }
+            })
+        })
+        .collect();
+
+    for handle in handles {
+        handle.join().expect("thread should not panic");
+    }
+}
