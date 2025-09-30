@@ -3,115 +3,135 @@ use crate::ParseError;
 use crate::nested::segment::ContainerType;
 use crate::parsing::arena::{ArenaValue, ParseArena};
 
-#[test]
-fn initial_container_returns_sequence_for_array_request() {
-    let arena = ParseArena::new();
+mod arena_initial_container {
+    use super::*;
 
-    let container = arena_initial_container(&arena, ContainerType::Array, 8);
+    #[test]
+    fn when_array_requested_it_should_start_with_empty_sequence() {
+        // Arrange
+        let arena = ParseArena::new();
 
-    if let ArenaValue::Seq(items) = container {
-        assert!(items.is_empty(), "sequence should start empty");
-    } else {
-        panic!("expected sequence container");
-    }
-}
+        // Act
+        let container = arena_initial_container(&arena, ContainerType::Array, 8);
 
-#[test]
-fn initial_container_returns_map_for_object_request() {
-    let arena = ParseArena::new();
-
-    let container = arena_initial_container(&arena, ContainerType::Object, 4);
-
-    if let ArenaValue::Map { entries, .. } = container {
-        assert!(entries.is_empty(), "map should start empty");
-    } else {
-        panic!("expected map container");
-    }
-}
-
-#[test]
-fn ensure_container_keeps_existing_sequence_when_expected_array() {
-    let arena = ParseArena::new();
-    let mut value = ArenaValue::seq_with_capacity(&arena, 0);
-
-    if let ArenaValue::Seq(items) = &mut value {
-        items.push(ArenaValue::string(arena.alloc_str("existing")));
-    } else {
-        panic!("value should start as sequence");
-    }
-
-    arena_ensure_container(&arena, &mut value, ContainerType::Array, "profile")
-        .expect("existing sequence should satisfy expected array");
-
-    match value {
-        ArenaValue::Seq(items) => {
-            assert_eq!(items.len(), 1, "existing items should be preserved");
-            match &items[0] {
-                ArenaValue::String(text) => assert_eq!(*text, "existing"),
-                ArenaValue::Seq(_) => panic!("expected string item, found sequence"),
-                ArenaValue::Map { .. } => panic!("expected string item, found map"),
-            }
+        // Assert
+        match container {
+            ArenaValue::Seq(items) => assert!(items.is_empty()),
+            _ => panic!("expected sequence container"),
         }
-        ArenaValue::Map { .. } => panic!("expected sequence after ensure"),
-        ArenaValue::String(_) => panic!("sequence should not become string"),
+    }
+
+    #[test]
+    fn when_object_requested_it_should_start_with_empty_map() {
+        // Arrange
+        let arena = ParseArena::new();
+
+        // Act
+        let container = arena_initial_container(&arena, ContainerType::Object, 4);
+
+        // Assert
+        match container {
+            ArenaValue::Map { entries, .. } => assert!(entries.is_empty()),
+            _ => panic!("expected map container"),
+        }
     }
 }
 
-#[test]
-fn ensure_container_converts_map_into_sequence_when_array_expected() {
-    let arena = ParseArena::new();
-    let mut value = ArenaValue::map(&arena);
+mod arena_ensure_container {
+    use super::*;
 
-    arena_ensure_container(&arena, &mut value, ContainerType::Array, "profile")
-        .expect("map should be replaced by sequence");
+    #[test]
+    fn when_sequence_matches_array_expectation_it_should_be_reused() {
+        // Arrange
+        let arena = ParseArena::new();
+        let mut value = ArenaValue::seq_with_capacity(&arena, 0);
+        if let ArenaValue::Seq(items) = &mut value {
+            items.push(ArenaValue::string(arena.alloc_str("existing")));
+        }
 
-    match value {
-        ArenaValue::Seq(items) => assert!(items.is_empty(), "new sequence should be empty"),
-        ArenaValue::Map { .. } => panic!("map should have been converted to sequence"),
-        ArenaValue::String(_) => panic!("string should not appear after conversion"),
+        // Act
+        arena_ensure_container(&arena, &mut value, ContainerType::Array, "profile")
+            .expect("sequence should satisfy expectation");
+
+        // Assert
+        match value {
+            ArenaValue::Seq(items) => {
+                assert_eq!(items.len(), 1);
+                match &items[0] {
+                    ArenaValue::String(text) => assert_eq!(*text, "existing"),
+                    _ => panic!("expected string item"),
+                }
+            }
+            _ => panic!("sequence should remain sequence"),
+        }
     }
-}
 
-#[test]
-fn ensure_container_converts_sequence_into_map_when_object_expected() {
-    let arena = ParseArena::new();
-    let mut value = ArenaValue::seq_with_capacity(&arena, 0);
+    #[test]
+    fn when_array_expected_but_map_provided_it_should_convert_to_sequence() {
+        // Arrange
+        let arena = ParseArena::new();
+        let mut value = ArenaValue::map(&arena);
 
-    arena_ensure_container(&arena, &mut value, ContainerType::Object, "profile")
-        .expect("sequence should be replaced by map");
+        // Act
+        arena_ensure_container(&arena, &mut value, ContainerType::Array, "profile")
+            .expect("map should convert to sequence");
 
-    match value {
-        ArenaValue::Map { entries, .. } => assert!(entries.is_empty(), "new map should be empty"),
-        ArenaValue::Seq(_) => panic!("sequence should have been converted to map"),
-        ArenaValue::String(_) => panic!("string should not appear after conversion"),
+        // Assert
+        match value {
+            ArenaValue::Seq(items) => assert!(items.is_empty()),
+            _ => panic!("expected sequence"),
+        }
     }
-}
 
-#[test]
-fn ensure_container_returns_duplicate_key_for_string_when_array_expected() {
-    let arena = ParseArena::new();
-    let mut value = ArenaValue::string(arena.alloc_str("leaf"));
+    #[test]
+    fn when_object_expected_but_sequence_provided_it_should_convert_to_map() {
+        // Arrange
+        let arena = ParseArena::new();
+        let mut value = ArenaValue::seq_with_capacity(&arena, 0);
 
-    let error = arena_ensure_container(&arena, &mut value, ContainerType::Array, "profile")
-        .expect_err("string nodes should trigger duplicate key error");
+        // Act
+        arena_ensure_container(&arena, &mut value, ContainerType::Object, "profile")
+            .expect("sequence should convert to map");
 
-    assert_duplicate_key(error, "profile");
-}
+        // Assert
+        match value {
+            ArenaValue::Map { entries, .. } => assert!(entries.is_empty()),
+            _ => panic!("expected map"),
+        }
+    }
 
-#[test]
-fn ensure_container_returns_duplicate_key_for_string_when_object_expected() {
-    let arena = ParseArena::new();
-    let mut value = ArenaValue::string(arena.alloc_str("leaf"));
+    #[test]
+    fn when_string_conflicts_with_array_expectation_it_should_error() {
+        // Arrange
+        let arena = ParseArena::new();
+        let mut value = ArenaValue::string(arena.alloc_str("leaf"));
 
-    let error = arena_ensure_container(&arena, &mut value, ContainerType::Object, "settings")
-        .expect_err("string nodes should trigger duplicate key error");
+        // Act
+        let error = arena_ensure_container(&arena, &mut value, ContainerType::Array, "profile")
+            .expect_err("string should conflict with array expectation");
 
-    assert_duplicate_key(error, "settings");
-}
+        // Assert
+        assert_duplicate_key(error, "profile");
+    }
 
-fn assert_duplicate_key(error: ParseError, expected_key: &str) {
-    match error {
-        ParseError::DuplicateKey { key } => assert_eq!(key, expected_key),
-        other => panic!("expected duplicate key error, got {other:?}"),
+    #[test]
+    fn when_string_conflicts_with_object_expectation_it_should_error() {
+        // Arrange
+        let arena = ParseArena::new();
+        let mut value = ArenaValue::string(arena.alloc_str("leaf"));
+
+        // Act
+        let error = arena_ensure_container(&arena, &mut value, ContainerType::Object, "settings")
+            .expect_err("string should conflict with object expectation");
+
+        // Assert
+        assert_duplicate_key(error, "settings");
+    }
+
+    fn assert_duplicate_key(error: ParseError, expected_key: &str) {
+        match error {
+            ParseError::DuplicateKey { key } => assert_eq!(key, expected_key),
+            _ => panic!("expected duplicate key"),
+        }
     }
 }
