@@ -7,7 +7,7 @@ use std::cell::RefCell;
 use std::ops::{Deref, DerefMut};
 use std::sync::OnceLock;
 
-pub(crate) struct ParseArena {
+pub struct ParseArena {
     bump: Bump,
     capacity_hint: usize,
 }
@@ -16,14 +16,14 @@ const ARENA_SHRINK_THRESHOLD: usize = 256 * 1024; // 256 KiB
 const ARENA_SHRINK_RATIO: usize = 4;
 
 impl ParseArena {
-    pub(crate) fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             bump: Bump::new(),
             capacity_hint: 0,
         }
     }
 
-    pub(crate) fn with_capacity(bytes: usize) -> Self {
+    pub fn with_capacity(bytes: usize) -> Self {
         if bytes == 0 {
             Self::new()
         } else {
@@ -35,27 +35,27 @@ impl ParseArena {
     }
 
     #[inline]
-    pub(crate) fn alloc_str<'arena>(&'arena self, value: &str) -> &'arena str {
+    pub fn alloc_str<'arena>(&'arena self, value: &str) -> &'arena str {
         self.bump.alloc_str(value)
     }
 
     #[inline]
-    pub(crate) fn alloc_vec<'arena, T>(&'arena self) -> BumpVec<'arena, T> {
+    pub fn alloc_vec<'arena, T>(&'arena self) -> BumpVec<'arena, T> {
         BumpVec::new_in(&self.bump)
     }
 
     #[inline]
-    pub(crate) fn bump(&self) -> &Bump {
+    pub fn bump(&self) -> &Bump {
         &self.bump
     }
 
     #[inline]
-    pub(crate) fn reset(&mut self) {
+    pub fn reset(&mut self) {
         self.bump.reset();
     }
 
     #[inline]
-    pub(crate) fn prepare(&mut self, min_capacity: usize) {
+    pub fn prepare(&mut self, min_capacity: usize) {
         if min_capacity == 0 {
             self.reset();
             return;
@@ -87,7 +87,7 @@ thread_local! {
     static PARSE_ARENA_POOL: RefCell<ParseArena> = RefCell::new(ParseArena::new());
 }
 
-pub(crate) struct ParseArenaGuard {
+pub struct ParseArenaGuard {
     arena: Option<ParseArena>,
 }
 
@@ -123,7 +123,7 @@ impl Drop for ParseArenaGuard {
     }
 }
 
-pub(crate) fn acquire_parse_arena(min_capacity: usize) -> ParseArenaGuard {
+pub fn acquire_parse_arena(min_capacity: usize) -> ParseArenaGuard {
     PARSE_ARENA_POOL.with(|cell| {
         let mut stored = cell.borrow_mut();
         let mut arena = std::mem::take(&mut *stored);
@@ -132,7 +132,7 @@ pub(crate) fn acquire_parse_arena(min_capacity: usize) -> ParseArenaGuard {
     })
 }
 
-pub(crate) type ArenaVec<'arena, T> = BumpVec<'arena, T>;
+pub type ArenaVec<'arena, T> = BumpVec<'arena, T>;
 
 type FastMap<K, V> = HashMap<K, V, RandomState>;
 
@@ -144,13 +144,13 @@ fn shared_random_state() -> RandomState {
         .clone()
 }
 
-pub(crate) struct ArenaQueryMap<'arena> {
+pub struct ArenaQueryMap<'arena> {
     entries: ArenaVec<'arena, (&'arena str, ArenaValue<'arena>)>,
     index: FastMap<&'arena str, usize>,
 }
 
 impl<'arena> ArenaQueryMap<'arena> {
-    pub(crate) fn with_capacity(arena: &'arena ParseArena, capacity: usize) -> Self {
+    pub fn with_capacity(arena: &'arena ParseArena, capacity: usize) -> Self {
         let mut entries = ArenaVec::new_in(arena.bump());
         if capacity > 0 {
             entries.reserve(capacity);
@@ -164,22 +164,23 @@ impl<'arena> ArenaQueryMap<'arena> {
         Self { entries, index }
     }
 
-    pub(crate) fn iter(&self) -> impl Iterator<Item = (&'arena str, &ArenaValue<'arena>)> {
+    pub fn iter(&self) -> impl Iterator<Item = (&'arena str, &ArenaValue<'arena>)> {
         self.entries.iter().map(|(k, v)| (*k, v))
     }
 
-    pub(crate) fn contains_key(&self, key: &str) -> bool {
+    pub fn contains_key(&self, key: &str) -> bool {
         self.index.contains_key(key)
     }
 
-    pub(crate) fn get_mut(&mut self, key: &str) -> Option<&mut ArenaValue<'arena>> {
+    pub fn get_mut(&mut self, key: &str) -> Option<&mut ArenaValue<'arena>> {
         self.index
             .get(key)
             .copied()
             .map(|idx| &mut self.entries[idx].1)
     }
 
-    pub(crate) fn try_insert_str(
+    #[allow(clippy::result_unit_err)]
+    pub fn try_insert_str(
         &mut self,
         arena: &'arena ParseArena,
         key: &str,
@@ -197,16 +198,20 @@ impl<'arena> ArenaQueryMap<'arena> {
         }
     }
 
-    pub(crate) fn len(&self) -> usize {
+    pub fn len(&self) -> usize {
         self.entries.len()
     }
 
-    pub(crate) fn entries_slice(&self) -> &[(&'arena str, ArenaValue<'arena>)] {
+    pub fn is_empty(&self) -> bool {
+        self.entries.is_empty()
+    }
+
+    pub fn entries_slice(&self) -> &[(&'arena str, ArenaValue<'arena>)] {
         self.entries.as_slice()
     }
 }
 
-pub(crate) enum ArenaValue<'arena> {
+pub enum ArenaValue<'arena> {
     String(&'arena str),
     Seq(ArenaVec<'arena, ArenaValue<'arena>>),
     Map {
@@ -216,18 +221,18 @@ pub(crate) enum ArenaValue<'arena> {
 }
 
 impl<'arena> ArenaValue<'arena> {
-    pub(crate) fn string(value: &'arena str) -> Self {
+    pub fn string(value: &'arena str) -> Self {
         ArenaValue::String(value)
     }
 
-    pub(crate) fn map(arena: &'arena ParseArena) -> Self {
+    pub fn map(arena: &'arena ParseArena) -> Self {
         ArenaValue::Map {
             entries: ArenaVec::new_in(arena.bump()),
             index: FastMap::with_capacity_and_hasher(0, shared_random_state()),
         }
     }
 
-    pub(crate) fn map_with_capacity(arena: &'arena ParseArena, capacity: usize) -> Self {
+    pub fn map_with_capacity(arena: &'arena ParseArena, capacity: usize) -> Self {
         if capacity <= 4 {
             return ArenaValue::map(arena);
         }
@@ -239,7 +244,7 @@ impl<'arena> ArenaValue<'arena> {
         }
     }
 
-    pub(crate) fn seq_with_capacity(arena: &'arena ParseArena, capacity: usize) -> Self {
+    pub fn seq_with_capacity(arena: &'arena ParseArena, capacity: usize) -> Self {
         let mut values = arena.alloc_vec();
         if capacity > 4 {
             values.reserve(capacity);
@@ -247,14 +252,14 @@ impl<'arena> ArenaValue<'arena> {
         ArenaValue::Seq(values)
     }
 
-    pub(crate) fn as_seq_slice(&self) -> Option<&[ArenaValue<'arena>]> {
+    pub fn as_seq_slice(&self) -> Option<&[ArenaValue<'arena>]> {
         match self {
             ArenaValue::Seq(items) => Some(items.as_slice()),
             _ => None,
         }
     }
 
-    pub(crate) fn as_map_slice(&self) -> Option<&[(&'arena str, ArenaValue<'arena>)]> {
+    pub fn as_map_slice(&self) -> Option<&[(&'arena str, ArenaValue<'arena>)]> {
         match self {
             ArenaValue::Map { entries, .. } => Some(entries.as_slice()),
             _ => None,

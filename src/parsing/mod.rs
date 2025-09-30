@@ -5,7 +5,7 @@ mod key_path;
 mod preflight;
 mod state;
 
-pub(crate) mod arena;
+pub mod arena;
 
 pub use self::errors::ParseError;
 
@@ -42,7 +42,7 @@ where
     }
 
     with_arena_query_map(trimmed, offset, options, |_, arena_map| {
-        if arena_map.len() == 0 {
+        if arena_map.is_empty() {
             Ok(T::default())
         } else {
             if TypeId::of::<T>() == TypeId::of::<JsonValue>() {

@@ -4,7 +4,7 @@ mod config;
 mod memory;
 mod model;
 mod nested;
-mod parsing;
+pub mod parsing;
 mod serde_adapter;
 mod stringify;
 
