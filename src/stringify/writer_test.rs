@@ -1,65 +1,68 @@
 use super::write_pair;
 
-mod write_pair_tests {
-    use super::write_pair;
+struct WriteOutcome {
+    output: String,
+    first_pair: bool,
+}
+
+fn write_once(
+    initial: &str,
+    key: &str,
+    value: &str,
+    space_as_plus: bool,
+    first_pair: bool,
+) -> WriteOutcome {
+    let mut output = String::from(initial);
+    let mut first = first_pair;
+    write_pair(&mut output, key, value, space_as_plus, &mut first);
+    WriteOutcome {
+        output,
+        first_pair: first,
+    }
+}
+
+mod write_pair_into_tests {
+    use super::*;
 
     #[test]
     fn when_writing_first_pair_it_should_not_prefix_ampersand() {
         // Arrange
-        let mut output = String::new();
-        let mut first_pair = true;
+        let initial = "";
+        let key = "user";
+        let value = "alice";
 
         // Act
-        write_pair(&mut output, "user", "alice", false, &mut first_pair);
+        let WriteOutcome { output, first_pair } = write_once(initial, key, value, false, true);
 
         // Assert
         assert_eq!(output, "user=alice");
-        assert!(
-            !first_pair,
-            "first_pair flag should flip to false after first write"
-        );
+        assert!(!first_pair);
     }
 
     #[test]
     fn when_writing_subsequent_pair_it_should_prefix_separator() {
         // Arrange
-        let mut output = String::from("first=one");
-        let mut first_pair = false;
+        let initial = "first=one";
+        let key = "second field";
+        let value = "two & two";
 
         // Act
-        write_pair(
-            &mut output,
-            "second field",
-            "two & two",
-            false,
-            &mut first_pair,
-        );
+        let WriteOutcome { output, first_pair } = write_once(initial, key, value, false, false);
 
         // Assert
-        assert_eq!(
-            output, "first=one&second%20field=two%20%26%20two",
-            "second pair should be prefixed with '&' and percent encoded"
-        );
-        assert!(
-            !first_pair,
-            "first_pair flag should remain false for subsequent writes"
-        );
+        assert_eq!(output, "first=one&second%20field=two%20%26%20two");
+        assert!(!first_pair);
     }
 
     #[test]
     fn when_space_as_plus_is_enabled_it_should_encode_spaces_as_plus() {
         // Arrange
-        let mut output = String::new();
-        let mut first_pair = true;
+        let initial = "";
+        let key = "space key";
+        let value = "space value";
 
         // Act
-        write_pair(
-            &mut output,
-            "space key",
-            "space value",
-            true,
-            &mut first_pair,
-        );
+        let WriteOutcome { output, first_pair } = write_once(initial, key, value, true, true);
 
         // Assert
         assert_eq!(output, "space+key=space+value");
@@ -82,14 +85,8 @@ mod write_pair_tests {
         );
 
         // Assert
-        assert_eq!(
-            output, "name%2Brole%3F=value%2Fwith%3Dreserved%26stuff",
-            "reserved characters should be percent encoded"
-        );
+        assert_eq!(output, "name%2Brole%3F=value%2Fwith%3Dreserved%26stuff");
         assert!(!first_pair);
-        assert!(
-            output.capacity() >= output.len(),
-            "writer should ensure buffer has enough capacity"
-        );
+        assert!(output.capacity() >= output.len());
     }
 }
