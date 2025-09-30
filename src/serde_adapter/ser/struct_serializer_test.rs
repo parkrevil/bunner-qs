@@ -69,3 +69,370 @@ mod value_struct_serializer {
         assert_eq!(array[1], Value::String("guitar".into()));
     }
 }
+
+mod map_key_serializer {
+    use super::*;
+    use serde::ser::Serializer;
+
+    #[test]
+    fn when_serializing_string_key_it_should_preserve_text() {
+        // Arrange
+
+        // Act
+        let result = MapKeySerializer
+            .serialize_str("alpha")
+            .expect("string key should serialize");
+
+        // Assert
+        assert_eq!(result, "alpha");
+    }
+
+    #[test]
+    fn when_serializing_boolean_key_it_should_render_literal() {
+        // Arrange
+
+        // Act
+        let result = MapKeySerializer
+            .serialize_bool(true)
+            .expect("bool key should serialize");
+
+        // Assert
+        assert_eq!(result, "true");
+    }
+
+    #[test]
+    fn when_serializing_signed_numbers_it_should_render_decimal_strings() {
+        // Arrange
+
+        // Act
+        let i8_value = MapKeySerializer.serialize_i8(-3).expect("i8 should serialize");
+        let i16_value = MapKeySerializer
+            .serialize_i16(-4)
+            .expect("i16 should serialize");
+        let i32_value = MapKeySerializer
+            .serialize_i32(-5)
+            .expect("i32 should serialize");
+        let i64_value = MapKeySerializer
+            .serialize_i64(-6)
+            .expect("i64 should serialize");
+        let i128_value = MapKeySerializer
+            .serialize_i128(-7)
+            .expect("i128 should serialize");
+
+        // Assert
+        assert_eq!(i8_value, "-3");
+        assert_eq!(i16_value, "-4");
+        assert_eq!(i32_value, "-5");
+        assert_eq!(i64_value, "-6");
+        assert_eq!(i128_value, "-7");
+    }
+
+    #[test]
+    fn when_serializing_unsigned_numbers_it_should_render_decimal_strings() {
+        // Arrange
+
+        // Act
+        let u8_value = MapKeySerializer.serialize_u8(3).expect("u8 should serialize");
+        let u16_value = MapKeySerializer
+            .serialize_u16(4)
+            .expect("u16 should serialize");
+        let u32_value = MapKeySerializer
+            .serialize_u32(5)
+            .expect("u32 should serialize");
+        let u64_value = MapKeySerializer
+            .serialize_u64(6)
+            .expect("u64 should serialize");
+        let u128_value = MapKeySerializer
+            .serialize_u128(7)
+            .expect("u128 should serialize");
+
+        // Assert
+        assert_eq!(u8_value, "3");
+        assert_eq!(u16_value, "4");
+        assert_eq!(u32_value, "5");
+        assert_eq!(u64_value, "6");
+        assert_eq!(u128_value, "7");
+    }
+
+    #[test]
+    fn when_serializing_floats_it_should_preserve_precision_string() {
+        // Arrange
+
+        // Act
+        let f32_value = MapKeySerializer
+            .serialize_f32(1.5)
+            .expect("f32 should serialize");
+        let f64_value = MapKeySerializer
+            .serialize_f64(-2.25)
+            .expect("f64 should serialize");
+
+        // Assert
+        assert_eq!(f32_value, "1.5");
+        assert_eq!(f64_value, "-2.25");
+    }
+
+    #[test]
+    fn when_serializing_char_it_should_emit_single_character_string() {
+        // Arrange
+
+        // Act
+        let result = MapKeySerializer
+            .serialize_char('ß')
+            .expect("char should serialize");
+
+        // Assert
+        assert_eq!(result, "ß");
+    }
+
+    #[test]
+    fn when_serializing_bytes_it_should_decode_as_utf8_lossy() {
+        // Arrange
+        let bytes = b"caf\xC3\xA9";
+
+        // Act
+        let result = MapKeySerializer
+            .serialize_bytes(bytes)
+            .expect("bytes should serialize");
+
+        // Assert
+        assert_eq!(result, "café");
+    }
+
+    #[test]
+    fn when_serializing_unit_it_should_return_invalid_key_error() {
+        // Arrange
+
+        // Act
+        let error = MapKeySerializer
+            .serialize_unit()
+            .expect_err("unit should be rejected");
+
+        // Assert
+        match error {
+            SerializeError::InvalidKey(message) => assert!(message.contains("unit")),
+            other => panic!("unexpected error: {other}"),
+        }
+    }
+
+    #[test]
+    fn when_serializing_unit_struct_it_should_return_invalid_key_error() {
+        // Arrange
+
+        // Act
+        let error = MapKeySerializer
+            .serialize_unit_struct("Marker")
+            .expect_err("unit struct should be rejected");
+
+        // Assert
+        match error {
+            SerializeError::InvalidKey(message) => {
+                assert!(message.contains("unit struct `Marker`"))
+            }
+            other => panic!("unexpected error: {other}"),
+        }
+    }
+
+    #[test]
+    fn when_serializing_unit_variant_it_should_return_variant_name() {
+        // Arrange
+
+        // Act
+        let result = MapKeySerializer
+            .serialize_unit_variant("Flavor", 1, "Vanilla")
+            .expect("unit variant should serialize");
+
+        // Assert
+        assert_eq!(result, "Vanilla");
+    }
+
+    #[test]
+    fn when_serializing_newtype_struct_it_should_delegate_to_inner_value() {
+        // Arrange
+
+        // Act
+        let result = serde::ser::Serializer::serialize_newtype_struct(
+            MapKeySerializer,
+            "Wrapper",
+            &42u8,
+        )
+        .expect("newtype struct should serialize inner");
+
+        // Assert
+        assert_eq!(result, "42");
+    }
+
+    #[test]
+    fn when_serializing_none_it_should_return_invalid_key_error() {
+        // Arrange
+
+        // Act
+        let error = MapKeySerializer
+            .serialize_none()
+            .expect_err("none should be rejected");
+
+        // Assert
+        match error {
+            SerializeError::InvalidKey(message) => assert!(message.contains("option")),
+            other => panic!("unexpected error: {other}"),
+        }
+    }
+
+    #[test]
+    fn when_serializing_some_it_should_serialize_inner_value() {
+        // Arrange
+
+        // Act
+        let result = serde::ser::Serializer::serialize_some(MapKeySerializer, &123u16)
+            .expect("some should serialize inner value");
+
+        // Assert
+        assert_eq!(result, "123");
+    }
+
+    #[test]
+    fn when_serializing_newtype_variant_it_should_error_with_variant_details() {
+        // Arrange
+
+        // Act
+        let error = MapKeySerializer
+            .serialize_newtype_variant("Flavor", 2, "Mint", &"cool")
+            .expect_err("newtype variant should be rejected");
+
+        // Assert
+        match error {
+            SerializeError::InvalidKey(message) => {
+                assert!(message.contains("enum `Flavor`"));
+                assert!(message.contains("variant `Mint`"));
+            }
+            other => panic!("unexpected error: {other}"),
+        }
+    }
+
+    #[test]
+    fn when_serializing_sequence_it_should_error_with_length_details() {
+        // Arrange
+
+        // Act
+        let error = match MapKeySerializer.serialize_seq(Some(3)) {
+            Err(err) => err,
+            Ok(_) => panic!("sequence should be rejected"),
+        };
+
+        // Assert
+        match error {
+            SerializeError::InvalidKey(message) => assert!(message.contains("sequence")),
+            other => panic!("unexpected error: {other}"),
+        }
+    }
+
+    #[test]
+    fn when_serializing_tuple_it_should_error_with_length_details() {
+        // Arrange
+
+        // Act
+        let error = match MapKeySerializer.serialize_tuple(2) {
+            Err(err) => err,
+            Ok(_) => panic!("tuple should be rejected"),
+        };
+
+        // Assert
+        match error {
+            SerializeError::InvalidKey(message) => assert!(message.contains("tuple")),
+            other => panic!("unexpected error: {other}"),
+        }
+    }
+
+    #[test]
+    fn when_serializing_tuple_struct_it_should_error_with_name_and_length() {
+        // Arrange
+
+        // Act
+        let error = match MapKeySerializer.serialize_tuple_struct("Point", 2) {
+            Err(err) => err,
+            Ok(_) => panic!("tuple struct should be rejected"),
+        };
+
+        // Assert
+        match error {
+            SerializeError::InvalidKey(message) => {
+                assert!(message.contains("tuple struct `Point`"));
+                assert!(message.contains("length 2"));
+            }
+            other => panic!("unexpected error: {other}"),
+        }
+    }
+
+    #[test]
+    fn when_serializing_tuple_variant_it_should_error_with_variant_details() {
+        // Arrange
+
+        // Act
+        let error = match MapKeySerializer.serialize_tuple_variant("Flavor", 3, "Cherry", 2) {
+            Err(err) => err,
+            Ok(_) => panic!("tuple variant should be rejected"),
+        };
+
+        // Assert
+        match error {
+            SerializeError::InvalidKey(message) => {
+                assert!(message.contains("enum `Flavor`"));
+                assert!(message.contains("variant `Cherry`"));
+            }
+            other => panic!("unexpected error: {other}"),
+        }
+    }
+
+    #[test]
+    fn when_serializing_map_it_should_error_with_length_hint() {
+        // Arrange
+
+        // Act
+        let error = match MapKeySerializer.serialize_map(Some(1)) {
+            Err(err) => err,
+            Ok(_) => panic!("map should be rejected"),
+        };
+
+        // Assert
+        match error {
+            SerializeError::InvalidKey(message) => assert!(message.contains("map")),
+            other => panic!("unexpected error: {other}"),
+        }
+    }
+
+    #[test]
+    fn when_serializing_struct_it_should_error_with_field_count() {
+        // Arrange
+
+        // Act
+        let error = match MapKeySerializer.serialize_struct("Profile", 3) {
+            Err(err) => err,
+            Ok(_) => panic!("struct should be rejected"),
+        };
+
+        // Assert
+        match error {
+            SerializeError::InvalidKey(message) => assert!(message.contains("struct `Profile`")),
+            other => panic!("unexpected error: {other}"),
+        }
+    }
+
+    #[test]
+    fn when_serializing_struct_variant_it_should_error_with_variant_details() {
+        // Arrange
+
+        // Act
+        let error = match MapKeySerializer.serialize_struct_variant("Flavor", 4, "Mocha", 2) {
+            Err(err) => err,
+            Ok(_) => panic!("struct variant should be rejected"),
+        };
+
+        // Assert
+        match error {
+            SerializeError::InvalidKey(message) => {
+                assert!(message.contains("enum `Flavor`"));
+                assert!(message.contains("variant `Mocha`"));
+            }
+            other => panic!("unexpected error: {other}"),
+        }
+    }
+}

@@ -72,7 +72,10 @@ mod value_seq_serializer {
             Value::Array(items) => items,
             other => panic!("unexpected value: {other:?}"),
         };
-        assert_eq!(items, vec![Value::String("left".into()), Value::String("right".into())]);
+        assert_eq!(
+            items,
+            vec![Value::String("left".into()), Value::String("right".into())]
+        );
     }
 
     #[test]
