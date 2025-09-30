@@ -24,3 +24,7 @@ pub enum ParseError {
     #[error("failed to deserialize parsed query into target type: {0}")]
     Serde(#[from] SerdeQueryError),
 }
+
+#[cfg(test)]
+#[path = "errors_test.rs"]
+mod errors_test;
