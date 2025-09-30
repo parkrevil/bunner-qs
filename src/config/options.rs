@@ -44,3 +44,7 @@ impl StringifyOptions {
         StringifyOptionsBuilder::default()
     }
 }
+
+#[cfg(test)]
+#[path = "options_test.rs"]
+mod options_test;
