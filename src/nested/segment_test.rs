@@ -4,6 +4,13 @@ use std::borrow::{Borrow, Cow};
 mod classify {
     use super::*;
 
+    fn classify_segments(inputs: &[&str]) -> Vec<SegmentKind> {
+        inputs
+            .iter()
+            .map(|segment| SegmentKind::classify(segment))
+            .collect()
+    }
+
     #[test]
     fn when_segment_is_empty_it_should_return_empty_kind() {
         // Arrange
@@ -22,10 +29,7 @@ mod classify {
         let inputs = ["123", "0001"];
 
         // Act
-        let kinds: Vec<_> = inputs
-            .iter()
-            .map(|segment| SegmentKind::classify(segment))
-            .collect();
+        let kinds = classify_segments(&inputs);
 
         // Assert
         assert!(kinds.iter().all(|kind| kind == &SegmentKind::Numeric));
@@ -37,10 +41,7 @@ mod classify {
         let inputs = ["١٢٣", "42a"];
 
         // Act
-        let kinds: Vec<_> = inputs
-            .iter()
-            .map(|segment| SegmentKind::classify(segment))
-            .collect();
+        let kinds = classify_segments(&inputs);
 
         // Assert
         assert!(kinds.iter().all(|kind| kind == &SegmentKind::Other));
