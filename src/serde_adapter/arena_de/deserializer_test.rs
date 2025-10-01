@@ -3,7 +3,7 @@ use super::ArenaValueDeserializer;
 use super::deserialize_from_arena_map;
 use crate::parsing::arena::{ArenaQueryMap, ArenaValue, ParseArena};
 use crate::parsing_helpers::{make_sequence, make_string};
-use crate::serde_adapter::errors::DeserializeError;
+use crate::serde_adapter::errors::{DeserializeErrorKind, PathSegment};
 use serde::Deserialize;
 
 fn make_map<'arena>(arena: &'arena ParseArena) -> ArenaQueryMap<'arena> {
@@ -12,6 +12,10 @@ fn make_map<'arena>(arena: &'arena ParseArena) -> ArenaQueryMap<'arena> {
 
 fn alloc_key<'arena>(arena: &'arena ParseArena, key: &str) -> &'arena str {
     arena.alloc_str(key)
+}
+
+fn deserializer_for<'arena>(value: &'arena ArenaValue<'arena>) -> ArenaValueDeserializer<'arena> {
+    ArenaValueDeserializer::new(ArenaValueRef::from_value(value), Vec::new())
 }
 
 mod deserialize_from_arena_map {
@@ -68,10 +72,13 @@ mod deserialize_from_arena_map {
             .expect_err("invalid boolean literal should fail");
 
         // Assert
-        match error {
-            DeserializeError::InvalidBool { value } => assert_eq!(value, "not-bool"),
-            other => panic!("unexpected error: {other:?}"),
+        match error.kind() {
+            DeserializeErrorKind::InvalidBool { value } => {
+                assert_eq!(value, "not-bool");
+            }
+            other => panic!("unexpected kind: {other:?}"),
         }
+        assert_eq!(error.path(), &[PathSegment::Key("flag".to_string())]);
     }
 
     #[test]
@@ -90,13 +97,14 @@ mod deserialize_from_arena_map {
             deserialize_from_arena_map::<Profile>(&map).expect_err("unknown field should fail");
 
         // Assert
-        match error {
-            DeserializeError::UnknownField { field, expected } => {
+        match error.kind() {
+            DeserializeErrorKind::UnknownField { field, expected } => {
                 assert_eq!(field, "extra");
                 assert_eq!(expected, "name, active");
             }
-            other => panic!("unexpected error: {other:?}"),
+            other => panic!("unexpected kind: {other:?}"),
         }
+        assert_eq!(error.path(), &[PathSegment::Key("extra".to_string())]);
     }
 }
 
@@ -130,9 +138,7 @@ mod arena_value_deserializer {
         // Arrange
         let arena = ParseArena::new();
         let sequence_value = make_sequence(&arena, &["1"]);
-        let deserializer = ArenaValueDeserializer {
-            value: ArenaValueRef::from_value(&sequence_value),
-        };
+        let deserializer = deserializer_for(&sequence_value);
 
         // Act
         let error =
@@ -154,19 +160,20 @@ mod arena_value_deserializer {
             entries,
             index: Default::default(),
         };
-        let deserializer = ArenaValueDeserializer {
-            value: ArenaValueRef::from_value(&map_value),
-        };
+        let deserializer = deserializer_for(&map_value);
 
         // Act
         let error =
             Count::deserialize(deserializer).expect_err("duplicate field should be rejected");
 
         // Assert
-        match error {
-            DeserializeError::DuplicateField { field } => assert_eq!(field, "count"),
-            other => panic!("unexpected error: {other:?}"),
+        match error.kind() {
+            DeserializeErrorKind::DuplicateField { field } => {
+                assert_eq!(field, "count");
+            }
+            other => panic!("unexpected kind: {other:?}"),
         }
+        assert_eq!(error.path(), &[PathSegment::Key("count".to_string())]);
     }
 
     #[test]
@@ -175,21 +182,20 @@ mod arena_value_deserializer {
         // Arrange
         let arena = ParseArena::new();
         let value = make_string(&arena, "not-empty");
-        let deserializer = ArenaValueDeserializer {
-            value: ArenaValueRef::from_value(&value),
-        };
+        let deserializer = deserializer_for(&value);
 
         // Act
         let error = <()>::deserialize(deserializer).expect_err("non-empty unit should fail");
 
         // Assert
-        match error {
-            DeserializeError::UnexpectedType { expected, found } => {
-                assert_eq!(expected, "empty string for unit");
-                assert_eq!(found, "non-empty string");
+        match error.kind() {
+            DeserializeErrorKind::UnexpectedType { expected, found } => {
+                assert_eq!(*expected, "empty string for unit");
+                assert_eq!(*found, "non-empty string");
             }
-            other => panic!("unexpected error: {other:?}"),
+            other => panic!("unexpected kind: {other:?}"),
         }
+        assert_eq!(error.path(), &[]);
     }
 
     #[test]
@@ -198,9 +204,7 @@ mod arena_value_deserializer {
         // Arrange
         let arena = ParseArena::new();
         let value = make_string(&arena, "ß");
-        let deserializer = ArenaValueDeserializer {
-            value: ArenaValueRef::from_value(&value),
-        };
+        let deserializer = deserializer_for(&value);
 
         // Act
         let result = char::deserialize(deserializer).expect("single character should deserialize");
@@ -215,18 +219,19 @@ mod arena_value_deserializer {
         // Arrange
         let arena = ParseArena::new();
         let value = make_string(&arena, "no");
-        let deserializer = ArenaValueDeserializer {
-            value: ArenaValueRef::from_value(&value),
-        };
+        let deserializer = deserializer_for(&value);
 
         // Act
         let error = char::deserialize(deserializer).expect_err("multi-character should fail");
 
         // Assert
-        match error {
-            DeserializeError::InvalidNumber { value } => assert_eq!(value, "no"),
-            other => panic!("unexpected error: {other:?}"),
+        match error.kind() {
+            DeserializeErrorKind::InvalidNumber { value } => {
+                assert_eq!(value, "no");
+            }
+            other => panic!("unexpected kind: {other:?}"),
         }
+        assert_eq!(error.path(), &[]);
     }
 
     #[test]
@@ -234,9 +239,7 @@ mod arena_value_deserializer {
         // Arrange
         let arena = ParseArena::new();
         let value = make_string(&arena, "");
-        let deserializer = ArenaValueDeserializer {
-            value: ArenaValueRef::from_value(&value),
-        };
+        let deserializer = deserializer_for(&value);
 
         // Act
         let result = <()>::deserialize(deserializer);
@@ -251,9 +254,7 @@ mod arena_value_deserializer {
         // Arrange
         let arena = ParseArena::new();
         let value = make_string(&arena, "");
-        let deserializer = ArenaValueDeserializer {
-            value: ArenaValueRef::from_value(&value),
-        };
+        let deserializer = deserializer_for(&value);
 
         // Act
         let result = Marker::deserialize(deserializer).expect("unit struct should deserialize");
@@ -268,9 +269,7 @@ mod arena_value_deserializer {
         // Arrange
         let arena = ParseArena::new();
         let value = make_string(&arena, "neo");
-        let deserializer = ArenaValueDeserializer {
-            value: ArenaValueRef::from_value(&value),
-        };
+        let deserializer = deserializer_for(&value);
 
         // Act
         let result = Wrapper::deserialize(deserializer).expect("newtype struct should deserialize");
@@ -285,9 +284,7 @@ mod arena_value_deserializer {
         // Arrange
         let arena = ParseArena::new();
         let value = make_sequence(&arena, &["5", "7"]);
-        let deserializer = ArenaValueDeserializer {
-            value: ArenaValueRef::from_value(&value),
-        };
+        let deserializer = deserializer_for(&value);
 
         // Act
         let result = Pair::deserialize(deserializer).expect("tuple struct should deserialize");
@@ -302,9 +299,7 @@ mod arena_value_deserializer {
         // Arrange
         let arena = ParseArena::new();
         let value = make_string(&arena, "Fast");
-        let deserializer = ArenaValueDeserializer {
-            value: ArenaValueRef::from_value(&value),
-        };
+        let deserializer = deserializer_for(&value);
 
         // Act
         let error = OperatingMode::deserialize(deserializer)
@@ -322,21 +317,20 @@ mod arena_value_deserializer {
         // Arrange
         let arena = ParseArena::new();
         let value = make_string(&arena, "plain");
-        let deserializer = ArenaValueDeserializer {
-            value: ArenaValueRef::from_value(&value),
-        };
+        let deserializer = deserializer_for(&value);
 
         // Act
         let error = <std::collections::HashMap<String, String>>::deserialize(deserializer)
             .expect_err("string cannot deserialize into map");
 
         // Assert
-        match error {
-            DeserializeError::UnexpectedType { expected, found } => {
-                assert_eq!(expected, "object");
-                assert_eq!(found, "string");
+        match error.kind() {
+            DeserializeErrorKind::UnexpectedType { expected, found } => {
+                assert_eq!(*expected, "object");
+                assert_eq!(*found, "string");
             }
-            other => panic!("unexpected error: {other:?}"),
+            other => panic!("unexpected kind: {other:?}"),
         }
+        assert_eq!(error.path(), &[]);
     }
 }

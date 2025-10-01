@@ -1,5 +1,7 @@
 use super::*;
-use crate::serde_adapter::{DeserializeError, SerdeQueryError, SerializeError};
+use crate::serde_adapter::{
+    DeserializeError, DeserializeErrorKind, SerdeQueryError, SerializeError,
+};
 
 mod parse_error_display {
     use super::*;
@@ -42,8 +44,9 @@ mod serde_conversion_behavior {
     #[test]
     fn should_prefix_message_when_wrapping_deserialize_error_then_include_error_context() {
         // Arrange
-        let serde_error =
-            SerdeQueryError::from(DeserializeError::InvalidBool { value: "NO".into() });
+        let serde_error = SerdeQueryError::from(DeserializeError::from_kind(
+            DeserializeErrorKind::InvalidBool { value: "NO".into() },
+        ));
 
         // Act
         let error = ParseError::from(serde_error);

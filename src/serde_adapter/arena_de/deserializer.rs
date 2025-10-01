@@ -1,5 +1,7 @@
 use crate::parsing::arena::{ArenaQueryMap, ArenaValue};
-use crate::serde_adapter::errors::{DeserializeError, format_expected};
+use crate::serde_adapter::errors::{
+    DeserializeError, DeserializeErrorKind, PathSegment, format_expected,
+};
 use serde::de::{
     self, DeserializeOwned, DeserializeSeed, IntoDeserializer, MapAccess, SeqAccess, Visitor,
 };
@@ -8,16 +10,26 @@ use std::collections::HashSet;
 pub(crate) fn deserialize_from_arena_map<T: DeserializeOwned>(
     map: &ArenaQueryMap<'_>,
 ) -> Result<T, DeserializeError> {
-    T::deserialize(ArenaValueDeserializer {
-        value: super::value_ref::ArenaValueRef::Map(map.entries_slice()),
-    })
+    T::deserialize(ArenaValueDeserializer::new(
+        super::value_ref::ArenaValueRef::Map(map.entries_slice()),
+        Vec::new(),
+    ))
 }
 
 pub(crate) struct ArenaValueDeserializer<'de> {
     value: super::value_ref::ArenaValueRef<'de>,
+    path: Vec<PathSegment>,
 }
 
 impl<'de> ArenaValueDeserializer<'de> {
+    fn new(value: super::value_ref::ArenaValueRef<'de>, path: Vec<PathSegment>) -> Self {
+        Self { value, path }
+    }
+
+    fn error(&self, kind: DeserializeErrorKind) -> DeserializeError {
+        DeserializeError::from_kind(kind).with_path(self.path.clone())
+    }
+
     fn unexpected(&self) -> &'static str {
         match self.value {
             super::value_ref::ArenaValueRef::String(_) => "string",
@@ -30,10 +42,10 @@ impl<'de> ArenaValueDeserializer<'de> {
         match self.value {
             super::value_ref::ArenaValueRef::String(s) => Ok(s),
             super::value_ref::ArenaValueRef::Seq(_) => {
-                Err(DeserializeError::ExpectedString { found: "array" })
+                Err(self.error(DeserializeErrorKind::ExpectedString { found: "array" }))
             }
             super::value_ref::ArenaValueRef::Map(_) => {
-                Err(DeserializeError::ExpectedString { found: "object" })
+                Err(self.error(DeserializeErrorKind::ExpectedString { found: "object" }))
             }
         }
     }
@@ -43,8 +55,10 @@ impl<'de> ArenaValueDeserializer<'de> {
         F: FnOnce(&str) -> Result<N, std::num::ParseIntError>,
     {
         let s = self.as_str()?;
-        parse(s).map_err(|_| DeserializeError::InvalidNumber {
-            value: s.to_string(),
+        parse(s).map_err(|_| {
+            self.error(DeserializeErrorKind::InvalidNumber {
+                value: s.to_string(),
+            })
         })
     }
 
@@ -53,8 +67,10 @@ impl<'de> ArenaValueDeserializer<'de> {
         N: std::str::FromStr,
     {
         let s = self.as_str()?;
-        s.parse::<N>().map_err(|_| DeserializeError::InvalidNumber {
-            value: s.to_string(),
+        s.parse::<N>().map_err(|_| {
+            self.error(DeserializeErrorKind::InvalidNumber {
+                value: s.to_string(),
+            })
         })
     }
 
@@ -68,12 +84,12 @@ impl<'de> ArenaValueDeserializer<'de> {
     {
         match self.value {
             super::value_ref::ArenaValueRef::Seq(items) => {
-                visitor.visit_seq(ArenaSequenceAccess { iter: items.iter() })
+                visitor.visit_seq(ArenaSequenceAccess::new(items.iter(), self.path.clone()))
             }
-            _ => Err(DeserializeError::UnexpectedType {
+            _ => Err(self.error(DeserializeErrorKind::UnexpectedType {
                 expected,
                 found: self.unexpected(),
-            }),
+            })),
         }
     }
 
@@ -91,14 +107,16 @@ impl<'de> ArenaValueDeserializer<'de> {
         match self.value {
             super::value_ref::ArenaValueRef::Seq(items) => {
                 if items.len() != expected_len {
-                    return Err(DeserializeError::Message(format_mismatch(items.len())));
+                    return Err(
+                        self.error(DeserializeErrorKind::Message(format_mismatch(items.len())))
+                    );
                 }
-                visitor.visit_seq(ArenaSequenceAccess { iter: items.iter() })
+                visitor.visit_seq(ArenaSequenceAccess::new(items.iter(), self.path.clone()))
             }
-            _ => Err(DeserializeError::UnexpectedType {
+            _ => Err(self.error(DeserializeErrorKind::UnexpectedType {
                 expected: expected_label,
                 found: self.unexpected(),
-            }),
+            })),
         }
     }
 }
@@ -125,9 +143,9 @@ impl<'de> de::Deserializer<'de> for ArenaValueDeserializer<'de> {
         match s {
             "true" => visitor.visit_bool(true),
             "false" => visitor.visit_bool(false),
-            other => Err(DeserializeError::InvalidBool {
+            other => Err(self.error(DeserializeErrorKind::InvalidBool {
                 value: other.to_string(),
-            }),
+            })),
         }
     }
 
@@ -224,9 +242,9 @@ impl<'de> de::Deserializer<'de> for ArenaValueDeserializer<'de> {
         if let (Some(ch), None) = (chars.next(), chars.next()) {
             visitor.visit_char(ch)
         } else {
-            Err(DeserializeError::InvalidNumber {
+            Err(self.error(DeserializeErrorKind::InvalidNumber {
                 value: s.to_string(),
-            })
+            }))
         }
     }
 
@@ -277,10 +295,10 @@ impl<'de> de::Deserializer<'de> for ArenaValueDeserializer<'de> {
         if s.is_empty() {
             visitor.visit_unit()
         } else {
-            Err(DeserializeError::UnexpectedType {
+            Err(self.error(DeserializeErrorKind::UnexpectedType {
                 expected: "empty string for unit",
                 found: "non-empty string",
-            })
+            }))
         }
     }
 
@@ -294,10 +312,10 @@ impl<'de> de::Deserializer<'de> for ArenaValueDeserializer<'de> {
     {
         match self.value {
             super::value_ref::ArenaValueRef::String("") => visitor.visit_unit(),
-            _ => Err(DeserializeError::UnexpectedType {
+            _ => Err(self.error(DeserializeErrorKind::UnexpectedType {
                 expected: name,
                 found: self.unexpected(),
-            }),
+            })),
         }
     }
 
@@ -351,11 +369,13 @@ impl<'de> de::Deserializer<'de> for ArenaValueDeserializer<'de> {
             super::value_ref::ArenaValueRef::Map(map) => visitor.visit_map(ArenaMapDeserializer {
                 iter: map.iter(),
                 value: None,
+                path: self.path.clone(),
+                pending_key: None,
             }),
-            _ => Err(DeserializeError::UnexpectedType {
+            _ => Err(self.error(DeserializeErrorKind::UnexpectedType {
                 expected: "object",
                 found: self.unexpected(),
-            }),
+            })),
         }
     }
 
@@ -375,12 +395,14 @@ impl<'de> de::Deserializer<'de> for ArenaValueDeserializer<'de> {
                     value: None,
                     allowed: fields,
                     seen: HashSet::with_capacity(map.len()),
+                    path: self.path.clone(),
+                    pending_key: None,
                 })
             }
-            _ => Err(DeserializeError::ExpectedObject {
+            _ => Err(self.error(DeserializeErrorKind::ExpectedObject {
                 struct_name: name,
                 found: self.unexpected(),
-            }),
+            })),
         }
     }
 
@@ -394,10 +416,10 @@ impl<'de> de::Deserializer<'de> for ArenaValueDeserializer<'de> {
         V: Visitor<'de>,
     {
         drop(visitor);
-        Err(DeserializeError::Message(format!(
+        Err(self.error(DeserializeErrorKind::Message(format!(
             "enum `{name}` with variants [{}] cannot be deserialized from query strings",
             format_expected(variants)
-        )))
+        ))))
     }
 
     fn deserialize_identifier<V>(self, visitor: V) -> Result<V::Value, Self::Error>
@@ -417,6 +439,18 @@ impl<'de> de::Deserializer<'de> for ArenaValueDeserializer<'de> {
 
 pub(crate) struct ArenaSequenceAccess<'de> {
     iter: std::slice::Iter<'de, ArenaValue<'de>>,
+    path: Vec<PathSegment>,
+    index: usize,
+}
+
+impl<'de> ArenaSequenceAccess<'de> {
+    fn new(iter: std::slice::Iter<'de, ArenaValue<'de>>, path: Vec<PathSegment>) -> Self {
+        Self {
+            iter,
+            path,
+            index: 0,
+        }
+    }
 }
 
 impl<'de> SeqAccess<'de> for ArenaSequenceAccess<'de> {
@@ -427,9 +461,13 @@ impl<'de> SeqAccess<'de> for ArenaSequenceAccess<'de> {
         T: DeserializeSeed<'de>,
     {
         if let Some(value) = self.iter.next() {
-            let deserializer = ArenaValueDeserializer {
-                value: super::value_ref::ArenaValueRef::from_value(value),
-            };
+            let mut path = self.path.clone();
+            path.push(PathSegment::Index(self.index));
+            self.index += 1;
+            let deserializer = ArenaValueDeserializer::new(
+                super::value_ref::ArenaValueRef::from_value(value),
+                path,
+            );
             seed.deserialize(deserializer).map(Some)
         } else {
             Ok(None)
@@ -440,6 +478,8 @@ impl<'de> SeqAccess<'de> for ArenaSequenceAccess<'de> {
 pub(crate) struct ArenaMapDeserializer<'de> {
     iter: std::slice::Iter<'de, (&'de str, ArenaValue<'de>)>,
     value: Option<&'de ArenaValue<'de>>,
+    path: Vec<PathSegment>,
+    pending_key: Option<PathSegment>,
 }
 
 impl<'de> MapAccess<'de> for ArenaMapDeserializer<'de> {
@@ -451,6 +491,7 @@ impl<'de> MapAccess<'de> for ArenaMapDeserializer<'de> {
     {
         if let Some((key, value)) = self.iter.next() {
             self.value = Some(value);
+            self.pending_key = Some(PathSegment::Key(key.to_string()));
             let key_deser = key.to_string().into_deserializer();
             seed.deserialize(key_deser).map(Some)
         } else {
@@ -462,13 +503,23 @@ impl<'de> MapAccess<'de> for ArenaMapDeserializer<'de> {
     where
         V: DeserializeSeed<'de>,
     {
-        let value = self
-            .value
+        let value = self.value.take().ok_or_else(|| {
+            DeserializeError::from_kind(DeserializeErrorKind::Message(
+                "value missing for map entry".into(),
+            ))
+            .with_path(self.path.clone())
+        })?;
+
+        let segment = self
+            .pending_key
             .take()
-            .ok_or_else(|| DeserializeError::Message("value missing for map entry".into()))?;
-        seed.deserialize(ArenaValueDeserializer {
-            value: super::value_ref::ArenaValueRef::from_value(value),
-        })
+            .unwrap_or_else(|| PathSegment::Key("<unknown>".into()));
+        let mut path = self.path.clone();
+        path.push(segment);
+        seed.deserialize(ArenaValueDeserializer::new(
+            super::value_ref::ArenaValueRef::from_value(value),
+            path,
+        ))
     }
 }
 
@@ -477,6 +528,8 @@ pub(crate) struct ArenaStructDeserializer<'de> {
     value: Option<&'de ArenaValue<'de>>,
     allowed: &'static [&'static str],
     seen: HashSet<&'de str>,
+    path: Vec<PathSegment>,
+    pending_key: Option<PathSegment>,
 }
 
 impl<'de> MapAccess<'de> for ArenaStructDeserializer<'de> {
@@ -489,17 +542,28 @@ impl<'de> MapAccess<'de> for ArenaStructDeserializer<'de> {
         if let Some((key, value)) = self.iter.next() {
             let key_str = *key;
             if !self.allowed.contains(&key_str) {
-                return Err(DeserializeError::UnknownField {
-                    field: key_str.to_string(),
-                    expected: format_expected(self.allowed),
-                });
+                let mut path = self.path.clone();
+                path.push(PathSegment::Key(key_str.to_string()));
+                return Err(
+                    DeserializeError::from_kind(DeserializeErrorKind::UnknownField {
+                        field: key_str.to_string(),
+                        expected: format_expected(self.allowed),
+                    })
+                    .with_path(path),
+                );
             }
             if !self.seen.insert(key_str) {
-                return Err(DeserializeError::DuplicateField {
-                    field: key_str.to_string(),
-                });
+                let mut path = self.path.clone();
+                path.push(PathSegment::Key(key_str.to_string()));
+                return Err(
+                    DeserializeError::from_kind(DeserializeErrorKind::DuplicateField {
+                        field: key_str.to_string(),
+                    })
+                    .with_path(path),
+                );
             }
             self.value = Some(value);
+            self.pending_key = Some(PathSegment::Key(key_str.to_string()));
             let key_deser = key_str.to_string().into_deserializer();
             seed.deserialize(key_deser).map(Some)
         } else {
@@ -511,13 +575,23 @@ impl<'de> MapAccess<'de> for ArenaStructDeserializer<'de> {
     where
         V: DeserializeSeed<'de>,
     {
-        let value = self
-            .value
+        let value = self.value.take().ok_or_else(|| {
+            DeserializeError::from_kind(DeserializeErrorKind::Message(
+                "value missing for struct field".into(),
+            ))
+            .with_path(self.path.clone())
+        })?;
+
+        let segment = self
+            .pending_key
             .take()
-            .ok_or_else(|| DeserializeError::Message("value missing for struct field".into()))?;
-        seed.deserialize(ArenaValueDeserializer {
-            value: super::value_ref::ArenaValueRef::from_value(value),
-        })
+            .unwrap_or_else(|| PathSegment::Key("<unknown>".into()));
+        let mut path = self.path.clone();
+        path.push(segment);
+        seed.deserialize(ArenaValueDeserializer::new(
+            super::value_ref::ArenaValueRef::from_value(value),
+            path,
+        ))
     }
 }
 

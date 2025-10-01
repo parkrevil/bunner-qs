@@ -656,11 +656,11 @@ mod serde_integration_tests {
         // Assert
         assert_eq!(
             message,
-            "failed to deserialize parsed query into target type: failed to deserialize query map: invalid number literal `abc`"
+            "failed to deserialize parsed query into target type: failed to deserialize query map: invalid number literal `abc` at count"
         );
         match source {
             SerdeQueryError::Deserialize(inner) => {
-                assert_eq!(inner.to_string(), "invalid number literal `abc`");
+                assert_eq!(inner.to_string(), "invalid number literal `abc` at count");
             }
             other => panic!("unexpected inner serde error: {other:?}"),
         }

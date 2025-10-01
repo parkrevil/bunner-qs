@@ -81,10 +81,10 @@ mod deserialize_error {
     fn should_list_expected_fields_for_unknown_field_when_field_is_missing_then_include_expected_list()
      {
         // Arrange
-        let error = DeserializeError::UnknownField {
+        let error = DeserializeError::from_kind(DeserializeErrorKind::UnknownField {
             field: "mystery".into(),
             expected: "alpha, beta".into(),
-        };
+        });
 
         // Act
         let rendered = error.to_string();
@@ -94,6 +94,21 @@ mod deserialize_error {
             rendered,
             "unknown field `mystery`; expected one of: alpha, beta"
         );
+    }
+
+    #[test]
+    fn should_append_path_information_when_path_segments_present_then_show_context() {
+        // Arrange
+        let error = DeserializeError::from_kind(DeserializeErrorKind::InvalidBool {
+            value: "YES".into(),
+        })
+        .with_path(vec![PathSegment::Key("flag".into()), PathSegment::Index(2)]);
+
+        // Act
+        let rendered = error.to_string();
+
+        // Assert
+        assert_eq!(rendered, "invalid boolean literal `YES` at flag[2]");
     }
 }
 
@@ -118,9 +133,9 @@ mod serde_query_error {
     #[test]
     fn should_prefix_message_when_wrapping_deserialize_error_then_include_original_detail() {
         // Arrange
-        let inner = DeserializeError::InvalidBool {
+        let inner = DeserializeError::from_kind(DeserializeErrorKind::InvalidBool {
             value: "YES".into(),
-        };
+        });
 
         // Act
         let error = SerdeQueryError::from(inner);
