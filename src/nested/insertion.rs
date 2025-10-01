@@ -91,7 +91,11 @@ fn arena_build_nested_path<'arena>(
             })?;
     }
 
-    let root_value = map.get_mut(root_segment).unwrap();
+    let root_value = map
+        .get_mut(root_segment)
+        .ok_or_else(|| ParseError::DuplicateKey {
+            key: root_key.to_string(),
+        })?;
     let ctx = ArenaSetContext {
         arena,
         state,
@@ -184,7 +188,15 @@ fn arena_set_nested_value<'arena>(
                     }
                 }
             }
-            ArenaValue::String(_) => unreachable!(),
+            ArenaValue::String(_) => {
+                debug_assert!(
+                    false,
+                    "unexpected string value encountered during nested insertion"
+                );
+                return Err(ParseError::DuplicateKey {
+                    key: ctx.root_key.to_string(),
+                });
+            }
         }
     }
 }
@@ -219,7 +231,13 @@ where
                     DuplicateKeyBehavior::FirstWins => Ok(StepOutcome::Complete),
                     DuplicateKeyBehavior::LastWins => {
                         let idx = *entry.get();
-                        entries[idx].1 = ArenaValue::string(value_to_set.take().unwrap());
+                        let value =
+                            value_to_set
+                                .take()
+                                .ok_or_else(|| ParseError::DuplicateKey {
+                                    key: segment.to_string(),
+                                })?;
+                        entries[idx].1 = ArenaValue::string(value);
                         Ok(StepOutcome::Complete)
                     }
                 };
@@ -227,7 +245,12 @@ where
             RawEntryMut::Vacant(vacant) => {
                 let key_ref = ctx.arena.alloc_str(segment);
                 let idx = entries.len();
-                entries.push((key_ref, ArenaValue::string(value_to_set.take().unwrap())));
+                let value = value_to_set
+                    .take()
+                    .ok_or_else(|| ParseError::DuplicateKey {
+                        key: segment.to_string(),
+                    })?;
+                entries.push((key_ref, ArenaValue::string(value)));
                 vacant.insert(key_ref, idx);
                 return Ok(StepOutcome::Complete);
             }
@@ -295,7 +318,12 @@ fn handle_seq_segment<'arena>(
 
     if is_last {
         if idx == items.len() {
-            items.push(ArenaValue::string(value_to_set.take().unwrap()));
+            let value = value_to_set
+                .take()
+                .ok_or_else(|| ParseError::DuplicateKey {
+                    key: segment.to_string(),
+                })?;
+            items.push(ArenaValue::string(value));
             return Ok(StepOutcome::Complete);
         }
         if !arena_is_placeholder(&items[idx]) {
@@ -305,12 +333,22 @@ fn handle_seq_segment<'arena>(
                 }),
                 DuplicateKeyBehavior::FirstWins => Ok(StepOutcome::Complete),
                 DuplicateKeyBehavior::LastWins => {
-                    items[idx] = ArenaValue::string(value_to_set.take().unwrap());
+                    let value = value_to_set
+                        .take()
+                        .ok_or_else(|| ParseError::DuplicateKey {
+                            key: segment.to_string(),
+                        })?;
+                    items[idx] = ArenaValue::string(value);
                     Ok(StepOutcome::Complete)
                 }
             };
         }
-        items[idx] = ArenaValue::string(value_to_set.take().unwrap());
+        let value = value_to_set
+            .take()
+            .ok_or_else(|| ParseError::DuplicateKey {
+                key: segment.to_string(),
+            })?;
+        items[idx] = ArenaValue::string(value);
         return Ok(StepOutcome::Complete);
     }
 

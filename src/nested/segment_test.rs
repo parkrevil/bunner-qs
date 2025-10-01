@@ -105,7 +105,7 @@ mod segment_key_new {
 
         // Assert
         drop(source);
-        assert_eq!(key.as_str(), "status");
+        assert!(matches!(key.as_str(), Ok("status")));
         assert_eq!(<SegmentKey as Borrow<[u8]>>::borrow(&key), b"status");
     }
 }

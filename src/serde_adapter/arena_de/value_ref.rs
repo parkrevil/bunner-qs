@@ -11,8 +11,8 @@ impl<'de> ArenaValueRef<'de> {
     pub(crate) fn from_value(value: &'de ArenaValue<'de>) -> Self {
         match value {
             ArenaValue::String(s) => ArenaValueRef::String(s),
-            ArenaValue::Seq(_) => ArenaValueRef::Seq(value.as_seq_slice().unwrap()),
-            ArenaValue::Map { .. } => ArenaValueRef::Map(value.as_map_slice().unwrap()),
+            ArenaValue::Seq(items) => ArenaValueRef::Seq(items.as_slice()),
+            ArenaValue::Map { entries, .. } => ArenaValueRef::Map(entries.as_slice()),
         }
     }
 }

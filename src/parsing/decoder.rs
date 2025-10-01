@@ -113,10 +113,13 @@ fn decode_with_special_chars<'a>(
                     scratch.extend_from_slice(&bytes[start..cursor]);
                 } else {
                     let slice = &raw[cursor..];
-                    let ch = slice.chars().next().unwrap();
-                    let len = ch.len_utf8();
-                    scratch.extend_from_slice(&bytes[cursor..cursor + len]);
-                    cursor += len;
+                    if let Some(ch) = slice.chars().next() {
+                        let len = ch.len_utf8();
+                        scratch.extend_from_slice(&bytes[cursor..cursor + len]);
+                        cursor += len;
+                    } else {
+                        return Err(ParseError::InvalidUtf8);
+                    }
                 }
             }
         }

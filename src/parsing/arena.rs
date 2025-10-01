@@ -88,13 +88,13 @@ thread_local! {
 }
 
 pub struct ParseArenaGuard {
-    arena: Option<ParseArena>,
+    arena: ParseArena,
 }
 
 impl ParseArenaGuard {
     fn new(mut arena: ParseArena) -> Self {
         arena.reset();
-        Self { arena: Some(arena) }
+        Self { arena }
     }
 }
 
@@ -102,24 +102,23 @@ impl Deref for ParseArenaGuard {
     type Target = ParseArena;
 
     fn deref(&self) -> &Self::Target {
-        self.arena.as_ref().expect("arena already released")
+        &self.arena
     }
 }
 
 impl DerefMut for ParseArenaGuard {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        self.arena.as_mut().expect("arena already released")
+        &mut self.arena
     }
 }
 
 impl Drop for ParseArenaGuard {
     fn drop(&mut self) {
-        if let Some(mut arena) = self.arena.take() {
-            arena.reset();
-            PARSE_ARENA_POOL.with(|cell| {
-                *cell.borrow_mut() = arena;
-            });
-        }
+        let mut arena = std::mem::take(&mut self.arena);
+        arena.reset();
+        PARSE_ARENA_POOL.with(|cell| {
+            *cell.borrow_mut() = arena;
+        });
     }
 }
 

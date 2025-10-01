@@ -29,13 +29,12 @@ impl<'de> ArenaValueDeserializer<'de> {
     fn as_str(&self) -> Result<&'de str, DeserializeError> {
         match self.value {
             super::value_ref::ArenaValueRef::String(s) => Ok(s),
-            other => Err(DeserializeError::ExpectedString {
-                found: match other {
-                    super::value_ref::ArenaValueRef::Seq(_) => "array",
-                    super::value_ref::ArenaValueRef::Map(_) => "object",
-                    super::value_ref::ArenaValueRef::String(_) => unreachable!(),
-                },
-            }),
+            super::value_ref::ArenaValueRef::Seq(_) => {
+                Err(DeserializeError::ExpectedString { found: "array" })
+            }
+            super::value_ref::ArenaValueRef::Map(_) => {
+                Err(DeserializeError::ExpectedString { found: "object" })
+            }
         }
     }
 

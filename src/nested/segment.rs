@@ -1,3 +1,4 @@
+use crate::ParseError;
 use smallvec::SmallVec;
 use std::borrow::{Borrow, Cow};
 use std::fmt;
@@ -9,6 +10,12 @@ pub(crate) enum SegmentKind {
     Other,
 }
 
+/// Owned key for nested segment lookups.
+///
+/// ## Invariant
+/// `SegmentKey` instances can only be created through [`SegmentKey::new`], which
+/// accepts `&str` values originating from decoded query segments. This ensures
+/// the internal byte storage always contains valid UTF-8.
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub(crate) struct SegmentKey(SmallVec<[u8; 24]>);
 
@@ -17,9 +24,8 @@ impl SegmentKey {
         SegmentKey(SmallVec::from_slice(segment.as_bytes()))
     }
 
-    pub(crate) fn as_str(&self) -> &str {
-        // SAFETY: All keys originate from UTF-8 input segments.
-        unsafe { std::str::from_utf8_unchecked(&self.0) }
+    pub(crate) fn as_str(&self) -> Result<&str, ParseError> {
+        std::str::from_utf8(&self.0).map_err(|_| ParseError::InvalidUtf8)
     }
 }
 
@@ -31,7 +37,13 @@ impl Borrow<[u8]> for SegmentKey {
 
 impl fmt::Debug for SegmentKey {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_tuple("SegmentKey").field(&self.as_str()).finish()
+        match self.as_str() {
+            Ok(text) => f.debug_tuple("SegmentKey").field(&text).finish(),
+            Err(_) => f
+                .debug_tuple("SegmentKey")
+                .field(&format_args!("<invalid utf-8: {:?}>", &self.0))
+                .finish(),
+        }
     }
 }
 

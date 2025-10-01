@@ -10,13 +10,13 @@ thread_local! {
 }
 
 pub(crate) struct PatternStateGuard {
-    state: Option<PatternState>,
+    state: PatternState,
 }
 
 impl PatternStateGuard {
     fn new(mut state: PatternState) -> Self {
         state.reset();
-        Self { state: Some(state) }
+        Self { state }
     }
 }
 
@@ -24,23 +24,22 @@ impl std::ops::Deref for PatternStateGuard {
     type Target = PatternState;
 
     fn deref(&self) -> &Self::Target {
-        self.state.as_ref().expect("pattern state already released")
+        &self.state
     }
 }
 
 impl std::ops::DerefMut for PatternStateGuard {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        self.state.as_mut().expect("pattern state already released")
+        &mut self.state
     }
 }
 
 impl Drop for PatternStateGuard {
     fn drop(&mut self) {
-        if let Some(state) = self.state.take() {
-            PATTERN_STATE_POOL.with(|cell| {
-                cell.borrow_mut().push(state);
-            });
-        }
+        let state = std::mem::take(&mut self.state);
+        PATTERN_STATE_POOL.with(|cell| {
+            cell.borrow_mut().push(state);
+        });
     }
 }
 

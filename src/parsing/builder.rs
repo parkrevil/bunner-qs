@@ -136,17 +136,18 @@ fn parse_segments_into_map(
             };
 
             let idx = search + rel;
-            match bytes[idx] {
-                b'=' if eq_index.is_none() => {
-                    eq_index = Some(idx);
-                    search = idx + 1;
-                }
-                b'&' => {
-                    segment_end = idx;
-                    break;
-                }
-                _ => unreachable!(),
+            if bytes[idx] == b'=' && eq_index.is_none() {
+                eq_index = Some(idx);
+                search = idx + 1;
+                continue;
             }
+
+            if bytes[idx] == b'&' {
+                segment_end = idx;
+                break;
+            }
+
+            search = idx + 1;
         }
 
         if segment_end > cursor {
