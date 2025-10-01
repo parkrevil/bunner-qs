@@ -166,3 +166,81 @@ mod with_arena_query_map {
         ));
     }
 }
+
+mod parse_segments_into_map {
+    use super::*;
+
+    #[test]
+    fn should_parse_segments_into_map_when_query_contains_multiple_pairs_then_populate_map() {
+        // Arrange
+        let arena = ParseArena::new();
+        let mut map = ArenaQueryMap::with_capacity(&arena, 2);
+        let mut pattern_state = acquire_pattern_state();
+        let options = ParseOptions::default();
+        let trimmed = "foo=bar&baz=qux";
+        let mut scratch = Vec::new();
+
+        // Act
+        {
+            let mut context = ParseContext {
+                arena: &arena,
+                arena_map: &mut map,
+                pattern_state: &mut pattern_state,
+                options: &options,
+                trimmed,
+                offset: 0,
+                decode_scratch: &mut scratch,
+                pairs: 0,
+            };
+
+            parse_segments_into_map(&mut context, trimmed.as_bytes())
+                .expect("parse should succeed");
+        }
+
+        // Assert
+        let entries = map.entries_slice();
+        assert_eq!(entries.len(), 2);
+        assert_eq!(entries[0].0, "foo");
+        assert_eq!(entries[1].0, "baz");
+    }
+
+    #[test]
+    fn should_return_too_many_parameters_error_when_pairs_exceed_limit_then_report_counts() {
+        // Arrange
+        let arena = ParseArena::new();
+        let mut map = ArenaQueryMap::with_capacity(&arena, 4);
+        let mut pattern_state = acquire_pattern_state();
+        let options = ParseOptions::builder()
+            .max_params(1)
+            .build()
+            .expect("builder should succeed");
+        let trimmed = "a=1&b=2";
+        let mut scratch = Vec::new();
+
+        // Act
+        let error = {
+            let mut context = ParseContext {
+                arena: &arena,
+                arena_map: &mut map,
+                pattern_state: &mut pattern_state,
+                options: &options,
+                trimmed,
+                offset: 0,
+                decode_scratch: &mut scratch,
+                pairs: 0,
+            };
+
+            parse_segments_into_map(&mut context, trimmed.as_bytes())
+                .expect_err("limit should trigger error")
+        };
+
+        // Assert
+        match error {
+            ParseError::TooManyParameters { limit, actual } => {
+                assert_eq!(limit, 1);
+                assert_eq!(actual, 2);
+            }
+            other => panic!("expected TooManyParameters error, got {other:?}"),
+        }
+    }
+}

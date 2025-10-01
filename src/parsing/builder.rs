@@ -10,6 +10,63 @@ use super::pair_decoder::decode_pair;
 use super::pair_inserter::insert_pair_arena;
 use super::state::ArenaLease;
 
+struct ParseContext<'arena, 'options, 'map, 'pattern, 'scratch> {
+    arena: &'arena ParseArena,
+    arena_map: &'map mut ArenaQueryMap<'arena>,
+    pattern_state: &'pattern mut PatternState,
+    options: &'options ParseOptions,
+    trimmed: &'options str,
+    offset: usize,
+    decode_scratch: &'scratch mut Vec<u8>,
+    pairs: usize,
+}
+
+impl<'arena, 'options, 'map, 'pattern, 'scratch>
+    ParseContext<'arena, 'options, 'map, 'pattern, 'scratch>
+{
+    fn increment_pairs(&mut self) -> ParseResult<()> {
+        self.pairs = self.pairs.saturating_add(1);
+        check_param_limit(self.options.max_params, self.pairs)
+    }
+
+    fn process_segment(
+        &mut self,
+        cursor: usize,
+        segment_end: usize,
+        eq_index: Option<usize>,
+    ) -> ParseResult<()> {
+        let trimmed = self.trimmed;
+        let raw_key_end = eq_index.unwrap_or(segment_end);
+        let raw_key = &trimmed[cursor..raw_key_end];
+        let raw_value = eq_index
+            .map(|idx| &trimmed[idx + 1..segment_end])
+            .unwrap_or("");
+
+        let key_start = self.offset + cursor;
+        let value_offset = eq_index
+            .map(|idx| self.offset + idx + 1)
+            .unwrap_or(self.offset + cursor + raw_key.len());
+
+        let (key, value) = decode_pair(
+            raw_key,
+            raw_value,
+            key_start,
+            value_offset,
+            self.options,
+            self.decode_scratch,
+        )?;
+
+        insert_pair_arena(
+            self.arena,
+            self.arena_map,
+            self.pattern_state,
+            key,
+            value,
+            self.options.duplicate_keys,
+        )
+    }
+}
+
 pub fn with_arena_query_map<R, F>(
     trimmed: &str,
     offset: usize,
@@ -25,21 +82,20 @@ where
     let estimated_pairs = estimate_param_capacity(trimmed);
     let mut arena_map = ArenaQueryMap::with_capacity(arena, estimated_pairs);
     let mut pattern_state = acquire_pattern_state();
-    let mut pairs = 0usize;
     let mut decode_scratch = acquire_bytes();
     let bytes = trimmed.as_bytes();
-
-    parse_segments_into_map(
+    let mut context = ParseContext {
         arena,
-        &mut arena_map,
-        &mut pattern_state,
+        arena_map: &mut arena_map,
+        pattern_state: &mut pattern_state,
         options,
         trimmed,
         offset,
-        bytes,
-        &mut pairs,
-        decode_scratch.as_mut(),
-    )?;
+        decode_scratch: decode_scratch.as_mut(),
+        pairs: 0,
+    };
+
+    parse_segments_into_map(&mut context, bytes)?;
 
     finalize(arena, &arena_map)
 }
@@ -57,60 +113,9 @@ fn check_param_limit(limit: Option<usize>, current: usize) -> ParseResult<()> {
     }
 }
 
-#[allow(clippy::too_many_arguments)]
-fn process_segment<'arena>(
-    arena: &'arena ParseArena,
-    arena_map: &mut ArenaQueryMap<'arena>,
-    pattern_state: &mut PatternState,
-    options: &ParseOptions,
-    decode_scratch: &mut Vec<u8>,
-    trimmed: &str,
-    offset: usize,
-    cursor: usize,
-    segment_end: usize,
-    eq_index: Option<usize>,
-) -> ParseResult<()> {
-    let raw_key_end = eq_index.unwrap_or(segment_end);
-    let raw_key = &trimmed[cursor..raw_key_end];
-    let raw_value = eq_index
-        .map(|idx| &trimmed[idx + 1..segment_end])
-        .unwrap_or("");
-
-    let key_start = offset + cursor;
-    let value_offset = eq_index
-        .map(|idx| offset + idx + 1)
-        .unwrap_or(offset + cursor + raw_key.len());
-
-    let (key, value) = decode_pair(
-        raw_key,
-        raw_value,
-        key_start,
-        value_offset,
-        options,
-        decode_scratch,
-    )?;
-
-    insert_pair_arena(
-        arena,
-        arena_map,
-        pattern_state,
-        key,
-        value,
-        options.duplicate_keys,
-    )
-}
-
-#[allow(clippy::too_many_arguments)]
-fn parse_segments_into_map<'arena>(
-    arena: &'arena ParseArena,
-    arena_map: &mut ArenaQueryMap<'arena>,
-    pattern_state: &mut PatternState,
-    options: &ParseOptions,
-    trimmed: &str,
-    offset: usize,
+fn parse_segments_into_map(
+    context: &mut ParseContext<'_, '_, '_, '_, '_>,
     bytes: &[u8],
-    pairs: &mut usize,
-    decode_scratch: &mut Vec<u8>,
 ) -> ParseResult<()> {
     let mut cursor = 0usize;
 
@@ -145,21 +150,8 @@ fn parse_segments_into_map<'arena>(
         }
 
         if segment_end > cursor {
-            *pairs += 1;
-            check_param_limit(options.max_params, *pairs)?;
-
-            process_segment(
-                arena,
-                arena_map,
-                pattern_state,
-                options,
-                decode_scratch,
-                trimmed,
-                offset,
-                cursor,
-                segment_end,
-                eq_index,
-            )?;
+            context.increment_pairs()?;
+            context.process_segment(cursor, segment_end, eq_index)?;
         }
 
         cursor = segment_end.saturating_add(1);
