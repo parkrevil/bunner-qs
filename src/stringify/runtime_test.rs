@@ -29,7 +29,7 @@ mod stringify_query_map_with {
     use super::*;
 
     #[test]
-    fn returns_empty_string_for_empty_map() {
+    fn should_return_empty_string_when_map_is_empty_then_produce_empty_output() {
         // Arrange
         let map = QueryMap::new();
         let options = StringifyOptions::default();
@@ -42,7 +42,7 @@ mod stringify_query_map_with {
     }
 
     #[test]
-    fn percent_encodes_spaces_when_plus_disabled() {
+    fn should_percent_encode_spaces_when_plus_option_disabled_then_encode_spaces_as_percent_twenty() {
         // Arrange
         let map = QueryMap::from_iter([("space key", Value::from("space value"))]);
         let options = options(false);
@@ -55,7 +55,7 @@ mod stringify_query_map_with {
     }
 
     #[test]
-    fn converts_spaces_to_plus_when_enabled() {
+    fn should_convert_spaces_to_plus_when_option_enabled_then_replace_spaces_with_plus() {
         // Arrange
         let map = QueryMap::from_iter([("space key", Value::from("space value"))]);
         let options = options(true);
@@ -68,7 +68,7 @@ mod stringify_query_map_with {
     }
 
     #[test]
-    fn errors_on_control_characters_in_value() {
+    fn should_error_on_control_characters_when_value_contains_newline_then_return_invalid_value_error() {
         // Arrange
         let map = QueryMap::from_iter([("note", Value::from("line1\nline2"))]);
         let options = StringifyOptions::default();
@@ -84,7 +84,7 @@ mod stringify_query_map_with {
     }
 
     #[test]
-    fn stringifies_nested_structure_in_order() {
+    fn should_stringify_nested_structure_when_iterating_in_order_then_produce_encoded_nested_keys() {
         // Arrange
         let map = nested_profile_map();
         let options = StringifyOptions::default();
@@ -100,7 +100,7 @@ mod stringify_query_map_with {
     }
 
     #[test]
-    fn errors_on_control_character_in_nested_key() {
+    fn should_error_on_control_characters_when_nested_key_contains_newline_then_return_invalid_key_error() {
         // Arrange
         let profile: OrderedMap<String, Value> = OrderedMap::from_iter([
             ("valid".into(), Value::from("ok")),
@@ -124,7 +124,7 @@ mod stringify_runtime {
     use super::*;
 
     #[test]
-    fn respects_space_option_on_creation() {
+    fn should_respect_space_option_when_runtime_is_created_then_store_space_as_plus_flag() {
         // Arrange
         let options = options(true);
 

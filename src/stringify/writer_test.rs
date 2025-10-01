@@ -25,7 +25,7 @@ mod write_pair {
     use super::*;
 
     #[test]
-    fn does_not_prefix_ampersand_for_first_pair() {
+    fn should_avoid_ampersand_when_pair_is_first_then_write_pair_without_separator() {
         // Arrange
         let initial = "";
         let key = "user";
@@ -40,7 +40,7 @@ mod write_pair {
     }
 
     #[test]
-    fn prefixes_separator_for_subsequent_pair() {
+    fn should_prefix_separator_when_writing_subsequent_pair_then_append_ampersand() {
         // Arrange
         let initial = "first=one";
         let key = "second field";
@@ -55,7 +55,7 @@ mod write_pair {
     }
 
     #[test]
-    fn encodes_spaces_as_plus_when_enabled() {
+    fn should_encode_spaces_as_plus_when_option_enabled_then_replace_spaces_with_plus() {
         // Arrange
         let initial = "";
         let key = "space key";
@@ -70,7 +70,7 @@ mod write_pair {
     }
 
     #[test]
-    fn escapes_reserved_characters_when_needed() {
+    fn should_escape_reserved_characters_when_reserved_characters_present_then_percent_encode_reserved_chars() {
         // Arrange
         let mut output = String::with_capacity(0);
         let mut first_pair = true;

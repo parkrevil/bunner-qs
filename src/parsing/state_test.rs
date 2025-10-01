@@ -4,7 +4,7 @@ mod arena_lease_acquire {
     use super::*;
 
     #[test]
-    fn returns_guard_from_pool_for_zero_capacity_request() {
+    fn should_return_guard_from_pool_when_zero_capacity_requested_then_allow_string_allocation() {
         // Arrange
         let min_capacity = 0;
 
@@ -22,7 +22,7 @@ mod arena_lease_acquire {
     }
 
     #[test]
-    fn returns_pooled_guard_within_reuse_upper_bound() {
+    fn should_return_pooled_guard_when_within_reuse_upper_bound_then_allocate_strings() {
         // Arrange
         let min_capacity = ARENA_REUSE_UPPER_BOUND;
 
@@ -40,7 +40,7 @@ mod arena_lease_acquire {
     }
 
     #[test]
-    fn allocates_owned_arena_when_capacity_exceeds_upper_bound() {
+    fn should_allocate_owned_arena_when_capacity_exceeds_upper_bound_then_allocate_strings() {
         // Arrange
         let min_capacity = ARENA_REUSE_UPPER_BOUND + 1;
 
@@ -62,7 +62,7 @@ mod arena_lease_deref {
     use super::*;
 
     #[test]
-    fn allows_shared_access_when_guard_is_dereferenced() {
+    fn should_allow_shared_access_when_guard_is_dereferenced_then_allocate_string() {
         // Arrange
         let lease = ArenaLease::acquire(1);
 
@@ -74,7 +74,7 @@ mod arena_lease_deref {
     }
 
     #[test]
-    fn allows_mutations_when_guard_is_mutably_dereferenced() {
+    fn should_allow_mutations_when_guard_is_mutably_dereferenced_then_prepare_and_allocate() {
         // Arrange
         let mut lease = ArenaLease::acquire(8);
 
@@ -87,7 +87,7 @@ mod arena_lease_deref {
     }
 
     #[test]
-    fn allows_shared_access_for_owned_arena() {
+    fn should_allow_shared_access_when_arena_is_owned_then_allocate_string() {
         // Arrange
         let lease = ArenaLease::acquire(ARENA_REUSE_UPPER_BOUND + 1);
 
@@ -99,7 +99,7 @@ mod arena_lease_deref {
     }
 
     #[test]
-    fn allows_mutations_for_owned_arena() {
+    fn should_allow_mutations_when_arena_is_owned_then_resize_and_allocate() {
         // Arrange
         let mut lease = ArenaLease::acquire(ARENA_REUSE_UPPER_BOUND + 1);
 

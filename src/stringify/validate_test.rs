@@ -8,7 +8,7 @@ mod ensure_no_control {
     use super::*;
 
     #[test]
-    fn allows_clean_ascii() {
+    fn should_allow_clean_ascii_when_input_has_no_control_characters_then_return_ok() {
         // Arrange
         let input = "user=alice&count=42";
 
@@ -20,7 +20,7 @@ mod ensure_no_control {
     }
 
     #[test]
-    fn allows_unicode_above_control_range() {
+    fn should_allow_unicode_when_characters_exceed_control_range_then_return_ok() {
         // Arrange
         let input = "café\u{00A0}preview";
 
@@ -32,7 +32,7 @@ mod ensure_no_control {
     }
 
     #[test]
-    fn rejects_ascii_control_characters() {
+    fn should_reject_ascii_control_characters_when_present_then_return_error() {
         // Arrange
         let controls = ["line1\nline2", "null\0byte"];
 
@@ -44,7 +44,7 @@ mod ensure_no_control {
     }
 
     #[test]
-    fn rejects_delete_character() {
+    fn should_reject_delete_character_when_present_then_return_error() {
         // Arrange
         let delete = format!("header:{}tail", char::from(0x7F));
 

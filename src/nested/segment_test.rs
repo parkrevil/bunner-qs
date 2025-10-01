@@ -12,7 +12,7 @@ mod classify {
     }
 
     #[test]
-    fn classifies_empty_segment_as_empty() {
+    fn should_classify_empty_segment_as_empty_when_segment_is_empty_then_return_empty_kind() {
         // Arrange
         let input = "";
 
@@ -24,7 +24,7 @@ mod classify {
     }
 
     #[test]
-    fn classifies_digit_segment_as_numeric() {
+    fn should_classify_digit_segment_as_numeric_when_segment_contains_only_digits_then_return_numeric_kind() {
         // Arrange
         let inputs = ["123", "0001"];
 
@@ -36,7 +36,7 @@ mod classify {
     }
 
     #[test]
-    fn classifies_mixed_segment_as_other() {
+    fn should_classify_mixed_segment_as_other_when_segment_contains_non_digit_characters_then_return_other_kind() {
         // Arrange
         let inputs = ["١٢٣", "42a"];
 
@@ -52,7 +52,7 @@ mod container_type {
     use super::*;
 
     #[test]
-    fn maps_empty_kind_to_array_container() {
+    fn should_map_empty_kind_to_array_container_when_kind_is_empty_then_select_array_container() {
         // Arrange
         let kind = SegmentKind::Empty;
 
@@ -64,7 +64,7 @@ mod container_type {
     }
 
     #[test]
-    fn maps_numeric_kind_to_array_container() {
+    fn should_map_numeric_kind_to_array_container_when_kind_is_numeric_then_select_array_container() {
         // Arrange
         let kind = SegmentKind::Numeric;
 
@@ -76,7 +76,7 @@ mod container_type {
     }
 
     #[test]
-    fn maps_other_kind_to_object_container() {
+    fn should_map_other_kind_to_object_container_when_kind_is_other_then_select_object_container() {
         // Arrange
         let kind = SegmentKind::Other;
 
@@ -92,7 +92,7 @@ mod segment_key_new {
     use super::*;
 
     #[test]
-    fn clones_bytes_and_allows_borrow_from_str() {
+    fn should_clone_bytes_and_allow_str_borrow_when_segment_key_is_constructed_then_allow_string_and_byte_access() {
         // Arrange
         let source = String::from("status");
 
@@ -110,7 +110,7 @@ mod resolved_segment_new {
     use super::*;
 
     #[test]
-    fn preserves_reference_and_kind_for_borrowed_text() {
+    fn should_preserve_reference_and_kind_for_borrowed_text_when_resolved_segment_wraps_borrowed_text_then_preserve_reference_and_kind() {
         // Arrange
         let segment = ResolvedSegment::new(Cow::Borrowed("items"));
 
@@ -124,7 +124,7 @@ mod resolved_segment_new {
     }
 
     #[test]
-    fn detects_numeric_kind_for_owned_digits() {
+    fn should_detect_numeric_kind_for_owned_digits_when_resolved_segment_owns_digit_string_then_detect_numeric_kind() {
         // Arrange
         let segment = ResolvedSegment::new(Cow::Owned(String::from("123")));
 

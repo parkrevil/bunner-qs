@@ -135,7 +135,7 @@ mod basic_parsing_tests {
     use super::*;
 
     #[test]
-    fn parses_basic_pairs_into_expected_map() {
+    fn should_parse_basic_pairs_into_expected_map_when_query_contains_two_pairs() {
         // Arrange
         let query = "a=1&b=two";
 
@@ -147,7 +147,7 @@ mod basic_parsing_tests {
     }
 
     #[test]
-    fn decodes_unicode_percent_encoded_text() {
+    fn should_decode_unicode_percent_encoded_text_when_query_contains_international_values() {
         // Arrange
         let query = concat!(
             "name=J%C3%BCrgen",
@@ -171,7 +171,7 @@ mod basic_parsing_tests {
     }
 
     #[test]
-    fn roundtrips_percent_encoded_unicode_keys() {
+    fn should_roundtrip_percent_encoded_unicode_keys_when_query_contains_multilingual_pairs() {
         // Arrange
         use percent_encoding::{NON_ALPHANUMERIC, utf8_percent_encode};
 
@@ -196,7 +196,7 @@ mod basic_parsing_tests {
     }
 
     #[test]
-    fn parses_empty_input_as_null() {
+    fn should_parse_null_value_when_query_is_empty() {
         // Arrange
         let query = "";
 
@@ -208,7 +208,7 @@ mod basic_parsing_tests {
     }
 
     #[test]
-    fn parses_lone_question_mark_as_null() {
+    fn should_parse_null_value_when_query_is_lone_question_mark() {
         // Arrange
         let query = "?";
 
@@ -220,7 +220,7 @@ mod basic_parsing_tests {
     }
 
     #[test]
-    fn ignores_leading_question_mark_prefix() {
+    fn should_ignore_leading_question_mark_when_query_has_prefix() {
         // Arrange
         let query = "?foo=bar&baz=qux";
 
@@ -232,7 +232,7 @@ mod basic_parsing_tests {
     }
 
     #[test]
-    fn stores_empty_string_for_flag_without_value() {
+    fn should_store_empty_string_when_flag_without_value_present() {
         // Arrange
         let query = "flag";
 
@@ -244,7 +244,7 @@ mod basic_parsing_tests {
     }
 
     #[test]
-    fn keeps_entry_for_empty_key() {
+    fn should_keep_entry_for_empty_key_when_query_starts_with_equals() {
         // Arrange
         let query = "=1&foo=bar";
 
@@ -256,7 +256,7 @@ mod basic_parsing_tests {
     }
 
     #[test]
-    fn stores_empty_strings_for_explicitly_empty_values() {
+    fn should_store_empty_strings_when_values_are_explicitly_empty() {
         // Arrange
         let query = "a=&b=2";
 
@@ -269,7 +269,7 @@ mod basic_parsing_tests {
     }
 
     #[test]
-    fn assigns_empty_string_when_flags_and_pairs_mix() {
+    fn should_assign_empty_string_when_flags_and_pairs_are_mixed() {
         // Arrange
         let query = "a=1&b&c=3";
 
@@ -283,7 +283,7 @@ mod basic_parsing_tests {
     }
 
     #[test]
-    fn ignores_trailing_ampersands() {
+    fn should_ignore_trailing_ampersands_when_query_has_extra_separators() {
         // Arrange
         let query = "alpha=beta&&";
 
@@ -299,7 +299,7 @@ mod structure_parsing_tests {
     use super::*;
 
     #[test]
-    fn parses_object_entry_after_numeric_segment() {
+    fn should_parse_object_entry_after_numeric_segment_when_nested_key_present() {
         // Arrange
         let query = "a[0]b=1";
 
@@ -317,7 +317,7 @@ mod structure_parsing_tests {
     }
 
     #[test]
-    fn treats_nested_empty_brackets_as_literals() {
+    fn should_treat_nested_empty_brackets_as_literals_when_parsing_keys() {
         // Arrange
         let query = "a[[]]=1";
 
@@ -329,7 +329,7 @@ mod structure_parsing_tests {
     }
 
     #[test]
-    fn preserves_percent_encoded_equals_in_segment() {
+    fn should_preserve_percent_encoded_equals_when_decoding_segments() {
         // Arrange
         let query = "profile[key%3Dname]=alice";
 
@@ -341,7 +341,7 @@ mod structure_parsing_tests {
     }
 
     #[test]
-    fn retains_structure_for_nested_objects_and_arrays() {
+    fn should_retain_structure_when_nested_objects_and_arrays_present() {
         // Arrange
         let query =
             "user[name]=Alice&user[stats][age]=30&user[hobbies][]=reading&user[hobbies][]=coding";
@@ -356,7 +356,7 @@ mod structure_parsing_tests {
     }
 
     #[test]
-    fn roundtrips_complex_structure_without_change() {
+    fn should_roundtrip_complex_structure_when_query_contains_nested_data() {
         // Arrange
         let query = "data[users][0][name]=Alice&data[users][1][name]=Bob&data[meta][version]=1";
 
@@ -372,7 +372,7 @@ mod option_behavior_tests {
     use super::*;
 
     #[test]
-    fn converts_plus_to_space_when_space_as_plus_enabled() {
+    fn should_convert_plus_to_space_when_space_as_plus_option_enabled() {
         // Arrange
         let options = build_parse_options(|builder| builder.space_as_plus(true));
         let query = "note=one+two";
@@ -387,7 +387,7 @@ mod option_behavior_tests {
     }
 
     #[test]
-    fn stores_configuration_when_builder_sets_limits() {
+    fn should_store_configuration_when_builder_sets_multiple_limits() {
         // Arrange
         let options = build_parse_options(|builder| {
             builder
@@ -410,7 +410,7 @@ mod option_behavior_tests {
     }
 
     #[test]
-    fn returns_errors_when_parameter_and_length_limits_enforced() {
+    fn should_return_errors_when_parameter_and_length_limits_are_enforced() {
         // Arrange
         let param_limited = build_parse_options(|builder| builder.max_params(1));
         let length_limited = build_parse_options(|builder| builder.max_length(5));
@@ -431,7 +431,7 @@ mod option_behavior_tests {
     }
 
     #[test]
-    fn duplicate_keys_first_wins_keeps_initial_values() {
+    fn should_keep_initial_values_when_duplicate_keys_use_first_wins() {
         // Arrange
         let options =
             build_parse_options(|builder| builder.duplicate_keys(DuplicateKeyBehavior::FirstWins));
@@ -446,7 +446,7 @@ mod option_behavior_tests {
     }
 
     #[test]
-    fn duplicate_keys_last_wins_replaces_with_latest_values() {
+    fn should_replace_with_latest_values_when_duplicate_keys_use_last_wins() {
         // Arrange
         let options =
             build_parse_options(|builder| builder.duplicate_keys(DuplicateKeyBehavior::LastWins));
@@ -465,7 +465,7 @@ mod error_handling_tests {
     use super::*;
 
     #[test]
-    fn reports_index_when_percent_encoding_incomplete() {
+    fn should_report_index_when_percent_encoding_is_incomplete() {
         // Arrange
         let query = "bad=%2";
 
@@ -478,7 +478,7 @@ mod error_handling_tests {
     }
 
     #[test]
-    fn reports_index_when_percent_encoding_has_invalid_digits() {
+    fn should_report_index_when_percent_encoding_has_invalid_digits() {
         // Arrange
         let query = "bad=%ZZ";
 
@@ -490,7 +490,7 @@ mod error_handling_tests {
     }
 
     #[test]
-    fn returns_key_when_closing_bracket_unmatched() {
+    fn should_return_key_when_closing_bracket_is_unmatched() {
         // Arrange
         let query = "a]=1";
 
@@ -502,7 +502,7 @@ mod error_handling_tests {
     }
 
     #[test]
-    fn reports_unmatched_bracket_for_unencoded_equals() {
+    fn should_report_unmatched_bracket_when_equals_is_unencoded() {
         // Arrange
         let query = "profile[key=name]=alice";
 
@@ -514,7 +514,7 @@ mod error_handling_tests {
     }
 
     #[test]
-    fn reports_position_when_control_character_present() {
+    fn should_report_position_when_control_character_present_in_key() {
         // Arrange
         let input = format!("bad{}key=1", '\u{0007}');
 
@@ -531,7 +531,7 @@ mod error_handling_tests {
     }
 
     #[test]
-    fn reports_position_when_percent_decoding_control_character() {
+    fn should_report_position_when_percent_decoding_control_character() {
         // Arrange
         let query = "bad=%07";
 
@@ -548,7 +548,7 @@ mod error_handling_tests {
     }
 
     #[test]
-    fn reports_unexpected_character_when_question_mark_in_key() {
+    fn should_report_unexpected_character_when_question_mark_in_key() {
         // Arrange
         let query = "foo?bar=1";
 
@@ -564,7 +564,7 @@ mod error_handling_tests {
     }
 
     #[test]
-    fn returns_invalid_character_error_for_raw_space_in_key() {
+    fn should_return_invalid_character_error_when_raw_space_present_in_key() {
         // Arrange
         let query = "bad key=1";
 
@@ -581,7 +581,7 @@ mod error_handling_tests {
     }
 
     #[test]
-    fn reports_errors_for_unmatched_brackets_and_depth_limit() {
+    fn should_report_errors_when_brackets_unmatched_and_depth_limit_exceeded() {
         // Arrange
         let depth_limited = build_parse_options(|builder| builder.max_depth(1));
 
@@ -601,7 +601,7 @@ mod error_handling_tests {
     }
 
     #[test]
-    fn reports_conflict_when_duplicate_keys_appear() {
+    fn should_report_conflict_when_duplicate_keys_appear() {
         // Arrange
         let query = "color=red&color=blue";
 
@@ -614,7 +614,7 @@ mod error_handling_tests {
     }
 
     #[test]
-    fn returns_duplicate_key_error_when_array_indices_sparse() {
+    fn should_return_duplicate_key_error_when_array_indices_are_sparse() {
         // Arrange
         let query = "items[0]=apple&items[2]=cherry";
 
@@ -626,7 +626,7 @@ mod error_handling_tests {
     }
 
     #[test]
-    fn reports_failure_when_percent_decoding_yields_invalid_utf8() {
+    fn should_report_failure_when_percent_decoding_yields_invalid_utf8() {
         // Arrange
         let query = "bad=%FF";
 
@@ -642,7 +642,7 @@ mod serde_integration_tests {
     use super::*;
 
     #[test]
-    fn reports_human_readable_error_when_deserializing_into_struct() {
+    fn should_report_human_readable_error_when_deserializing_into_struct_fails() {
         // Arrange
         #[derive(Debug, Deserialize, Default)]
         struct NumericTarget {

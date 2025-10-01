@@ -29,7 +29,7 @@ mod arena_initial_container {
     use super::*;
 
     #[test]
-    fn starts_with_empty_sequence_for_array_request() {
+    fn should_initialize_empty_sequence_when_array_requested_then_return_empty_sequence_container() {
         // Arrange
         let arena = ParseArena::new();
 
@@ -41,7 +41,7 @@ mod arena_initial_container {
     }
 
     #[test]
-    fn starts_with_empty_map_for_object_request() {
+    fn should_initialize_empty_map_when_object_requested_then_return_empty_map_container() {
         // Arrange
         let arena = ParseArena::new();
 
@@ -57,7 +57,7 @@ mod arena_ensure_container {
     use super::*;
 
     #[test]
-    fn reuses_sequence_when_array_expectation_matches() {
+    fn should_reuse_sequence_when_array_expectation_matches_then_preserve_existing_items() {
         // Arrange
         let arena = ParseArena::new();
         let mut value = make_sequence(&arena, &["existing"]);
@@ -71,7 +71,7 @@ mod arena_ensure_container {
     }
 
     #[test]
-    fn converts_map_to_sequence_when_array_expected() {
+    fn should_convert_map_to_sequence_when_array_expected_then_return_empty_sequence() {
         // Arrange
         let arena = ParseArena::new();
         let mut value = ArenaValue::map(&arena);
@@ -85,7 +85,7 @@ mod arena_ensure_container {
     }
 
     #[test]
-    fn converts_sequence_to_map_when_object_expected() {
+    fn should_convert_sequence_to_map_when_object_expected_then_return_empty_map() {
         // Arrange
         let arena = ParseArena::new();
         let mut value = make_sequence(&arena, &[]);
@@ -99,7 +99,7 @@ mod arena_ensure_container {
     }
 
     #[test]
-    fn reports_error_when_string_conflicts_with_array() {
+    fn should_report_error_when_string_conflicts_with_array_then_return_duplicate_key_error() {
         // Arrange
         let arena = ParseArena::new();
         let mut value = make_string(&arena, "leaf");
@@ -113,7 +113,7 @@ mod arena_ensure_container {
     }
 
     #[test]
-    fn reports_error_when_string_conflicts_with_object() {
+    fn should_report_error_when_string_conflicts_with_object_then_return_duplicate_key_error() {
         // Arrange
         let arena = ParseArena::new();
         let mut value = make_string(&arena, "leaf");

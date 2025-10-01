@@ -5,7 +5,7 @@ mod validate_brackets {
     use super::*;
 
     #[test]
-    fn returns_ok_for_balanced_brackets() {
+    fn should_return_ok_when_brackets_are_balanced_then_allow_nested_segments() {
         // Arrange
         let key = "user[address][street]";
 
@@ -17,7 +17,7 @@ mod validate_brackets {
     }
 
     #[test]
-    fn returns_error_for_unmatched_closing_bracket() {
+    fn should_return_error_when_closing_bracket_is_unmatched_then_return_unmatched_bracket_error() {
         // Arrange
         let key = "user]";
 
@@ -32,7 +32,7 @@ mod validate_brackets {
     }
 
     #[test]
-    fn returns_error_for_unmatched_open_brackets() {
+    fn should_return_error_when_open_brackets_are_unmatched_then_report_unmatched_open_bracket() {
         // Arrange
         let key = "user[address";
 
@@ -47,7 +47,7 @@ mod validate_brackets {
     }
 
     #[test]
-    fn reports_depth_exceeded_when_pair_limit_exceeded() {
+    fn should_report_depth_exceeded_when_pair_limit_is_exceeded_then_return_depth_exceeded_error() {
         // Arrange
         let key = "a[][][]";
 
@@ -69,7 +69,7 @@ mod duplicate_key_label {
     use super::*;
 
     #[test]
-    fn clones_input_when_requested() {
+    fn should_clone_input_when_duplicate_key_label_requested_then_return_owned_string() {
         // Arrange
         let key = "session";
 
@@ -90,7 +90,7 @@ mod estimate_param_capacity {
     use super::*;
 
     #[test]
-    fn counts_zero_parameters_for_empty_input() {
+    fn should_count_zero_parameters_when_input_is_empty_then_return_zero_capacity() {
         // Arrange
         let query = "";
 
@@ -102,7 +102,7 @@ mod estimate_param_capacity {
     }
 
     #[test]
-    fn counts_multiple_parameters_correctly() {
+    fn should_count_multiple_parameters_when_query_contains_three_entries_then_return_three_capacity() {
         // Arrange
         let query = "a=1&b=2&c=3";
 
@@ -114,7 +114,7 @@ mod estimate_param_capacity {
     }
 
     #[test]
-    fn counts_trailing_empty_parameter() {
+    fn should_count_trailing_empty_parameter_when_query_has_trailing_separator_then_include_trailing_capacity() {
         // Arrange
         let query = "token=&";
 

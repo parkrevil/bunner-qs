@@ -14,7 +14,7 @@ mod parse_api {
     use super::*;
 
     #[test]
-    fn returns_default_for_empty_input() {
+    fn should_return_default_when_input_is_empty_then_use_struct_default() {
         // Arrange
         let query = "";
 
@@ -26,7 +26,7 @@ mod parse_api {
     }
 
     #[test]
-    fn populates_struct_fields_from_pairs() {
+    fn should_populate_struct_fields_when_pairs_present_then_match_expected_credentials() {
         // Arrange
         let query = "username=neo&password=matrix";
 
@@ -42,7 +42,7 @@ mod parse_api {
     }
 
     #[test]
-    fn produces_nested_map_for_json_value() {
+    fn should_produce_nested_map_when_parsing_json_value_then_create_nested_object() {
         // Arrange
         let query = "user[name]=alice&user[role]=admin";
 
@@ -64,7 +64,7 @@ mod parse_with_api {
     use super::*;
 
     #[test]
-    fn decodes_plus_signs_when_space_as_plus_enabled() {
+    fn should_decode_plus_signs_when_space_option_is_enabled_then_convert_plus_to_space() {
         // Arrange
         let query = "message=hello+world";
         let options = ParseOptions {
@@ -81,7 +81,7 @@ mod parse_with_api {
     }
 
     #[test]
-    fn returns_error_when_parameter_limit_exceeded() {
+    fn should_return_error_when_parameter_limit_is_exceeded_then_report_too_many_parameters() {
         // Arrange
         let query = "a=1&b=2";
         let options = ParseOptions {

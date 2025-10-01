@@ -6,7 +6,7 @@ mod value_map_serializer {
     use super::*;
 
     #[test]
-    fn stores_string_value_when_serializing_single_entry() {
+    fn should_store_string_value_when_serializing_single_entry_then_return_object_with_value() {
         // Arrange
         let mut serializer = ValueMapSerializer::new();
 
@@ -27,7 +27,7 @@ mod value_map_serializer {
     }
 
     #[test]
-    fn skips_entry_when_value_serializes_to_none() {
+    fn should_skip_entry_when_value_serializes_to_none_then_produce_empty_map() {
         // Arrange
         let mut serializer = ValueMapSerializer::new();
 
@@ -47,7 +47,7 @@ mod value_map_serializer {
     }
 
     #[test]
-    fn errors_when_serialize_value_called_without_key() {
+    fn should_error_when_serialize_value_called_without_key_then_return_missing_key_message() {
         // Arrange
         let mut serializer = ValueMapSerializer::new();
 
@@ -65,7 +65,7 @@ mod value_map_serializer {
     }
 
     #[test]
-    fn stringifies_numeric_key_when_serializing() {
+    fn should_stringify_numeric_key_when_serializing_then_store_key_as_string() {
         // Arrange
         let mut serializer = ValueMapSerializer::new();
 

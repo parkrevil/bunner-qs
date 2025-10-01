@@ -23,7 +23,7 @@ mod resolve {
     use super::*;
 
     #[test]
-    fn increments_indices_when_numeric_segment_repeats() {
+    fn should_increment_indices_when_numeric_segment_repeats_then_return_sequential_indices() {
         // Arrange
         let mut guard = acquire_pattern_state();
         let path = make_segments(&["items"]);
@@ -38,7 +38,7 @@ mod resolve {
     }
 
     #[test]
-    fn reports_duplicate_key_when_segment_kind_conflicts() {
+    fn should_report_duplicate_key_when_segment_kind_conflicts_then_return_duplicate_key_error() {
         // Arrange
         let mut guard = acquire_pattern_state();
         let path = make_segments(&["items"]);
@@ -58,7 +58,7 @@ mod container_type {
     use super::*;
 
     #[test]
-    fn returns_array_when_numeric_segments_seen() {
+    fn should_return_array_when_numeric_segments_are_seen_then_select_array_container() {
         // Arrange
         let mut guard = acquire_pattern_state();
         let path = make_segments(&["items"]);
@@ -72,7 +72,7 @@ mod container_type {
     }
 
     #[test]
-    fn returns_object_when_string_segments_seen() {
+    fn should_return_object_when_string_segments_are_seen_then_select_object_container() {
         // Arrange
         let mut guard = acquire_pattern_state();
         let path = make_segments(&["props"]);
@@ -90,7 +90,7 @@ mod child_capacity {
     use super::*;
 
     #[test]
-    fn tracks_child_count_when_resolving_multiple_children() {
+    fn should_track_child_count_when_resolving_multiple_children_then_return_child_capacity() {
         // Arrange
         let mut guard = acquire_pattern_state();
         let path = make_segments(&["items"]);
@@ -110,7 +110,7 @@ mod acquire_pattern_state {
     use super::*;
 
     #[test]
-    fn resets_state_when_guard_returned_to_pool() {
+    fn should_reset_state_when_guard_is_returned_to_pool_then_clear_cached_metadata() {
         // Arrange
         {
             let mut guard = acquire_pattern_state();

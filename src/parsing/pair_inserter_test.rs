@@ -8,7 +8,7 @@ mod insert_pair_arena {
     use super::*;
 
     #[test]
-    fn when_flat_key_unique_should_insert_string_value() {
+    fn should_insert_string_value_when_flat_key_is_unique_then_store_entry_once() {
         // Arrange
         let arena = ParseArena::new();
         let mut map = ArenaQueryMap::with_capacity(&arena, 2);
@@ -37,7 +37,7 @@ mod insert_pair_arena {
     }
 
     #[test]
-    fn when_flat_key_repeats_should_return_duplicate_key_error() {
+    fn should_return_duplicate_key_error_when_flat_key_repeats_then_include_conflicting_key() {
         // Arrange
         let arena = ParseArena::new();
         let mut map = ArenaQueryMap::with_capacity(&arena, 2);
@@ -68,7 +68,7 @@ mod insert_pair_arena {
     }
 
     #[test]
-    fn when_flat_key_repeats_and_first_wins_should_keep_initial_value() {
+    fn should_keep_initial_value_when_flat_key_repeats_and_first_wins_then_preserve_original_value() {
         // Arrange
         let arena = ParseArena::new();
         let mut map = ArenaQueryMap::with_capacity(&arena, 2);
@@ -106,7 +106,7 @@ mod insert_pair_arena {
     }
 
     #[test]
-    fn when_flat_key_repeats_and_last_wins_should_replace_value() {
+    fn should_replace_value_when_flat_key_repeats_and_last_wins_then_store_latest_value() {
         // Arrange
         let arena = ParseArena::new();
         let mut map = ArenaQueryMap::with_capacity(&arena, 2);
@@ -144,7 +144,7 @@ mod insert_pair_arena {
     }
 
     #[test]
-    fn when_key_is_empty_should_store_under_empty_label() {
+    fn should_store_under_empty_label_when_key_is_empty_then_use_empty_key() {
         // Arrange
         let arena = ParseArena::new();
         let mut map = ArenaQueryMap::with_capacity(&arena, 2);

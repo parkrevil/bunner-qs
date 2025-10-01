@@ -215,7 +215,7 @@ mod struct_roundtrip_tests {
     }
 
     #[test]
-    fn uses_default_when_parsing_empty_input_into_struct() -> Result<(), Box<dyn Error>> {
+    fn should_use_default_struct_when_parsing_empty_input() -> Result<(), Box<dyn Error>> {
         // Arrange
         let query = "";
 
@@ -228,7 +228,7 @@ mod struct_roundtrip_tests {
     }
 
     #[test]
-    fn populates_fields_when_scalars_struct_is_parsed() -> Result<(), Box<dyn Error>> {
+    fn should_populate_fields_when_scalars_struct_is_parsed() -> Result<(), Box<dyn Error>> {
         // Arrange
         let query = "host=edge.example&port=8080&secure=true";
 
@@ -243,7 +243,7 @@ mod struct_roundtrip_tests {
     }
 
     #[test]
-    fn preserves_values_when_primitive_scalars_roundtrip() -> Result<(), Box<dyn Error>> {
+    fn should_preserve_values_when_primitive_scalars_roundtrip() -> Result<(), Box<dyn Error>> {
         // Arrange
         let payload = PrimitiveScalars {
             small_signed: -12,
@@ -266,7 +266,7 @@ mod struct_roundtrip_tests {
     }
 
     #[test]
-    fn preserves_case_when_camel_case_struct_roundtrips() -> Result<(), Box<dyn Error>> {
+    fn should_preserve_case_when_camel_case_struct_roundtrips() -> Result<(), Box<dyn Error>> {
         // Arrange
         let user = CamelCaseUser {
             first_name: "Ada".into(),
@@ -288,7 +288,7 @@ mod struct_roundtrip_tests {
     }
 
     #[test]
-    fn preserves_fields_when_struct_roundtrips_via_public_api() -> Result<(), Box<dyn Error>> {
+    fn should_preserve_fields_when_struct_roundtrips_via_public_api() -> Result<(), Box<dyn Error>> {
         // Arrange
         let profile = profile_form();
 
@@ -301,7 +301,7 @@ mod struct_roundtrip_tests {
     }
 
     #[test]
-    fn keeps_flat_fields_when_flattened_struct_roundtrips() -> Result<(), Box<dyn Error>> {
+    fn should_keep_flat_fields_when_flattened_struct_roundtrips() -> Result<(), Box<dyn Error>> {
         // Arrange
         let profile = flattened_profile();
 
@@ -319,7 +319,7 @@ mod struct_roundtrip_tests {
     }
 
     #[test]
-    fn preserves_variant_when_tagged_enum_roundtrips() -> Result<(), Box<dyn Error>> {
+    fn should_preserve_variant_when_tagged_enum_roundtrips() -> Result<(), Box<dyn Error>> {
         // Arrange
         let settings = tagged_settings();
 
@@ -341,7 +341,7 @@ mod struct_roundtrip_tests {
     }
 
     #[test]
-    fn removes_padding_when_custom_deserializer_trims_whitespace() -> Result<(), Box<dyn Error>> {
+    fn should_remove_padding_when_custom_deserializer_trims_whitespace() -> Result<(), Box<dyn Error>> {
         // Arrange
         let raw = concat!(
             "notification_kind=Sms&",
@@ -358,7 +358,7 @@ mod struct_roundtrip_tests {
     }
 
     #[test]
-    fn preserves_entries_when_btree_map_roundtrips() -> Result<(), Box<dyn Error>> {
+    fn should_preserve_entries_when_btree_map_roundtrips() -> Result<(), Box<dyn Error>> {
         // Arrange
         let mut data = BTreeMap::new();
         data.insert("city".to_string(), "Seoul".to_string());
@@ -373,7 +373,7 @@ mod struct_roundtrip_tests {
     }
 
     #[test]
-    fn retains_values_when_sequence_field_roundtrips() -> Result<(), Box<dyn Error>> {
+    fn should_retain_values_when_sequence_field_roundtrips() -> Result<(), Box<dyn Error>> {
         // Arrange
         let record = TaggedRecord {
             name: "release".into(),
@@ -389,7 +389,7 @@ mod struct_roundtrip_tests {
     }
 
     #[test]
-    fn copies_values_when_borrowed_cow_fields_are_parsed() -> Result<(), Box<dyn Error>> {
+    fn should_copy_values_when_borrowed_cow_fields_are_parsed() -> Result<(), Box<dyn Error>> {
         // Arrange
         let query = "title=Bonjour&note=Monde";
 
@@ -403,7 +403,7 @@ mod struct_roundtrip_tests {
     }
 
     #[test]
-    fn coerces_scalars_when_json_value_is_parsed() -> Result<(), Box<dyn Error>> {
+    fn should_coerce_scalars_when_json_value_is_parsed() -> Result<(), Box<dyn Error>> {
         // Arrange
         let query = "post%5Btitle%5D=Hello&post%5Bviews%5D=42&post%5Bpublished%5D=false";
 
@@ -419,7 +419,7 @@ mod struct_roundtrip_tests {
     }
 
     #[test]
-    fn succeeds_when_deep_roundtrip_uses_custom_options() -> Result<(), Box<dyn Error>> {
+    fn should_succeed_in_deep_roundtrip_when_custom_options_used() -> Result<(), Box<dyn Error>> {
         // Arrange
         let profile = complex_profile();
         let stringify_options = plus_space_stringify_options();
@@ -442,7 +442,7 @@ mod struct_roundtrip_tests {
     }
 
     #[test]
-    fn preserves_contact_fields_in_to_json_style_roundtrip() -> Result<(), SerdeQueryError> {
+    fn should_preserve_contact_fields_when_to_json_style_roundtrip_runs() -> Result<(), SerdeQueryError> {
         // Arrange
         let profile = profile_form();
 
@@ -456,7 +456,7 @@ mod struct_roundtrip_tests {
     }
 
     #[test]
-    fn surfaces_profile_when_stringify_shapes_nested_data() -> Result<(), Box<dyn Error>> {
+    fn should_surface_profile_when_stringify_shapes_nested_data() -> Result<(), Box<dyn Error>> {
         // Arrange
         let profile = desired_profile();
 
@@ -525,7 +525,7 @@ mod enum_roundtrip_tests {
     }
 
     #[test]
-    fn shows_deserialize_error_when_internally_tagged_enum_stringified()
+    fn should_show_deserialize_error_when_internally_tagged_enum_stringified()
     -> Result<(), Box<dyn Error>> {
         // Arrange
         let envelope = InternalEnvelope {
@@ -557,7 +557,7 @@ mod enum_roundtrip_tests {
     }
 
     #[test]
-    fn reports_variant_mismatch_when_untagged_enum_stringified() -> Result<(), Box<dyn Error>> {
+    fn should_report_variant_mismatch_when_untagged_enum_stringified() -> Result<(), Box<dyn Error>> {
         // Arrange
         let envelope = UntaggedEnvelope {
             alias: "coords".into(),
@@ -589,7 +589,7 @@ mod options_behavior_tests {
     use super::*;
 
     #[test]
-    fn detects_violation_when_parse_options_are_tightened() {
+    fn should_detect_violation_when_parse_options_are_tightened() {
         // Arrange
         let options = build_parse_options(|builder| builder.max_params(2));
 
@@ -602,7 +602,7 @@ mod options_behavior_tests {
     }
 
     #[test]
-    fn emits_plus_when_stringify_options_control_space_encoding() -> Result<(), Box<dyn Error>> {
+    fn should_emit_plus_when_stringify_options_control_space_encoding() -> Result<(), Box<dyn Error>> {
         // Arrange
         let value = json_from_pairs(&[("note", "hello world")]);
         let options = build_stringify_options(|builder| builder.space_as_plus(true));
@@ -620,7 +620,7 @@ mod error_reporting_tests {
     use super::*;
 
     #[test]
-    fn surfaces_deserialize_error_when_struct_parse_fails() {
+    fn should_surface_deserialize_error_when_struct_parse_fails() {
         // Arrange
         let query = "host=delta&port=not-a-number&secure=maybe";
 
@@ -632,7 +632,7 @@ mod error_reporting_tests {
     }
 
     #[test]
-    fn fails_to_parse_when_unknown_field_is_added() {
+    fn should_fail_to_parse_when_unknown_field_is_added() {
         // Arrange
         let mut object = json!({ "username": "ada", "age": 36, "active": true });
         if let Value::Object(map) = &mut object {
@@ -648,7 +648,7 @@ mod error_reporting_tests {
     }
 
     #[test]
-    fn surfaces_serde_error_when_encoded_value_modified() {
+    fn should_surface_serde_error_when_encoded_value_modified() {
         // Arrange
         let encoded = concat!(
             "profile%E2%9C%A8name=Alias%20User&",
@@ -664,7 +664,7 @@ mod error_reporting_tests {
     }
 
     #[test]
-    fn reports_detail_when_invalid_bool_provided() {
+    fn should_report_detail_when_invalid_bool_provided() {
         // Arrange
         let message = parse_serde_error_message::<BoolField>("secure=maybe");
 
@@ -676,7 +676,7 @@ mod error_reporting_tests {
     }
 
     #[test]
-    fn reports_expected_object_when_nested_struct_receives_string() {
+    fn should_report_expected_object_when_nested_struct_receives_string() {
         // Arrange
         let message = parse_serde_error_message::<NestedWrapper>("peer=value");
 
@@ -688,7 +688,7 @@ mod error_reporting_tests {
     }
 
     #[test]
-    fn reports_unexpected_type_when_unit_field_receives_value() {
+    fn should_report_unexpected_type_when_unit_field_receives_value() {
         // Arrange
         let message = parse_serde_error_message::<UnitHolder>("empty=value");
 
@@ -700,7 +700,7 @@ mod error_reporting_tests {
     }
 
     #[test]
-    fn reports_expected_string_when_flatten_structure_mismatches() {
+    fn should_report_expected_string_when_flatten_structure_mismatches() {
         // Arrange
         #[allow(dead_code)]
         #[derive(Debug, Deserialize, Default)]
@@ -785,7 +785,7 @@ mod adapter_behavior_tests {
     }
 
     #[test]
-    fn reports_error_when_custom_adapter_detects_lowercase() {
+    fn should_report_error_when_custom_adapter_detects_lowercase() {
         // Arrange
         let message = parse_serde_error_message::<UppercaseAdapter>("code=abc123");
 
@@ -797,7 +797,7 @@ mod adapter_behavior_tests {
     }
 
     #[test]
-    fn uppercases_code_when_custom_adapter_transforms_value() -> Result<(), Box<dyn Error>> {
+    fn should_uppercase_code_when_custom_adapter_transforms_value() -> Result<(), Box<dyn Error>> {
         // Arrange
         let query = "code=abc123";
 
@@ -810,7 +810,7 @@ mod adapter_behavior_tests {
     }
 
     #[test]
-    fn uses_default_when_value_ignored_by_adapter() -> Result<(), Box<dyn Error>> {
+    fn should_use_default_when_value_is_ignored_by_adapter() -> Result<(), Box<dyn Error>> {
         // Arrange
         let query = "provided=live&token=client-overrides";
 
@@ -845,7 +845,7 @@ mod stringify_error_tests {
     }
 
     #[test]
-    fn returns_error_when_tuple_variant_stringified() {
+    fn should_return_error_when_tuple_variant_stringified() {
         // Arrange
         let value = UnsupportedVariant::Tuple("lhs".into(), "rhs".into());
 
@@ -859,7 +859,7 @@ mod stringify_error_tests {
     }
 
     #[test]
-    fn reports_error_when_map_key_not_string() {
+    fn should_report_error_when_map_key_not_string() {
         // Arrange
         let mut map = BTreeMap::new();
         map.insert(UnitKey, "value".to_string());
@@ -876,7 +876,7 @@ mod stringify_error_tests {
 
 proptest! {
     #[test]
-    fn random_profile_roundtrips(profile in random_profile_strategy()) {
+    fn should_roundtrip_random_profiles_when_generated(profile in random_profile_strategy()) {
         let encoded = stringify(&profile).expect("stringify should succeed");
         let reparsed: RandomProfileData = parse(&encoded).expect("parse should succeed");
         prop_assert_eq!(reparsed, profile);

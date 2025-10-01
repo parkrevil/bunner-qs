@@ -6,7 +6,7 @@ mod decode_pair {
     use super::*;
 
     #[test]
-    fn when_plain_ascii_should_return_borrowed_components() {
+    fn should_return_borrowed_components_when_plain_ascii_then_avoid_allocation() {
         // Arrange
         let options = ParseOptions::default();
         let mut scratch = Vec::new();
@@ -22,7 +22,7 @@ mod decode_pair {
     }
 
     #[test]
-    fn when_space_as_plus_enabled_should_decode_plus_signs() {
+    fn should_decode_plus_signs_when_space_as_plus_enabled_then_replace_with_spaces() {
         // Arrange
         let options = ParseOptions {
             space_as_plus: true,
@@ -40,7 +40,7 @@ mod decode_pair {
     }
 
     #[test]
-    fn when_brackets_unmatched_should_return_error() {
+    fn should_return_error_when_brackets_unmatched_then_return_unmatched_bracket_error() {
         // Arrange
         let options = ParseOptions::default();
         let mut scratch = Vec::new();

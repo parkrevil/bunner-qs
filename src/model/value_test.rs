@@ -4,7 +4,7 @@ mod new {
     use super::*;
 
     #[test]
-    fn creates_empty_query_map_with_new() {
+    fn should_create_empty_query_map_when_new_is_called_then_return_empty_map() {
         // Arrange
         // Act
         let map = QueryMap::new();
@@ -18,7 +18,7 @@ mod with_capacity {
     use super::*;
 
     #[test]
-    fn matches_default_when_reserving_zero_capacity() {
+    fn should_match_default_when_reserving_zero_capacity_then_behave_like_empty_map() {
         // Arrange
         let baseline = QueryMap::new();
 
@@ -31,7 +31,7 @@ mod with_capacity {
     }
 
     #[test]
-    fn stores_items_when_reserving_capacity() {
+    fn should_store_items_when_reserving_capacity_then_store_inserted_pairs() {
         // Arrange
         let mut map = QueryMap::with_capacity(2);
 
@@ -48,7 +48,7 @@ mod from_iter {
     use super::*;
 
     #[test]
-    fn preserves_insertion_order_when_collecting_pairs() {
+    fn should_preserve_insertion_order_when_collecting_pairs_then_collect_pairs_in_order() {
         // Arrange
         let pairs = [
             (String::from("first"), Value::from("one")),
@@ -68,7 +68,7 @@ mod into_iterator {
     use super::*;
 
     #[test]
-    fn yields_borrowed_values_when_iterating_immutably() {
+    fn should_yield_borrowed_values_when_iterating_immutably_then_iterate_over_entries() {
         // Arrange
         let mut map = QueryMap::new();
         map.insert(String::from("flag"), Value::from("on"));
@@ -84,7 +84,7 @@ mod into_iterator {
     }
 
     #[test]
-    fn allows_updates_when_iterating_mutably() {
+    fn should_allow_updates_when_iterating_mutably_then_mutate_entries() {
         // Arrange
         let mut map = QueryMap::new();
         map.insert(String::from("flag"), Value::from("off"));
@@ -103,7 +103,7 @@ mod value_from {
     use super::*;
 
     #[test]
-    fn wraps_owned_string_as_value_string() {
+    fn should_wrap_owned_string_when_constructing_value_string_then_store_owned_string() {
         // Arrange
         let source = String::from("hello");
 
@@ -115,7 +115,7 @@ mod value_from {
     }
 
     #[test]
-    fn clones_str_slice_into_value_string() {
+    fn should_clone_str_slice_when_constructing_value_string_then_store_cloned_string() {
         // Arrange
         let source = "world";
 

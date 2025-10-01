@@ -85,7 +85,7 @@ mod insert_nested_value_arena {
     use super::*;
 
     #[test]
-    fn stores_string_value_for_root_scalar_insert() {
+    fn should_store_string_value_when_root_scalar_insert_occurs_then_store_value_in_map() {
         // Arrange
         let arena = ParseArena::new();
         let mut map = map_with_capacity(&arena, 0);
@@ -107,7 +107,7 @@ mod insert_nested_value_arena {
     }
 
     #[test]
-    fn expands_sequence_of_maps_for_array_pattern() {
+    fn should_expand_sequence_of_maps_when_array_pattern_is_used_then_create_sequence_entries() {
         // Arrange
         let arena = ParseArena::new();
         let mut map = map_with_capacity(&arena, 0);
@@ -129,7 +129,7 @@ mod insert_nested_value_arena {
     }
 
     #[test]
-    fn returns_duplicate_key_when_scalar_repeats() {
+    fn should_return_duplicate_key_when_scalar_repeats_then_return_duplicate_key_error() {
         // Arrange
         let arena = ParseArena::new();
         let mut map = map_with_capacity(&arena, 0);
@@ -160,7 +160,7 @@ mod insert_nested_value_arena {
     }
 
     #[test]
-    fn when_scalar_repeats_and_first_wins_should_keep_initial_value() {
+    fn should_keep_initial_value_when_scalar_repeats_and_first_wins_then_preserve_first_value() {
         // Arrange
         let arena = ParseArena::new();
         let mut map = map_with_capacity(&arena, 0);
@@ -191,7 +191,7 @@ mod insert_nested_value_arena {
     }
 
     #[test]
-    fn when_scalar_repeats_and_last_wins_should_replace_with_latest_value() {
+    fn should_replace_with_latest_value_when_scalar_repeats_and_last_wins_then_store_latest_value() {
         // Arrange
         let arena = ParseArena::new();
         let mut map = map_with_capacity(&arena, 0);
@@ -226,7 +226,7 @@ mod resolve_segments {
     use super::*;
 
     #[test]
-    fn increments_indices_when_array_segment_repeats() {
+    fn should_increment_indices_when_array_segment_repeats_then_update_sequence_indices() {
         // Arrange
         let mut state = acquire_pattern_state();
         let path = ["items", "", "name"];
@@ -241,7 +241,7 @@ mod resolve_segments {
     }
 
     #[test]
-    fn returns_original_segments_for_literal_path() {
+    fn should_return_original_segments_when_path_is_literal_then_preserve_path_segments() {
         // Arrange
         let mut state = acquire_pattern_state();
         let path = ["profile", "name"];

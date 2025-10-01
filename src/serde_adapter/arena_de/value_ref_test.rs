@@ -5,7 +5,7 @@ mod from_value {
     use super::*;
 
     #[test]
-    fn returns_string_variant_when_wrapping_string_value() {
+    fn should_return_string_variant_when_wrapping_string_value_then_return_string_reference() {
         // Arrange
         let value = ArenaValue::string("hello");
 
@@ -20,7 +20,7 @@ mod from_value {
     }
 
     #[test]
-    fn borrows_sequence_slice_when_wrapping_sequence_value() {
+    fn should_borrow_sequence_slice_when_wrapping_sequence_value_then_expose_sequence_slice() {
         // Arrange
         let arena = ParseArena::new();
         let mut items = arena.alloc_vec();
@@ -43,7 +43,7 @@ mod from_value {
     }
 
     #[test]
-    fn borrows_entry_slice_when_wrapping_map_value() {
+    fn should_borrow_entry_slice_when_wrapping_map_value_then_expose_map_slice() {
         // Arrange
         let arena = ParseArena::new();
         let mut entries = arena.alloc_vec();

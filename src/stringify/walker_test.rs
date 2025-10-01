@@ -19,7 +19,7 @@ mod append_segment {
     use super::*;
 
     #[test]
-    fn writes_key_for_root_segment() {
+    fn should_write_key_for_root_segment_when_segment_is_root_then_write_segment_key() {
         // Arrange
         let initial = "";
 
@@ -31,7 +31,7 @@ mod append_segment {
     }
 
     #[test]
-    fn brackets_sub_key_for_object_segment() {
+    fn should_bracket_sub_key_for_object_segment_when_segment_is_object_then_append_bracketed_key() {
         // Arrange
         let initial = "profile";
 
@@ -43,7 +43,7 @@ mod append_segment {
     }
 
     #[test]
-    fn uses_decimal_index_for_array_segment() {
+    fn should_use_decimal_index_for_array_segment_when_segment_is_array_then_append_decimal_index() {
         // Arrange
         let initial = "items";
 
@@ -55,7 +55,7 @@ mod append_segment {
     }
 
     #[test]
-    fn appends_zero_digit_for_zero_index() {
+    fn should_append_zero_digit_for_zero_index_when_segment_index_is_zero_then_append_zero_digit() {
         // Arrange
         let initial = "list";
 
@@ -67,7 +67,7 @@ mod append_segment {
     }
 
     #[test]
-    fn builds_full_key_path_when_chained() {
+    fn should_build_full_key_path_when_chained_when_multiple_segments_are_appended_then_build_full_path() {
         // Arrange
         let segments = [
             Segment::Root("order"),

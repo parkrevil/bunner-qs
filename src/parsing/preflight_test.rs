@@ -5,7 +5,7 @@ mod preflight {
     use super::*;
 
     #[test]
-    fn returns_error_when_input_exceeds_max_length() {
+    fn should_return_error_when_input_exceeds_max_length_then_report_limit() {
         // Arrange
         let raw = "abcdef";
         let options = ParseOptions {
@@ -24,7 +24,7 @@ mod preflight {
     }
 
     #[test]
-    fn returns_trimmed_slice_and_offset_for_leading_question_mark() {
+    fn should_return_trimmed_slice_and_offset_when_leading_question_mark_present_then_strip_prefix() {
         // Arrange
         let raw = "?foo=bar";
         let options = ParseOptions::default();
@@ -37,7 +37,7 @@ mod preflight {
     }
 
     #[test]
-    fn returns_error_with_index_for_internal_question_mark() {
+    fn should_return_error_with_index_when_internal_question_mark_found_then_report_position() {
         // Arrange
         let raw = "a?=1";
         let options = ParseOptions::default();
@@ -53,7 +53,7 @@ mod preflight {
     }
 
     #[test]
-    fn returns_invalid_character_error_for_disallowed_control() {
+    fn should_return_invalid_character_error_when_control_character_disallowed_then_report_character_and_index() {
         // Arrange
         let raw = format!("foo{}bar", '\u{001F}');
         let options = ParseOptions::default();
@@ -70,7 +70,7 @@ mod preflight {
     }
 
     #[test]
-    fn reports_offset_for_space_after_prefix() {
+    fn should_report_offset_when_space_after_prefix_detected_then_return_invalid_character_error() {
         // Arrange
         let raw = "?foo bar";
         let options = ParseOptions::default();

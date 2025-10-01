@@ -4,7 +4,7 @@ mod format_expected {
     use super::*;
 
     #[test]
-    fn formats_placeholder_when_no_fields_provided() {
+    fn should_format_placeholder_when_no_fields_provided_then_return_none_literal() {
         // Arrange
         const EMPTY_FIELDS: &[&str; 0] = &[];
 
@@ -16,7 +16,7 @@ mod format_expected {
     }
 
     #[test]
-    fn joins_fields_with_commas() {
+    fn should_join_fields_with_commas_when_multiple_fields_are_provided_then_format_expected_list() {
         // Arrange
         const FIELDS: &[&str; 3] = &["alpha", "beta", "gamma"];
 
@@ -33,7 +33,7 @@ mod serialize_error {
     use serde::ser::Error as _;
 
     #[test]
-    fn wraps_custom_message_for_serialize_error() {
+    fn should_wrap_custom_message_for_serialize_error_when_custom_message_is_provided_then_echo_message() {
         // Arrange
         let message = "serialization failed";
 
@@ -45,7 +45,7 @@ mod serialize_error {
     }
 
     #[test]
-    fn renders_top_level_error_with_type() {
+    fn should_render_top_level_error_with_type_when_top_level_variant_is_string_then_include_value_name() {
         // Arrange
         let error = SerializeError::TopLevel("string".into());
 
@@ -62,7 +62,7 @@ mod deserialize_error {
     use serde::de::Error as _;
 
     #[test]
-    fn wraps_custom_message_for_deserialize_error() {
+    fn should_wrap_custom_message_for_deserialize_error_when_custom_message_is_provided_then_echo_message() {
         // Arrange
         let message = "deserialization failed";
 
@@ -74,7 +74,7 @@ mod deserialize_error {
     }
 
     #[test]
-    fn lists_expected_fields_for_unknown_field() {
+    fn should_list_expected_fields_for_unknown_field_when_field_is_missing_then_include_expected_list() {
         // Arrange
         let error = DeserializeError::UnknownField {
             field: "mystery".into(),
@@ -96,7 +96,7 @@ mod serde_query_error {
     use super::*;
 
     #[test]
-    fn prefixes_message_when_wrapping_serialize_error() {
+    fn should_prefix_message_when_wrapping_serialize_error_then_include_original_detail() {
         // Arrange
         let inner = SerializeError::Unsupported("tuple variant");
 
@@ -111,7 +111,7 @@ mod serde_query_error {
     }
 
     #[test]
-    fn prefixes_message_when_wrapping_deserialize_error() {
+    fn should_prefix_message_when_wrapping_deserialize_error_then_include_original_detail() {
         // Arrange
         let inner = DeserializeError::InvalidBool {
             value: "YES".into(),

@@ -7,7 +7,7 @@ mod with_arena_query_map {
     use super::*;
 
     #[test]
-    fn populates_map_from_unique_pairs() {
+    fn should_populate_map_with_unique_pairs_when_all_keys_are_unique_then_store_all_pairs() {
         // Arrange
         let trimmed = "foo=bar&baz=qux";
         let options = ParseOptions::default();
@@ -39,7 +39,7 @@ mod with_arena_query_map {
     }
 
     #[test]
-    fn returns_error_when_duplicate_key_appears() {
+    fn should_return_error_when_duplicate_key_appears_then_include_conflicting_key() {
         // Arrange
         let trimmed = "foo=one&foo=two";
         let options = ParseOptions::default();
@@ -56,7 +56,7 @@ mod with_arena_query_map {
     }
 
     #[test]
-    fn allows_duplicate_keys_when_first_wins_enabled() {
+    fn should_allow_duplicate_keys_when_first_wins_enabled_then_preserve_initial_value() {
         // Arrange
         let trimmed = "foo=one&foo=two";
         let options = ParseOptions::builder()
@@ -82,7 +82,7 @@ mod with_arena_query_map {
     }
 
     #[test]
-    fn overwrites_duplicate_keys_when_last_wins_enabled() {
+    fn should_overwrite_duplicate_keys_when_last_wins_enabled_then_store_latest_value() {
         // Arrange
         let trimmed = "foo=one&foo=two";
         let options = ParseOptions::builder()
@@ -108,7 +108,7 @@ mod with_arena_query_map {
     }
 
     #[test]
-    fn returns_too_many_parameters_when_limit_exceeded() {
+    fn should_return_too_many_parameters_when_parameter_limit_exceeded_then_report_limit_and_actual() {
         // Arrange
         let options = ParseOptions::builder()
             .max_params(1)
@@ -130,7 +130,7 @@ mod with_arena_query_map {
     }
 
     #[test]
-    fn decodes_plus_signs_when_enabled() {
+    fn should_decode_plus_signs_when_space_as_plus_enabled_then_convert_to_spaces() {
         let options = ParseOptions::builder()
             .space_as_plus(true)
             .build()
@@ -152,7 +152,7 @@ mod with_arena_query_map {
     }
 
     #[test]
-    fn reports_unmatched_bracket_error() {
+    fn should_report_unmatched_bracket_error_when_brackets_are_unbalanced_then_return_parse_error() {
         let options = ParseOptions::default();
 
         let error = with_arena_query_map("foo[=bar", 0, &options, |_, _| Ok(()))

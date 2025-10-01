@@ -18,7 +18,7 @@ use seed::{allow_cases, assert_case_outcome, normalize_empty, reject_cases, roun
 use serde_json::{Value, json};
 
 #[test]
-fn seed_allow_cases() {
+fn should_allow_seed_cases_when_parse_options_match_expectations() {
     for case in allow_cases() {
         let opts = case.parse_options();
         let result = parse_with::<Value>(&case.input, &opts);
@@ -27,7 +27,7 @@ fn seed_allow_cases() {
 }
 
 #[test]
-fn seed_reject_cases() {
+fn should_reject_seed_cases_when_parse_options_detect_errors() {
     for case in reject_cases() {
         let opts = case.parse_options();
         let result = parse_with::<Value>(&case.input, &opts);
@@ -36,7 +36,7 @@ fn seed_reject_cases() {
 }
 
 #[test]
-fn seed_roundtrip_cases() {
+fn should_roundtrip_seed_cases_when_normalization_is_expected() {
     for case in roundtrip_cases() {
         let name = &case.name;
         let parse_opts = case.parse_options();
@@ -76,7 +76,9 @@ proptest! {
         ..ProptestConfig::default()
     })]
     #[test]
-    fn percent_encoded_unicode_round_trip(pairs in prop::collection::vec((unicode_key_string(), unicode_value_string()), 0..4)) {
+    fn should_roundtrip_percent_encoded_unicode_when_pairs_are_unique(
+        pairs in prop::collection::vec((unicode_key_string(), unicode_value_string()), 0..4)
+    ) {
         use std::collections::HashSet;
         let mut seen = HashSet::new();
         for (key, _) in &pairs {
@@ -106,7 +108,9 @@ proptest! {
     }
 
     #[test]
-    fn plus_space_transcode(value in unicode_value_string()) {
+    fn should_transcode_plus_to_space_when_option_enabled_in_property_test(
+        value in unicode_value_string()
+    ) {
         let encoded = form_encode(&value);
         let query = format!("note={}", encoded);
         let opts = ParseOptions {
@@ -126,7 +130,10 @@ proptest! {
     }
 
     #[test]
-    fn max_params_guard(limit in 0usize..6, extra in 1usize..4) {
+    fn should_enforce_max_params_when_limit_exceeded_in_property_cases(
+        limit in 0usize..6,
+        extra in 1usize..4
+    ) {
         let actual_params = limit + extra;
         let mut segments = Vec::with_capacity(actual_params);
         for idx in 0..actual_params {
@@ -149,7 +156,9 @@ proptest! {
     }
 
     #[test]
-    fn max_length_guard(value_chars in prop::collection::vec(allowed_char(), 6..24)) {
+    fn should_enforce_max_length_when_limit_exceeded_in_property_cases(
+        value_chars in prop::collection::vec(allowed_char(), 6..24)
+    ) {
         let value: String = value_chars.into_iter().collect();
         let query = format!("len={value}");
         let limit = query.len() - 1;
@@ -168,7 +177,7 @@ proptest! {
     }
 
     #[test]
-    fn max_depth_guard(limit in 0usize..4) {
+    fn should_enforce_max_depth_when_limit_exceeded_in_property_cases(limit in 0usize..4) {
         let depth = limit + 1;
         let mut key = String::from("root");
         for _ in 0..depth {
@@ -190,7 +199,7 @@ proptest! {
     }
 
     #[test]
-    fn max_depth_within_limit(limit in 0usize..4) {
+    fn should_allow_max_depth_when_limit_is_met_in_property_cases(limit in 0usize..4) {
         let key = if limit == 0 {
             String::from("flat")
         } else {
@@ -211,7 +220,7 @@ proptest! {
     }
 
     #[test]
-    fn nested_array_object_round_trip(
+    fn should_roundtrip_nested_array_objects_when_seed_generates_items(
         root in root_key_string(),
         items in prop::collection::vec((unicode_value_string(), unicode_value_string()), 1..4)
     ) {
@@ -321,7 +330,9 @@ proptest! {
     }
 
     #[test]
-    fn stringify_parse_roundtrip_survives_random_structures((map, config) in arb_roundtrip_input()) {
+    fn should_survive_stringify_parse_roundtrip_when_structures_randomized(
+        (map, config) in arb_roundtrip_input()
+    ) {
         let params_required = estimate_params(&map);
         let depth_required = root_depth(&map);
 
@@ -353,7 +364,9 @@ proptest! {
     }
 
     #[test]
-    fn space_plus_encoding_counts_spaces(value in string_with_spaces()) {
+    fn should_count_spaces_when_space_plus_encoding_enabled(
+        value in string_with_spaces()
+    ) {
         let options = StringifyOptions {
             space_as_plus: true,
         };
@@ -380,7 +393,9 @@ proptest! {
     }
 
     #[test]
-    fn encoding_never_shorter_than_string_data((map, config) in arb_roundtrip_input()) {
+    fn should_keep_encoding_length_at_least_original_when_random_data_generated(
+        (map, config) in arb_roundtrip_input()
+    ) {
         let stringify_options = StringifyOptions {
             space_as_plus: config.space_as_plus,
         };
@@ -395,7 +410,9 @@ proptest! {
     }
 
     #[test]
-    fn control_characters_in_values_are_rejected(value in prop::collection::vec(prop::char::range('\u{0000}', '\u{001F}'), 1..10)) {
+    fn should_reject_control_characters_when_values_contain_them(
+        value in prop::collection::vec(prop::char::range('\u{0000}', '\u{001F}'), 1..10)
+    ) {
         let bad_value: String = value.into_iter().collect();
         let query = format!("bad={}", percent_encode(&bad_value));
     let result = parse::<Value>(&query);
@@ -406,7 +423,7 @@ proptest! {
     }
 
     #[test]
-    fn deep_nesting_with_high_depth(depth in 5usize..15) {
+    fn should_handle_deep_nesting_when_depth_is_high(depth in 5usize..15) {
         let mut key = String::from("root");
         for _ in 0..depth {
             key.push_str("[level]");
@@ -422,7 +439,7 @@ proptest! {
     }
 
     #[test]
-    fn large_input_with_many_keys(num_keys in 50usize..200) {
+    fn should_handle_large_input_when_many_keys_present(num_keys in 50usize..200) {
         let mut segments = Vec::new();
         for idx in 0..num_keys {
             segments.push(format!("key{idx}=value{idx}"));

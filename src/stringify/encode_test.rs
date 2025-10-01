@@ -16,7 +16,7 @@ mod encode_key_into {
     use super::*;
 
     #[test]
-    fn percent_encodes_reserved_characters() {
+    fn should_percent_encode_reserved_characters_when_encoding_key_then_percent_encode_reserved_chars() {
         // Arrange
         let input = "user name+role/section?=true";
 
@@ -28,7 +28,7 @@ mod encode_key_into {
     }
 
     #[test]
-    fn appends_verbatim_when_no_reserved_characters() {
+    fn should_append_verbatim_when_key_contains_only_safe_characters_then_leave_input_unencoded() {
         // Arrange
         let initial = "prefix=";
         let input = "alpha_numeric-._~";
@@ -41,7 +41,7 @@ mod encode_key_into {
     }
 
     #[test]
-    fn does_not_modify_buffer_for_empty_component() {
+    fn should_leave_buffer_unchanged_when_key_component_is_empty_then_preserve_existing_buffer() {
         // Arrange
         let initial = "existing";
 
@@ -53,7 +53,7 @@ mod encode_key_into {
     }
 
     #[test]
-    fn replaces_spaces_with_plus_when_enabled() {
+    fn should_replace_spaces_with_plus_when_key_option_enabled_then_replace_spaces_with_plus() {
         // Arrange
         let input = " dev ops/team ";
 
@@ -69,7 +69,7 @@ mod encode_value_into {
     use super::*;
 
     #[test]
-    fn replaces_spaces_with_plus_when_enabled() {
+    fn should_replace_spaces_with_plus_when_value_option_enabled_then_replace_spaces_with_plus() {
         // Arrange
         let input = "multi word value+more";
 
@@ -81,7 +81,7 @@ mod encode_value_into {
     }
 
     #[test]
-    fn percent_encodes_spaces_when_plus_disabled() {
+    fn should_percent_encode_spaces_when_plus_option_disabled_for_value_then_encode_spaces_as_percent_twenty() {
         // Arrange
         let input = "space separated";
 
@@ -93,7 +93,7 @@ mod encode_value_into {
     }
 
     #[test]
-    fn does_not_modify_buffer_for_empty_component() {
+    fn should_leave_buffer_unchanged_when_value_component_is_empty_then_preserve_existing_buffer() {
         // Arrange
         let initial = "existing";
 
@@ -105,7 +105,7 @@ mod encode_value_into {
     }
 
     #[test]
-    fn percent_encodes_reserved_characters_without_spaces() {
+    fn should_percent_encode_reserved_characters_when_value_contains_unicode_then_percent_encode_reserved_chars() {
         // Arrange
         let input = "café/tea";
 

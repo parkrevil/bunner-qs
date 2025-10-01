@@ -27,7 +27,7 @@ mod stringify {
     use super::*;
 
     #[test]
-    fn uses_default_options_by_default() {
+    fn should_use_default_options_when_stringifying_struct_then_return_default_encoding() {
         // Arrange
         let profile = make_profile();
 
@@ -39,7 +39,7 @@ mod stringify {
     }
 
     #[test]
-    fn returns_error_on_control_characters() {
+    fn should_return_error_when_value_contains_control_characters_then_return_invalid_value_error() {
         // Arrange
         let message = make_message("line1\nline2");
 
@@ -60,7 +60,7 @@ mod stringify_with {
     use super::*;
 
     #[test]
-    fn encodes_spaces_as_plus_when_enabled() {
+    fn should_encode_spaces_as_plus_when_option_is_enabled_then_replace_spaces_with_plus() {
         // Arrange
         let message = make_message("hello world");
         let options = StringifyOptions {

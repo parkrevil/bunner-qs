@@ -13,7 +13,7 @@ mod serialize_to_query_map {
     }
 
     #[test]
-    fn serializes_struct_to_ordered_map() {
+    fn should_serialize_struct_into_ordered_map_when_struct_has_simple_fields_then_store_field_strings() {
         // Arrange
         let profile = Profile {
             name: "Mina",
@@ -30,7 +30,7 @@ mod serialize_to_query_map {
     }
 
     #[test]
-    fn rejects_string_top_level_with_top_level_error() {
+    fn should_reject_string_top_level_when_serializing_query_map_then_return_top_level_error() {
         // Arrange
         let value = "hello";
 
@@ -45,7 +45,7 @@ mod serialize_to_query_map {
     }
 
     #[test]
-    fn reports_unexpected_skip_for_none_top_level_option() {
+    fn should_report_unexpected_skip_when_top_level_option_is_none_then_return_unexpected_skip_error() {
         // Arrange
         let value = Option::<String>::None;
 
@@ -60,7 +60,7 @@ mod serialize_to_query_map {
     }
 
     #[test]
-    fn rejects_array_top_level_with_top_level_error() {
+    fn should_reject_array_top_level_when_serializing_query_map_then_return_top_level_error() {
         // Arrange
         let values = vec!["hello", "world"];
 
@@ -79,7 +79,7 @@ mod value_serializer {
     use super::*;
 
     #[test]
-    fn serializes_true_bool_to_string_true() {
+    fn should_serialize_true_bool_when_serializing_root_value_then_return_string_true() {
         // Arrange
         let serializer = ValueSerializer::root();
 
@@ -93,7 +93,7 @@ mod value_serializer {
     }
 
     #[test]
-    fn serializes_bytes_to_utf8_string() {
+    fn should_serialize_bytes_when_bytes_are_utf8_then_return_string_value() {
         // Arrange
         let serializer = ValueSerializer::root();
         let bytes = b"cafe";
@@ -108,7 +108,7 @@ mod value_serializer {
     }
 
     #[test]
-    fn returns_none_when_serializing_root_none() {
+    fn should_return_none_when_serializing_root_none_then_skip_value() {
         // Arrange
         let serializer = ValueSerializer::root();
 
@@ -122,7 +122,7 @@ mod value_serializer {
     }
 
     #[test]
-    fn errors_for_newtype_variant_as_unsupported() {
+    fn should_error_for_newtype_variant_when_serializer_does_not_support_variant_then_return_unsupported_error() {
         // Arrange
         let serializer = ValueSerializer::root();
 
@@ -139,7 +139,7 @@ mod value_serializer {
     }
 
     #[test]
-    fn preserves_none_in_sequence_as_empty_string() {
+    fn should_preserve_none_in_sequence_when_option_contains_none_then_emit_empty_string() {
         // Arrange
         let mut seq = ValueSeqSerializer::new(Some(2));
 
@@ -161,7 +161,7 @@ mod value_serializer {
     }
 
     #[test]
-    fn serializes_signed_integer_to_string() {
+    fn should_serialize_signed_integer_when_value_is_negative_then_return_decimal_string() {
         // Arrange
         let serializer = ValueSerializer::root();
 
@@ -175,7 +175,7 @@ mod value_serializer {
     }
 
     #[test]
-    fn serializes_unsigned_integer_to_string() {
+    fn should_serialize_unsigned_integer_when_value_is_positive_then_return_decimal_string() {
         // Arrange
         let serializer = ValueSerializer::root();
 
@@ -189,7 +189,7 @@ mod value_serializer {
     }
 
     #[test]
-    fn serializes_float_to_string() {
+    fn should_serialize_float_when_value_is_negative_then_return_decimal_string() {
         // Arrange
         let serializer = ValueSerializer::root();
 
@@ -203,7 +203,7 @@ mod value_serializer {
     }
 
     #[test]
-    fn serializes_char_to_string() {
+    fn should_serialize_char_when_value_is_unicode_then_return_string() {
         // Arrange
         let serializer = ValueSerializer::root();
 
@@ -217,7 +217,7 @@ mod value_serializer {
     }
 
     #[test]
-    fn delegates_some_to_inner_serializer() {
+    fn should_delegate_some_to_inner_serializer_when_option_contains_value_then_return_serialized_value() {
         // Arrange
         let serializer = ValueSerializer::root();
 
@@ -231,7 +231,7 @@ mod value_serializer {
     }
 
     #[test]
-    fn serializes_unit_struct_to_empty_string() {
+    fn should_serialize_unit_struct_when_value_has_no_fields_then_return_empty_string() {
         // Arrange
         let serializer = ValueSerializer::root();
 
@@ -245,7 +245,7 @@ mod value_serializer {
     }
 
     #[test]
-    fn serializes_unit_variant_to_name() {
+    fn should_serialize_unit_variant_when_variant_has_name_then_return_variant_name() {
         // Arrange
         let serializer = ValueSerializer::root();
 
@@ -259,7 +259,7 @@ mod value_serializer {
     }
 
     #[test]
-    fn serializes_newtype_struct_via_inner_value() {
+    fn should_serialize_newtype_struct_when_wrapper_contains_value_then_return_inner_string() {
         // Arrange
         let serializer = ValueSerializer::root();
 
@@ -273,7 +273,7 @@ mod value_serializer {
     }
 
     #[test]
-    fn collects_tuple_elements_into_array() {
+    fn should_collect_tuple_elements_when_tuple_has_two_entries_then_return_array_value() {
         // Arrange
         let mut tuple = Serializer::serialize_tuple(ValueSerializer::root(), 2)
             .expect("tuple serializer should be created");
@@ -296,7 +296,7 @@ mod value_serializer {
     }
 
     #[test]
-    fn collects_map_entries_into_object() {
+    fn should_collect_map_entries_when_key_value_pairs_are_serialized_then_return_object_value() {
         // Arrange
         let mut map = Serializer::serialize_map(ValueSerializer::root(), Some(1))
             .expect("map serializer should be created");
@@ -316,7 +316,7 @@ mod value_serializer {
     }
 
     #[test]
-    fn errors_for_tuple_variant_as_unsupported() {
+    fn should_error_for_tuple_variant_when_serializer_does_not_support_variant_then_return_unsupported_error() {
         // Arrange
         let serializer = ValueSerializer::root();
 
@@ -334,7 +334,7 @@ mod value_serializer {
     }
 
     #[test]
-    fn errors_for_struct_variant_as_unsupported() {
+    fn should_error_for_struct_variant_when_serializer_does_not_support_variant_then_return_unsupported_error() {
         // Arrange
         let serializer = ValueSerializer::root();
 

@@ -4,7 +4,7 @@ mod parse_options_builder {
     use super::*;
 
     #[test]
-    fn builds_successfully_with_defaults() {
+    fn should_build_successfully_when_using_defaults_then_return_default_parse_options() {
         // Arrange
         let builder = ParseOptions::builder();
 
@@ -20,7 +20,7 @@ mod parse_options_builder {
     }
 
     #[test]
-    fn stores_values_when_setting_positive_limits() {
+    fn should_store_values_when_setting_positive_limits_then_apply_configured_limits() {
         // Arrange
         let builder = ParseOptions::builder();
 
@@ -43,7 +43,7 @@ mod parse_options_builder {
     }
 
     #[test]
-    fn fails_when_setting_zero_max_params() {
+    fn should_fail_when_setting_zero_max_params_then_return_builder_error() {
         // Arrange
         let builder = ParseOptions::builder();
 
@@ -61,7 +61,7 @@ mod parse_options_builder {
     }
 
     #[test]
-    fn fails_when_setting_zero_max_length() {
+    fn should_fail_when_setting_zero_max_length_then_return_builder_error() {
         // Arrange
         let builder = ParseOptions::builder();
 
@@ -79,7 +79,7 @@ mod parse_options_builder {
     }
 
     #[test]
-    fn fails_when_setting_zero_max_depth() {
+    fn should_fail_when_setting_zero_max_depth_then_return_builder_error() {
         // Arrange
         let builder = ParseOptions::builder();
 
@@ -101,7 +101,7 @@ mod stringify_options_builder {
     use super::*;
 
     #[test]
-    fn builds_successfully_with_stringify_defaults() {
+    fn should_build_successfully_when_using_stringify_defaults_then_return_default_stringify_options() {
         // Arrange
         let builder = StringifyOptions::builder();
 
@@ -113,7 +113,7 @@ mod stringify_options_builder {
     }
 
     #[test]
-    fn stores_flag_when_enabling_space_as_plus() {
+    fn should_store_flag_when_enabling_space_as_plus_then_set_space_as_plus_true() {
         // Arrange
         let builder = StringifyOptions::builder();
 

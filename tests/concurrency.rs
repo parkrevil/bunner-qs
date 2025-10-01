@@ -7,7 +7,7 @@ fn make_query() -> &'static str {
 }
 
 #[test]
-fn concurrent_parse_and_stringify_roundtrip_without_panics() {
+fn should_roundtrip_parse_and_stringify_concurrently_without_panics() {
     let query = make_query().to_string();
     let threads = 8;
     let iterations = 100;

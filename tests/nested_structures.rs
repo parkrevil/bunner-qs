@@ -39,7 +39,7 @@ mod parse_roundtrip_tests {
     use super::*;
 
     #[test]
-    fn roundtrips_deep_structures() {
+    fn should_roundtrip_deep_structures_when_nested_contacts_present() {
         // Arrange
         let query = "profile[name]=Ada&profile[contacts][email]=ada@example.com&profile[contacts][phones][0]=+44%20123&profile[contacts][phones][1]=+44%20987&profile[meta][created]=2024";
 
@@ -62,7 +62,7 @@ mod parse_roundtrip_tests {
     }
 
     #[test]
-    fn preserves_objects_when_arrays_have_gaps() {
+    fn should_preserve_objects_when_arrays_have_gaps() {
         // Arrange
         let query = "key[0][a]=1&key[1]=&key[2][b]=2";
 
@@ -81,7 +81,7 @@ mod parse_roundtrip_tests {
     }
 
     #[test]
-    fn collects_values_for_uniform_append_pattern() {
+    fn should_collect_values_when_uniform_append_pattern_used() {
         // Arrange
         let query = "tags[]=rust&tags[]=serde";
 
@@ -93,7 +93,7 @@ mod parse_roundtrip_tests {
     }
 
     #[test]
-    fn collects_values_for_uniform_numeric_pattern() {
+    fn should_collect_values_when_uniform_numeric_pattern_used() {
         // Arrange
         let query = "items[0]=apple&items[1]=banana";
 
@@ -105,7 +105,7 @@ mod parse_roundtrip_tests {
     }
 
     #[test]
-    fn preserves_order_when_stringifying_numeric_indices() {
+    fn should_preserve_order_when_stringifying_numeric_indices() {
         // Arrange
         let map = json!({ "items": ["alpha", "beta", "gamma"] });
 
@@ -121,7 +121,7 @@ mod parse_conflict_tests {
     use super::*;
 
     #[test]
-    fn returns_duplicate_key_for_array_scalar_conflict() {
+    fn should_return_duplicate_key_when_array_and_scalar_conflict() {
         // Arrange
         let query = "items[0]=apple&items[0][kind]=fruit";
 
@@ -133,7 +133,7 @@ mod parse_conflict_tests {
     }
 
     #[test]
-    fn returns_duplicate_key_for_array_object_conflict() {
+    fn should_return_duplicate_key_when_array_and_object_conflict() {
         // Arrange
         let query = "items[0][kind]=fruit&items[0]=apple";
 
@@ -145,7 +145,7 @@ mod parse_conflict_tests {
     }
 
     #[test]
-    fn returns_duplicate_key_when_append_and_numeric_patterns_mix() {
+    fn should_return_duplicate_key_when_append_and_numeric_patterns_mix() {
         // Arrange
         let query = "key[]=1&key[0]=1";
 
@@ -157,7 +157,7 @@ mod parse_conflict_tests {
     }
 
     #[test]
-    fn returns_duplicate_key_when_scalar_and_nested_mix() {
+    fn should_return_duplicate_key_when_scalar_and_nested_patterns_mix() {
         // Arrange
         let query = "foo=1&foo[bar]=2";
 
@@ -169,7 +169,7 @@ mod parse_conflict_tests {
     }
 
     #[test]
-    fn returns_duplicate_key_for_scalar_duplicates() {
+    fn should_return_duplicate_key_when_scalar_duplicates_present() {
         // Arrange
         let query = "foo=1&foo=2";
 
@@ -181,7 +181,7 @@ mod parse_conflict_tests {
     }
 
     #[test]
-    fn returns_duplicate_key_when_numeric_indexes_are_sparse() {
+    fn should_return_duplicate_key_when_numeric_indexes_are_sparse() {
         // Arrange
         let query = "items[0]=apple&items[2]=cherry";
 
@@ -197,7 +197,7 @@ mod parse_limits_tests {
     use super::*;
 
     #[test]
-    fn reports_depth_error_when_limit_exceeded() {
+    fn should_report_depth_error_when_limit_is_exceeded() {
         // Arrange
         let query = "profile[contacts][phones][0][number]=+44%20123";
 

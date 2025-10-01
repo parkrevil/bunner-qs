@@ -4,7 +4,7 @@ mod parse_arena_new {
     use super::*;
 
     #[test]
-    fn allocates_string_and_returns_same_reference() {
+    fn should_allocate_string_when_using_alloc_str_then_return_same_reference() {
         // Arrange
         let arena = ParseArena::new();
 
@@ -16,7 +16,7 @@ mod parse_arena_new {
     }
 
     #[test]
-    fn alloc_vec_returns_empty_vector() {
+    fn should_return_empty_vector_when_alloc_vec_is_called_then_provide_zero_length_slice() {
         // Arrange
         let arena = ParseArena::new();
 
@@ -32,7 +32,7 @@ mod arena_query_map_insert {
     use super::*;
 
     #[test]
-    fn stores_value_for_unique_key_insertion() {
+    fn should_store_value_when_inserting_unique_key_then_increase_map_length() {
         // Arrange
         let lease = acquire_parse_arena(0);
         let arena: &ParseArena = &lease;
@@ -49,7 +49,7 @@ mod arena_query_map_insert {
     }
 
     #[test]
-    fn returns_error_for_duplicate_key_insertion() {
+    fn should_return_error_when_inserting_duplicate_key_then_prevent_overwrite() {
         // Arrange
         let lease = acquire_parse_arena(0);
         let arena: &ParseArena = &lease;
@@ -71,7 +71,7 @@ mod arena_query_map_get_mut {
     use super::*;
 
     #[test]
-    fn stores_values_when_mutating_sequence_entry() {
+    fn should_store_values_when_mutating_sequence_entry_then_append_new_item() {
         // Arrange
         let lease = acquire_parse_arena(0);
         let arena: &ParseArena = &lease;
@@ -102,7 +102,7 @@ mod arena_value_accessors {
     use super::*;
 
     #[test]
-    fn creates_empty_map_with_requested_capacity() {
+    fn should_create_empty_map_when_requested_capacity_provided_then_return_empty_entries() {
         // Arrange
         let lease = acquire_parse_arena(0);
         let arena: &ParseArena = &lease;
@@ -116,7 +116,7 @@ mod arena_value_accessors {
     }
 
     #[test]
-    fn creates_empty_sequence_with_requested_capacity() {
+    fn should_create_empty_sequence_when_requested_capacity_provided_then_return_empty_entries() {
         // Arrange
         let lease = acquire_parse_arena(0);
         let arena: &ParseArena = &lease;
