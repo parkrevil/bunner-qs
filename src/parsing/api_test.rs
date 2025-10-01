@@ -1,6 +1,7 @@
 use super::{parse, parse_with};
 use crate::ParseOptions;
 use crate::parsing::ParseError;
+use crate::serde_adapter::SerdeQueryError;
 use serde::Deserialize;
 use serde_json::{Value, json};
 
@@ -58,6 +59,18 @@ mod parse_api {
         });
         assert_eq!(parsed, expected);
     }
+
+    #[test]
+    fn should_return_default_when_trimmed_input_has_no_pairs_then_use_struct_default() {
+        // Arrange
+        let query = "&&";
+
+        // Act
+        let parsed = parse::<Credentials>(query).expect("parse should succeed");
+
+        // Assert
+        assert_eq!(parsed, Credentials::default());
+    }
 }
 
 mod parse_with_api {
@@ -100,5 +113,41 @@ mod parse_with_api {
                 actual: 2
             })
         ));
+    }
+
+    #[test]
+    fn should_return_default_when_map_is_empty_after_parsing_then_use_type_default() {
+        // Arrange
+        let query = "&&";
+
+        // Act
+        let parsed = parse_with::<Value>(query, &ParseOptions::default())
+            .expect("parse_with should succeed");
+
+        // Assert
+        assert_eq!(parsed, Value::Null);
+    }
+
+    #[test]
+    fn should_wrap_deserialize_failures_when_target_type_rejects_value_then_return_serde_error() {
+        // Arrange
+        #[allow(dead_code)]
+        #[derive(Debug, Deserialize, Default)]
+        struct StrictFlag {
+            flag: bool,
+        }
+
+        let query = "flag=definitely_not_bool";
+
+        // Act
+        let result = parse_with::<StrictFlag>(query, &ParseOptions::default());
+
+        // Assert
+        match result {
+            Err(ParseError::Serde(SerdeQueryError::Deserialize(err))) => {
+                assert!(err.to_string().contains("invalid boolean literal"));
+            }
+            other => panic!("expected serde deserialize error, but received: {other:?}"),
+        }
     }
 }

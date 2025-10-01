@@ -118,4 +118,42 @@ mod encode_value_into {
         // Assert
         assert_eq!(encoded, "seed=caf%C3%A9%2Ftea");
     }
+
+    #[test]
+    fn should_convert_consecutive_spaces_to_plus_when_option_enabled_then_emit_plus_for_each_gap() {
+        // Arrange
+        let input = "many   spaces";
+
+        // Act
+        let encoded = encode_value("", input, true);
+
+        // Assert
+        assert_eq!(encoded, "many+++spaces");
+    }
+
+    #[test]
+    fn should_encode_without_space_conversion_when_option_enabled_but_no_spaces_present_then_use_percent_encoding()
+     {
+        // Arrange
+        let input = "array/values?";
+
+        // Act
+        let encoded = encode_value("", input, true);
+
+        // Assert
+        assert_eq!(encoded, "array%2Fvalues%3F");
+    }
+}
+
+mod component_set_behavior {
+    #[test]
+    fn should_mark_expected_bytes_for_encoding_when_building_component_set_then_include_reserved_characters()
+     {
+        // Act
+        let component_set = Box::leak(Box::new(super::super::build_component_set()));
+        let encoded = percent_encoding::utf8_percent_encode(" +-_", component_set).to_string();
+
+        // Assert
+        assert_eq!(encoded, "%20%2B-_");
+    }
 }

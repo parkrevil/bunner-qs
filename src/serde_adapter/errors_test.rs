@@ -58,11 +58,40 @@ mod serialize_error {
         // Assert
         assert_eq!(rendered, "top-level must serialize to a map, found string");
     }
+
+    #[test]
+    fn should_render_invalid_key_error_when_key_not_string_then_include_value_name() {
+        // Arrange
+        let error = SerializeError::InvalidKey("integer".into());
+
+        // Act
+        let rendered = error.to_string();
+
+        // Assert
+        assert_eq!(rendered, "map key must be a string, found integer");
+    }
+
+    #[test]
+    fn should_render_unexpected_skip_message_when_placeholder_encountered_then_use_static_message()
+    {
+        // Arrange
+        let error = SerializeError::UnexpectedSkip;
+
+        // Act
+        let rendered = error.to_string();
+
+        // Assert
+        assert_eq!(
+            rendered,
+            "unexpected placeholder value encountered during serialization"
+        );
+    }
 }
 
 mod deserialize_error {
     use super::*;
     use serde::de::Error as _;
+    use std::error::Error as _;
 
     #[test]
     fn should_wrap_custom_message_for_deserialize_error_when_custom_message_is_provided_then_echo_message()
@@ -109,6 +138,75 @@ mod deserialize_error {
 
         // Assert
         assert_eq!(rendered, "invalid boolean literal `YES` at flag[2]");
+    }
+
+    #[test]
+    fn should_append_segments_when_using_push_segment_then_extend_error_path() {
+        // Arrange
+        let error = DeserializeError::from_kind(DeserializeErrorKind::Message("oops".into()))
+            .push_segment(PathSegment::Key("root".into()))
+            .push_segment(PathSegment::Index(3));
+
+        // Act
+        let rendered = error.to_string();
+
+        // Assert
+        assert_eq!(rendered, "oops at root[3]");
+        assert_eq!(
+            error.path(),
+            &[PathSegment::Key("root".into()), PathSegment::Index(3)]
+        );
+    }
+
+    #[test]
+    fn should_preserve_existing_path_when_with_path_called_twice_then_ignore_second_assignment() {
+        // Arrange
+        let error = DeserializeError::from_kind(DeserializeErrorKind::InvalidNumber {
+            value: "nope".into(),
+        })
+        .with_path(vec![PathSegment::Key("first".into())])
+        .with_path(vec![PathSegment::Key("second".into())]);
+
+        // Act
+        let rendered = error.to_string();
+
+        // Assert
+        assert_eq!(rendered, "invalid number literal `nope` at first");
+        assert_eq!(error.path(), &[PathSegment::Key("first".into())]);
+    }
+
+    #[test]
+    fn should_expose_kind_as_source_when_wrapped_then_source_matches_inner_kind() {
+        // Arrange
+        let kind = DeserializeErrorKind::UnexpectedType {
+            expected: "array",
+            found: "string",
+        };
+        let error = DeserializeError::from_kind(kind.clone());
+
+        // Act
+        let source = error.source().expect("source should exist");
+
+        // Assert
+        assert_eq!(source.to_string(), kind.to_string());
+    }
+
+    #[test]
+    fn should_render_expected_object_error_when_scalar_provided_then_include_struct_name() {
+        // Arrange
+        let error = DeserializeError::from_kind(DeserializeErrorKind::ExpectedObject {
+            struct_name: "Account",
+            found: "string",
+        });
+
+        // Act
+        let rendered = error.to_string();
+
+        // Assert
+        assert_eq!(
+            rendered,
+            "expected an object for struct `Account`, found string"
+        );
     }
 }
 

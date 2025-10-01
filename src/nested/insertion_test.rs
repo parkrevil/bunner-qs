@@ -85,6 +85,321 @@ mod insert_nested_value_arena {
     use super::*;
 
     #[test]
+    fn should_noop_when_path_is_empty_then_leave_map_unchanged() {
+        // Arrange
+        let arena = ParseArena::new();
+        let mut map = map_with_capacity(&arena, 0);
+        let mut state = acquire_pattern_state();
+
+        // Act
+        insert_nested_value_arena(
+            &arena,
+            &mut map,
+            &[],
+            arena.alloc_str("ignored"),
+            &mut state,
+            DuplicateKeyBehavior::Reject,
+        )
+        .expect("empty path should be ignored");
+
+        // Assert
+        assert!(map.is_empty());
+    }
+
+    #[test]
+    fn should_return_duplicate_key_when_nested_path_conflicts_with_scalar_then_keep_scalar() {
+        // Arrange
+        let arena = ParseArena::new();
+        let mut map = map_with_capacity(&arena, 0);
+        let mut state = acquire_pattern_state();
+        insert_value(
+            &arena,
+            &mut map,
+            &["profile"],
+            "raw",
+            &mut state,
+            DuplicateKeyBehavior::LastWins,
+        )
+        .expect("initial scalar insert");
+
+        // Act
+        let error = insert_value(
+            &arena,
+            &mut map,
+            &["profile", "name"],
+            "neo",
+            &mut state,
+            DuplicateKeyBehavior::LastWins,
+        )
+        .expect_err("scalar conflict should be rejected");
+
+        // Assert
+        expect_duplicate_key(error, "profile");
+        assert_single_string_entry(&map, "profile", "raw");
+    }
+
+    #[test]
+    fn should_overwrite_placeholder_sequence_entry_when_existing_value_is_empty() {
+        // Arrange
+        let arena = ParseArena::new();
+        let mut map = map_with_capacity(&arena, 0);
+        let mut state = acquire_pattern_state();
+        insert_value(
+            &arena,
+            &mut map,
+            &["items", "0"],
+            "",
+            &mut state,
+            DuplicateKeyBehavior::Reject,
+        )
+        .expect("placeholder insert");
+
+        // Act
+        insert_value(
+            &arena,
+            &mut map,
+            &["items", "0"],
+            "actual",
+            &mut state,
+            DuplicateKeyBehavior::Reject,
+        )
+        .expect("placeholder should accept concrete value");
+
+        // Assert
+        let entries = map.entries_slice();
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].0, "items");
+        let sequence = match &entries[0].1 {
+            ArenaValue::Seq(items) => items,
+            _ => panic!("expected sequence"),
+        };
+        assert_eq!(sequence.len(), 1);
+        match &sequence[0] {
+            ArenaValue::String(text) => assert_eq!(*text, "actual"),
+            _ => panic!("expected string entry"),
+        }
+    }
+
+    #[test]
+    fn should_return_duplicate_key_when_nested_map_rejects_duplicate_field() {
+        // Arrange
+        let arena = ParseArena::new();
+        let mut map = map_with_capacity(&arena, 0);
+        let mut state = acquire_pattern_state();
+        insert_value(
+            &arena,
+            &mut map,
+            &["user", "name"],
+            "alice",
+            &mut state,
+            DuplicateKeyBehavior::Reject,
+        )
+        .expect("initial nested insert");
+
+        // Act
+        let error = insert_value(
+            &arena,
+            &mut map,
+            &["user", "name"],
+            "bob",
+            &mut state,
+            DuplicateKeyBehavior::Reject,
+        )
+        .expect_err("duplicate nested value should fail");
+
+        // Assert
+        expect_duplicate_key(error, "name");
+    }
+
+    #[test]
+    fn should_replace_nested_map_value_when_last_wins_enabled_then_overwrite_value() {
+        // Arrange
+        let arena = ParseArena::new();
+        let mut map = map_with_capacity(&arena, 0);
+        let mut state = acquire_pattern_state();
+        insert_value(
+            &arena,
+            &mut map,
+            &["user", "name"],
+            "alice",
+            &mut state,
+            DuplicateKeyBehavior::LastWins,
+        )
+        .expect("initial nested insert");
+
+        // Act
+        insert_value(
+            &arena,
+            &mut map,
+            &["user", "name"],
+            "bob",
+            &mut state,
+            DuplicateKeyBehavior::LastWins,
+        )
+        .expect("last wins should overwrite nested map value");
+
+        // Assert
+        let entries = map.entries_slice();
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].0, "user");
+        let nested = match &entries[0].1 {
+            ArenaValue::Map { entries, .. } => entries,
+            _ => panic!("expected nested map"),
+        };
+        assert_eq!(nested.len(), 1);
+        assert_eq!(nested[0].0, "name");
+        match &nested[0].1 {
+            ArenaValue::String(text) => assert_eq!(*text, "bob"),
+            _ => panic!("expected string value"),
+        }
+    }
+
+    #[test]
+    fn should_keep_nested_map_value_when_first_wins_then_preserve_existing_value() {
+        // Arrange
+        let arena = ParseArena::new();
+        let mut map = map_with_capacity(&arena, 0);
+        let mut state = acquire_pattern_state();
+        insert_value(
+            &arena,
+            &mut map,
+            &["user", "email"],
+            "primary@example.com",
+            &mut state,
+            DuplicateKeyBehavior::FirstWins,
+        )
+        .expect("initial nested insert");
+
+        // Act
+        insert_value(
+            &arena,
+            &mut map,
+            &["user", "email"],
+            "secondary@example.com",
+            &mut state,
+            DuplicateKeyBehavior::FirstWins,
+        )
+        .expect("first wins should preserve nested map value");
+
+        // Assert
+        let entries = map.entries_slice();
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].0, "user");
+        let nested = match &entries[0].1 {
+            ArenaValue::Map { entries, .. } => entries,
+            _ => panic!("expected nested map"),
+        };
+        assert_eq!(nested.len(), 1);
+        assert_eq!(nested[0].0, "email");
+        match &nested[0].1 {
+            ArenaValue::String(text) => assert_eq!(*text, "primary@example.com"),
+            _ => panic!("expected string value"),
+        }
+    }
+
+    #[test]
+    fn should_return_duplicate_key_when_sequence_index_skips_existing_length() {
+        // Arrange
+        let arena = ParseArena::new();
+        let mut map = map_with_capacity(&arena, 0);
+        let mut state = acquire_pattern_state();
+
+        // Act
+        let error = insert_value(
+            &arena,
+            &mut map,
+            &["items", "1"],
+            "late",
+            &mut state,
+            DuplicateKeyBehavior::Reject,
+        )
+        .expect_err("sparse sequence index should be rejected");
+
+        // Assert
+        expect_duplicate_key(error, "items");
+    }
+
+    #[test]
+    fn should_replace_sequence_value_when_last_wins_enabled_then_overwrite_entry() {
+        // Arrange
+        let arena = ParseArena::new();
+        let mut map = map_with_capacity(&arena, 0);
+        let mut state = acquire_pattern_state();
+        insert_value(
+            &arena,
+            &mut map,
+            &["items", "0"],
+            "first",
+            &mut state,
+            DuplicateKeyBehavior::LastWins,
+        )
+        .expect("initial sequence insert");
+
+        // Act
+        insert_value(
+            &arena,
+            &mut map,
+            &["items", "0"],
+            "second",
+            &mut state,
+            DuplicateKeyBehavior::LastWins,
+        )
+        .expect("last wins should overwrite sequence value");
+
+        // Assert
+        let entries = map.entries_slice();
+        assert_eq!(entries.len(), 1);
+        let sequence = match &entries[0].1 {
+            ArenaValue::Seq(items) => items,
+            _ => panic!("expected sequence"),
+        };
+        match &sequence[0] {
+            ArenaValue::String(text) => assert_eq!(*text, "second"),
+            _ => panic!("expected string entry"),
+        }
+    }
+
+    #[test]
+    fn should_keep_sequence_value_when_first_wins_then_preserve_existing_entry() {
+        // Arrange
+        let arena = ParseArena::new();
+        let mut map = map_with_capacity(&arena, 0);
+        let mut state = acquire_pattern_state();
+        insert_value(
+            &arena,
+            &mut map,
+            &["items", "0"],
+            "initial",
+            &mut state,
+            DuplicateKeyBehavior::FirstWins,
+        )
+        .expect("initial sequence insert");
+
+        // Act
+        insert_value(
+            &arena,
+            &mut map,
+            &["items", "0"],
+            "ignored",
+            &mut state,
+            DuplicateKeyBehavior::FirstWins,
+        )
+        .expect("first wins should ignore duplicates");
+
+        // Assert
+        let entries = map.entries_slice();
+        assert_eq!(entries.len(), 1);
+        let sequence = match &entries[0].1 {
+            ArenaValue::Seq(items) => items,
+            _ => panic!("expected sequence"),
+        };
+        match &sequence[0] {
+            ArenaValue::String(text) => assert_eq!(*text, "initial"),
+            _ => panic!("expected string entry"),
+        }
+    }
+
+    #[test]
     fn should_store_string_value_when_root_scalar_insert_occurs_then_store_value_in_map() {
         // Arrange
         let arena = ParseArena::new();

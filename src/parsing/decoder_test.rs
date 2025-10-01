@@ -85,4 +85,58 @@ mod decode_component {
         // Assert
         assert!(matches!(error, ParseError::InvalidUtf8));
     }
+
+    #[test]
+    fn should_return_invalid_character_when_ascii_run_contains_control_after_percent_sequence() {
+        // Arrange
+        let raw = "%20ok\u{001F}";
+        let mut scratch = scratch();
+
+        // Act
+        let error = decode_component(raw, false, 0, &mut scratch)
+            .expect_err("control character should be rejected");
+
+        // Assert
+        match error {
+            ParseError::InvalidCharacter { character, index } => {
+                assert_eq!(character, '\u{001F}');
+                assert_eq!(index, 5);
+            }
+            other => panic!("expected InvalidCharacter error, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn should_report_invalid_character_when_control_follows_percent_sequence_then_return_error() {
+        // Arrange
+        let raw = "%41\u{0007}";
+        let mut scratch = scratch();
+
+        // Act
+        let error = decode_component(raw, false, 0, &mut scratch)
+            .expect_err("control character should trigger error");
+
+        // Assert
+        match error {
+            ParseError::InvalidCharacter { character, index } => {
+                assert_eq!(character, '\u{0007}');
+                assert_eq!(index, 3);
+            }
+            other => panic!("expected InvalidCharacter error, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn should_preserve_multibyte_segments_when_present_with_percent_encoding_then_collect_utf8() {
+        // Arrange
+        let raw = "😊%20";
+        let mut scratch = scratch();
+
+        // Act
+        let result = decode_component(raw, false, 0, &mut scratch)
+            .expect("emoji plus percent should decode");
+
+        // Assert
+        assert!(matches!(result, Cow::Owned(text) if text == "😊 "));
+    }
 }

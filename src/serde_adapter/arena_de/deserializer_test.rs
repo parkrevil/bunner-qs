@@ -132,6 +132,12 @@ mod arena_value_deserializer {
     #[derive(Debug, Deserialize, PartialEq)]
     struct Marker;
 
+    #[allow(dead_code)]
+    #[derive(Debug, Deserialize)]
+    struct Login {
+        username: String,
+    }
+
     #[test]
     fn should_report_sequence_length_mismatch_message_when_tuple_length_differs_then_return_length_error()
      {
@@ -294,6 +300,108 @@ mod arena_value_deserializer {
     }
 
     #[test]
+    fn should_report_expected_string_when_requesting_string_from_array() {
+        // Arrange
+        let arena = ParseArena::new();
+        let value = make_sequence(&arena, &["one"]);
+        let deserializer = deserializer_for(&value);
+
+        // Act
+        let error =
+            String::deserialize(deserializer).expect_err("array should not deserialize to string");
+
+        // Assert
+        match error.kind() {
+            DeserializeErrorKind::ExpectedString { found } => assert_eq!(*found, "array"),
+            other => panic!("unexpected error kind: {other:?}"),
+        }
+        assert!(error.path().is_empty());
+    }
+
+    #[test]
+    fn should_report_expected_string_when_requesting_string_from_object() {
+        // Arrange
+        let arena = ParseArena::new();
+        let mut entries = arena.alloc_vec();
+        entries.push((alloc_key(&arena, "value"), make_string(&arena, "text")));
+        let map_value = ArenaValue::Map {
+            entries,
+            index: Default::default(),
+        };
+        let deserializer = deserializer_for(&map_value);
+
+        // Act
+        let error =
+            String::deserialize(deserializer).expect_err("map should not deserialize to string");
+
+        // Assert
+        match error.kind() {
+            DeserializeErrorKind::ExpectedString { found } => assert_eq!(*found, "object"),
+            other => panic!("unexpected error kind: {other:?}"),
+        }
+        assert!(error.path().is_empty());
+    }
+
+    #[test]
+    fn should_report_invalid_float_literal_when_parsing_float_fails() {
+        // Arrange
+        let arena = ParseArena::new();
+        let value = make_string(&arena, "not-a-number");
+        let deserializer = deserializer_for(&value);
+
+        // Act
+        let error = f64::deserialize(deserializer).expect_err("invalid float should fail");
+
+        // Assert
+        match error.kind() {
+            DeserializeErrorKind::InvalidNumber { value } => assert_eq!(value, "not-a-number"),
+            other => panic!("unexpected error kind: {other:?}"),
+        }
+        assert!(error.path().is_empty());
+    }
+
+    #[test]
+    fn should_report_index_in_path_when_sequence_element_fails_then_return_indexed_error() {
+        // Arrange
+        let arena = ParseArena::new();
+        let value = make_sequence(&arena, &["true", "no"]);
+        let deserializer = deserializer_for(&value);
+
+        // Act
+        let error = <Vec<bool>>::deserialize(deserializer)
+            .expect_err("invalid boolean element should fail");
+
+        // Assert
+        match error.kind() {
+            DeserializeErrorKind::InvalidBool { value } => assert_eq!(value, "no"),
+            other => panic!("unexpected error kind: {other:?}"),
+        }
+        assert_eq!(error.path(), &[PathSegment::Index(1)]);
+    }
+
+    #[test]
+    fn should_report_unexpected_type_when_sequence_expected_but_scalar_provided() {
+        // Arrange
+        let arena = ParseArena::new();
+        let value = make_string(&arena, "scalar");
+        let deserializer = deserializer_for(&value);
+
+        // Act
+        let error = <Vec<String>>::deserialize(deserializer)
+            .expect_err("scalar cannot deserialize into sequence");
+
+        // Assert
+        match error.kind() {
+            DeserializeErrorKind::UnexpectedType { expected, found } => {
+                assert_eq!(*expected, "array");
+                assert_eq!(*found, "string");
+            }
+            other => panic!("unexpected error kind: {other:?}"),
+        }
+        assert!(error.path().is_empty());
+    }
+
+    #[test]
     fn should_reject_enumeration_deserialization_when_enum_is_not_supported_then_return_unsupported_error()
      {
         // Arrange
@@ -310,6 +418,107 @@ mod arena_value_deserializer {
             error.to_string(),
             "enum `OperatingMode` with variants [Fast, Slow] cannot be deserialized from query strings"
         );
+    }
+
+    #[test]
+    fn should_return_borrowed_bytes_when_deserializing_bytes_then_expose_underlying_slice() {
+        // Arrange
+        let arena = ParseArena::new();
+        let value = make_string(&arena, "data!");
+        let deserializer = deserializer_for(&value);
+
+        struct BytesVisitor;
+
+        impl<'de> serde::de::Visitor<'de> for BytesVisitor {
+            type Value = &'de [u8];
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                formatter.write_str("borrowed byte slice")
+            }
+
+            fn visit_borrowed_bytes<E>(self, v: &'de [u8]) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                Ok(v)
+            }
+        }
+
+        // Act
+        let bytes = serde::de::Deserializer::deserialize_bytes(deserializer, BytesVisitor)
+            .expect("bytes should deserialize");
+
+        // Assert
+        assert_eq!(bytes, b"data!");
+    }
+
+    #[test]
+    fn should_collect_owned_bytes_when_invoking_byte_buf_deserializer_then_return_owned_buffer() {
+        // Arrange
+        let arena = ParseArena::new();
+        let value = make_string(&arena, "bin");
+        let deserializer = deserializer_for(&value);
+
+        struct ByteBufVisitor;
+
+        impl<'de> serde::de::Visitor<'de> for ByteBufVisitor {
+            type Value = Vec<u8>;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                formatter.write_str("owned byte buffer")
+            }
+
+            fn visit_byte_buf<E>(self, v: Vec<u8>) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                Ok(v)
+            }
+        }
+
+        // Act
+        let bytes = serde::de::Deserializer::deserialize_byte_buf(deserializer, ByteBufVisitor)
+            .expect("byte buffer should deserialize");
+
+        // Assert
+        assert_eq!(bytes, b"bin");
+    }
+
+    #[test]
+    fn should_deserialize_option_to_some_when_value_present_then_wrap_inner_string() {
+        // Arrange
+        let arena = ParseArena::new();
+        let value = make_string(&arena, "maybe");
+        let deserializer = deserializer_for(&value);
+
+        // Act
+        let result =
+            Option::<String>::deserialize(deserializer).expect("option should deserialize as some");
+
+        // Assert
+        assert_eq!(result, Some("maybe".to_string()));
+    }
+
+    #[test]
+    fn should_reject_unit_struct_when_string_not_empty_then_return_unexpected_type_error() {
+        // Arrange
+        let arena = ParseArena::new();
+        let value = make_string(&arena, "nope");
+        let deserializer = deserializer_for(&value);
+
+        // Act
+        let error = Marker::deserialize(deserializer)
+            .expect_err("non-empty string cannot deserialize unit struct");
+
+        // Assert
+        match error.kind() {
+            DeserializeErrorKind::UnexpectedType { expected, found } => {
+                assert_eq!(*expected, "Marker");
+                assert_eq!(*found, "string");
+            }
+            other => panic!("unexpected error kind: {other:?}"),
+        }
+        assert!(error.path().is_empty());
     }
 
     #[test]
@@ -332,5 +541,28 @@ mod arena_value_deserializer {
             other => panic!("unexpected kind: {other:?}"),
         }
         assert_eq!(error.path(), &[]);
+    }
+
+    #[test]
+    fn should_report_expected_object_when_struct_requested_from_scalar_then_return_expected_object_error()
+     {
+        // Arrange
+        let arena = ParseArena::new();
+        let value = make_string(&arena, "solo");
+        let deserializer = deserializer_for(&value);
+
+        // Act
+        let error = Login::deserialize(deserializer)
+            .expect_err("scalar cannot satisfy struct requirements");
+
+        // Assert
+        match error.kind() {
+            DeserializeErrorKind::ExpectedObject { struct_name, found } => {
+                assert_eq!(*struct_name, "Login");
+                assert_eq!(*found, "string");
+            }
+            other => panic!("unexpected kind: {other:?}"),
+        }
+        assert!(error.path().is_empty());
     }
 }
