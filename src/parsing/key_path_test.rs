@@ -102,7 +102,8 @@ mod estimate_param_capacity {
     }
 
     #[test]
-    fn should_count_multiple_parameters_when_query_contains_three_entries_then_return_three_capacity() {
+    fn should_count_multiple_parameters_when_query_contains_three_entries_then_return_three_capacity()
+     {
         // Arrange
         let query = "a=1&b=2&c=3";
 
@@ -114,7 +115,8 @@ mod estimate_param_capacity {
     }
 
     #[test]
-    fn should_count_trailing_empty_parameter_when_query_has_trailing_separator_then_include_trailing_capacity() {
+    fn should_count_trailing_empty_parameter_when_query_has_trailing_separator_then_include_trailing_capacity()
+     {
         // Arrange
         let query = "token=&";
 

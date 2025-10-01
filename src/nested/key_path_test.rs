@@ -4,7 +4,8 @@ mod parse_key_path {
     use super::*;
 
     #[test]
-    fn should_parse_key_without_brackets_into_single_segment_when_key_contains_no_brackets_then_return_single_segment() {
+    fn should_parse_key_without_brackets_into_single_segment_when_key_contains_no_brackets_then_return_single_segment()
+     {
         // Arrange
         let input = "profile";
 
@@ -16,7 +17,8 @@ mod parse_key_path {
     }
 
     #[test]
-    fn should_parse_key_with_nested_indices_into_segments_when_key_contains_nested_indices_then_return_nested_indices() {
+    fn should_parse_key_with_nested_indices_into_segments_when_key_contains_nested_indices_then_return_nested_indices()
+     {
         // Arrange
         let input = "user[0][name]";
 
@@ -28,7 +30,8 @@ mod parse_key_path {
     }
 
     #[test]
-    fn should_parse_trailing_segment_after_index_when_key_contains_suffix_then_append_trailing_segment() {
+    fn should_parse_trailing_segment_after_index_when_key_contains_suffix_then_append_trailing_segment()
+     {
         // Arrange
         let input = "items[42]status";
 
@@ -40,7 +43,8 @@ mod parse_key_path {
     }
 
     #[test]
-    fn should_parse_empty_brackets_as_empty_segment_when_key_contains_empty_brackets_then_include_empty_segment() {
+    fn should_parse_empty_brackets_as_empty_segment_when_key_contains_empty_brackets_then_include_empty_segment()
+     {
         // Arrange
         let input = "flag[]";
 

@@ -24,7 +24,8 @@ mod classify {
     }
 
     #[test]
-    fn should_classify_digit_segment_as_numeric_when_segment_contains_only_digits_then_return_numeric_kind() {
+    fn should_classify_digit_segment_as_numeric_when_segment_contains_only_digits_then_return_numeric_kind()
+     {
         // Arrange
         let inputs = ["123", "0001"];
 
@@ -36,7 +37,8 @@ mod classify {
     }
 
     #[test]
-    fn should_classify_mixed_segment_as_other_when_segment_contains_non_digit_characters_then_return_other_kind() {
+    fn should_classify_mixed_segment_as_other_when_segment_contains_non_digit_characters_then_return_other_kind()
+     {
         // Arrange
         let inputs = ["١٢٣", "42a"];
 
@@ -64,7 +66,8 @@ mod container_type {
     }
 
     #[test]
-    fn should_map_numeric_kind_to_array_container_when_kind_is_numeric_then_select_array_container() {
+    fn should_map_numeric_kind_to_array_container_when_kind_is_numeric_then_select_array_container()
+    {
         // Arrange
         let kind = SegmentKind::Numeric;
 
@@ -92,7 +95,8 @@ mod segment_key_new {
     use super::*;
 
     #[test]
-    fn should_clone_bytes_and_allow_str_borrow_when_segment_key_is_constructed_then_allow_string_and_byte_access() {
+    fn should_clone_bytes_and_allow_str_borrow_when_segment_key_is_constructed_then_allow_string_and_byte_access()
+     {
         // Arrange
         let source = String::from("status");
 
@@ -110,7 +114,8 @@ mod resolved_segment_new {
     use super::*;
 
     #[test]
-    fn should_preserve_reference_and_kind_for_borrowed_text_when_resolved_segment_wraps_borrowed_text_then_preserve_reference_and_kind() {
+    fn should_preserve_reference_and_kind_for_borrowed_text_when_resolved_segment_wraps_borrowed_text_then_preserve_reference_and_kind()
+     {
         // Arrange
         let segment = ResolvedSegment::new(Cow::Borrowed("items"));
 
@@ -124,7 +129,8 @@ mod resolved_segment_new {
     }
 
     #[test]
-    fn should_detect_numeric_kind_for_owned_digits_when_resolved_segment_owns_digit_string_then_detect_numeric_kind() {
+    fn should_detect_numeric_kind_for_owned_digits_when_resolved_segment_owns_digit_string_then_detect_numeric_kind()
+     {
         // Arrange
         let segment = ResolvedSegment::new(Cow::Owned(String::from("123")));
 

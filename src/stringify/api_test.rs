@@ -39,7 +39,8 @@ mod stringify {
     }
 
     #[test]
-    fn should_return_error_when_value_contains_control_characters_then_return_invalid_value_error() {
+    fn should_return_error_when_value_contains_control_characters_then_return_invalid_value_error()
+    {
         // Arrange
         let message = make_message("line1\nline2");
 

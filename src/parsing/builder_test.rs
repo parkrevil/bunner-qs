@@ -108,7 +108,8 @@ mod with_arena_query_map {
     }
 
     #[test]
-    fn should_return_too_many_parameters_when_parameter_limit_exceeded_then_report_limit_and_actual() {
+    fn should_return_too_many_parameters_when_parameter_limit_exceeded_then_report_limit_and_actual()
+     {
         // Arrange
         let options = ParseOptions::builder()
             .max_params(1)
@@ -152,7 +153,8 @@ mod with_arena_query_map {
     }
 
     #[test]
-    fn should_report_unmatched_bracket_error_when_brackets_are_unbalanced_then_return_parse_error() {
+    fn should_report_unmatched_bracket_error_when_brackets_are_unbalanced_then_return_parse_error()
+    {
         let options = ParseOptions::default();
 
         let error = with_arena_query_map("foo[=bar", 0, &options, |_, _| Ok(()))

@@ -16,7 +16,8 @@ mod encode_key_into {
     use super::*;
 
     #[test]
-    fn should_percent_encode_reserved_characters_when_encoding_key_then_percent_encode_reserved_chars() {
+    fn should_percent_encode_reserved_characters_when_encoding_key_then_percent_encode_reserved_chars()
+     {
         // Arrange
         let input = "user name+role/section?=true";
 
@@ -81,7 +82,8 @@ mod encode_value_into {
     }
 
     #[test]
-    fn should_percent_encode_spaces_when_plus_option_disabled_for_value_then_encode_spaces_as_percent_twenty() {
+    fn should_percent_encode_spaces_when_plus_option_disabled_for_value_then_encode_spaces_as_percent_twenty()
+     {
         // Arrange
         let input = "space separated";
 
@@ -105,7 +107,8 @@ mod encode_value_into {
     }
 
     #[test]
-    fn should_percent_encode_reserved_characters_when_value_contains_unicode_then_percent_encode_reserved_chars() {
+    fn should_percent_encode_reserved_characters_when_value_contains_unicode_then_percent_encode_reserved_chars()
+     {
         // Arrange
         let input = "café/tea";
 

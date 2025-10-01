@@ -6,7 +6,8 @@ mod value_struct_serializer {
     use super::*;
 
     #[test]
-    fn should_collect_multiple_fields_into_object_when_struct_has_multiple_fields_then_store_field_values() {
+    fn should_collect_multiple_fields_into_object_when_struct_has_multiple_fields_then_store_field_values()
+     {
         // Arrange
         let mut serializer = ValueStructSerializer::new();
 
@@ -130,7 +131,8 @@ mod map_key_serializer {
     }
 
     #[test]
-    fn should_serialize_unsigned_numbers_when_key_is_unsigned_integer_then_return_decimal_strings() {
+    fn should_serialize_unsigned_numbers_when_key_is_unsigned_integer_then_return_decimal_strings()
+    {
         // Arrange
 
         // Act
@@ -291,7 +293,8 @@ mod map_key_serializer {
     }
 
     #[test]
-    fn should_error_with_variant_details_when_key_is_newtype_variant_then_include_enum_and_variant() {
+    fn should_error_with_variant_details_when_key_is_newtype_variant_then_include_enum_and_variant()
+    {
         // Arrange
 
         // Act
@@ -418,7 +421,8 @@ mod map_key_serializer {
     }
 
     #[test]
-    fn should_error_with_variant_details_when_key_is_struct_variant_then_return_invalid_key_error() {
+    fn should_error_with_variant_details_when_key_is_struct_variant_then_return_invalid_key_error()
+    {
         // Arrange
 
         // Act

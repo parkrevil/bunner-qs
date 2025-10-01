@@ -31,7 +31,8 @@ mod append_segment {
     }
 
     #[test]
-    fn should_bracket_sub_key_for_object_segment_when_segment_is_object_then_append_bracketed_key() {
+    fn should_bracket_sub_key_for_object_segment_when_segment_is_object_then_append_bracketed_key()
+    {
         // Arrange
         let initial = "profile";
 
@@ -43,7 +44,8 @@ mod append_segment {
     }
 
     #[test]
-    fn should_use_decimal_index_for_array_segment_when_segment_is_array_then_append_decimal_index() {
+    fn should_use_decimal_index_for_array_segment_when_segment_is_array_then_append_decimal_index()
+    {
         // Arrange
         let initial = "items";
 
@@ -67,7 +69,8 @@ mod append_segment {
     }
 
     #[test]
-    fn should_build_full_key_path_when_chained_when_multiple_segments_are_appended_then_build_full_path() {
+    fn should_build_full_key_path_when_chained_when_multiple_segments_are_appended_then_build_full_path()
+     {
         // Arrange
         let segments = [
             Segment::Root("order"),

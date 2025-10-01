@@ -24,7 +24,8 @@ mod preflight {
     }
 
     #[test]
-    fn should_return_trimmed_slice_and_offset_when_leading_question_mark_present_then_strip_prefix() {
+    fn should_return_trimmed_slice_and_offset_when_leading_question_mark_present_then_strip_prefix()
+    {
         // Arrange
         let raw = "?foo=bar";
         let options = ParseOptions::default();
@@ -53,7 +54,8 @@ mod preflight {
     }
 
     #[test]
-    fn should_return_invalid_character_error_when_control_character_disallowed_then_report_character_and_index() {
+    fn should_return_invalid_character_error_when_control_character_disallowed_then_report_character_and_index()
+     {
         // Arrange
         let raw = format!("foo{}bar", '\u{001F}');
         let options = ParseOptions::default();

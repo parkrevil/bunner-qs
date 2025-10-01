@@ -68,7 +68,8 @@ mod insert_pair_arena {
     }
 
     #[test]
-    fn should_keep_initial_value_when_flat_key_repeats_and_first_wins_then_preserve_original_value() {
+    fn should_keep_initial_value_when_flat_key_repeats_and_first_wins_then_preserve_original_value()
+    {
         // Arrange
         let arena = ParseArena::new();
         let mut map = ArenaQueryMap::with_capacity(&arena, 2);

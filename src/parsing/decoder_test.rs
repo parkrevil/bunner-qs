@@ -22,7 +22,8 @@ mod decode_component {
     }
 
     #[test]
-    fn should_decode_plus_signs_as_spaces_when_space_as_plus_is_enabled_then_convert_plus_to_space() {
+    fn should_decode_plus_signs_as_spaces_when_space_as_plus_is_enabled_then_convert_plus_to_space()
+    {
         // Arrange
         let raw = "one+two";
         let mut scratch = scratch();
@@ -35,7 +36,8 @@ mod decode_component {
     }
 
     #[test]
-    fn should_return_invalid_percent_error_when_sequence_is_truncated_then_report_truncation_index() {
+    fn should_return_invalid_percent_error_when_sequence_is_truncated_then_report_truncation_index()
+    {
         // Arrange
         let raw = "%2";
         let mut scratch = scratch();
@@ -51,7 +53,8 @@ mod decode_component {
     }
 
     #[test]
-    fn should_return_invalid_character_error_when_control_character_is_present_then_report_character_and_index() {
+    fn should_return_invalid_character_error_when_control_character_is_present_then_report_character_and_index()
+     {
         // Arrange
         let raw = "bad\u{0007}";
         let mut scratch = scratch();
@@ -70,7 +73,8 @@ mod decode_component {
     }
 
     #[test]
-    fn should_return_invalid_utf8_error_when_percent_encoding_is_invalid_then_signal_invalid_utf8() {
+    fn should_return_invalid_utf8_error_when_percent_encoding_is_invalid_then_signal_invalid_utf8()
+    {
         // Arrange
         let raw = "%FF";
         let mut scratch = scratch();

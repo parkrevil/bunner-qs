@@ -18,7 +18,8 @@ mod arena_value_to_json {
     }
 
     #[test]
-    fn should_preserve_order_when_converting_sequence_into_json_when_sequence_contains_multiple_values_then_preserve_sequence_order() {
+    fn should_preserve_order_when_converting_sequence_into_json_when_sequence_contains_multiple_values_then_preserve_sequence_order()
+     {
         // Arrange
         let arena = ParseArena::new();
         let mut values = arena.alloc_vec();
@@ -34,7 +35,8 @@ mod arena_value_to_json {
     }
 
     #[test]
-    fn should_preserve_nested_structure_when_converting_map_into_json_when_map_contains_nested_entries_then_produce_nested_json_structure() {
+    fn should_preserve_nested_structure_when_converting_map_into_json_when_map_contains_nested_entries_then_produce_nested_json_structure()
+     {
         // Arrange
         let arena = ParseArena::new();
         let mut entries = arena.alloc_vec();
@@ -63,7 +65,8 @@ mod arena_map_to_json_value {
     use super::*;
 
     #[test]
-    fn should_produce_object_value_when_converting_query_map_into_json_when_map_contains_sequences_then_create_json_object() {
+    fn should_produce_object_value_when_converting_query_map_into_json_when_map_contains_sequences_then_create_json_object()
+     {
         // Arrange
         let arena = ParseArena::new();
         let mut query_map = ArenaQueryMap::with_capacity(&arena, 2);

@@ -101,7 +101,8 @@ mod stringify_options_builder {
     use super::*;
 
     #[test]
-    fn should_build_successfully_when_using_stringify_defaults_then_return_default_stringify_options() {
+    fn should_build_successfully_when_using_stringify_defaults_then_return_default_stringify_options()
+     {
         // Arrange
         let builder = StringifyOptions::builder();
 

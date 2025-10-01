@@ -42,7 +42,8 @@ mod stringify_query_map_with {
     }
 
     #[test]
-    fn should_percent_encode_spaces_when_plus_option_disabled_then_encode_spaces_as_percent_twenty() {
+    fn should_percent_encode_spaces_when_plus_option_disabled_then_encode_spaces_as_percent_twenty()
+    {
         // Arrange
         let map = QueryMap::from_iter([("space key", Value::from("space value"))]);
         let options = options(false);
@@ -68,7 +69,8 @@ mod stringify_query_map_with {
     }
 
     #[test]
-    fn should_error_on_control_characters_when_value_contains_newline_then_return_invalid_value_error() {
+    fn should_error_on_control_characters_when_value_contains_newline_then_return_invalid_value_error()
+     {
         // Arrange
         let map = QueryMap::from_iter([("note", Value::from("line1\nline2"))]);
         let options = StringifyOptions::default();
@@ -84,7 +86,8 @@ mod stringify_query_map_with {
     }
 
     #[test]
-    fn should_stringify_nested_structure_when_iterating_in_order_then_produce_encoded_nested_keys() {
+    fn should_stringify_nested_structure_when_iterating_in_order_then_produce_encoded_nested_keys()
+    {
         // Arrange
         let map = nested_profile_map();
         let options = StringifyOptions::default();
@@ -100,7 +103,8 @@ mod stringify_query_map_with {
     }
 
     #[test]
-    fn should_error_on_control_characters_when_nested_key_contains_newline_then_return_invalid_key_error() {
+    fn should_error_on_control_characters_when_nested_key_contains_newline_then_return_invalid_key_error()
+     {
         // Arrange
         let profile: OrderedMap<String, Value> = OrderedMap::from_iter([
             ("valid".into(), Value::from("ok")),

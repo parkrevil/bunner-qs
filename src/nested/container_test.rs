@@ -29,7 +29,8 @@ mod arena_initial_container {
     use super::*;
 
     #[test]
-    fn should_initialize_empty_sequence_when_array_requested_then_return_empty_sequence_container() {
+    fn should_initialize_empty_sequence_when_array_requested_then_return_empty_sequence_container()
+    {
         // Arrange
         let arena = ParseArena::new();
 

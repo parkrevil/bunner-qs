@@ -70,7 +70,8 @@ mod write_pair {
     }
 
     #[test]
-    fn should_escape_reserved_characters_when_reserved_characters_present_then_percent_encode_reserved_chars() {
+    fn should_escape_reserved_characters_when_reserved_characters_present_then_percent_encode_reserved_chars()
+     {
         // Arrange
         let mut output = String::with_capacity(0);
         let mut first_pair = true;

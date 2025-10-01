@@ -16,7 +16,8 @@ mod format_expected {
     }
 
     #[test]
-    fn should_join_fields_with_commas_when_multiple_fields_are_provided_then_format_expected_list() {
+    fn should_join_fields_with_commas_when_multiple_fields_are_provided_then_format_expected_list()
+    {
         // Arrange
         const FIELDS: &[&str; 3] = &["alpha", "beta", "gamma"];
 
@@ -33,7 +34,8 @@ mod serialize_error {
     use serde::ser::Error as _;
 
     #[test]
-    fn should_wrap_custom_message_for_serialize_error_when_custom_message_is_provided_then_echo_message() {
+    fn should_wrap_custom_message_for_serialize_error_when_custom_message_is_provided_then_echo_message()
+     {
         // Arrange
         let message = "serialization failed";
 
@@ -45,7 +47,8 @@ mod serialize_error {
     }
 
     #[test]
-    fn should_render_top_level_error_with_type_when_top_level_variant_is_string_then_include_value_name() {
+    fn should_render_top_level_error_with_type_when_top_level_variant_is_string_then_include_value_name()
+     {
         // Arrange
         let error = SerializeError::TopLevel("string".into());
 
@@ -62,7 +65,8 @@ mod deserialize_error {
     use serde::de::Error as _;
 
     #[test]
-    fn should_wrap_custom_message_for_deserialize_error_when_custom_message_is_provided_then_echo_message() {
+    fn should_wrap_custom_message_for_deserialize_error_when_custom_message_is_provided_then_echo_message()
+     {
         // Arrange
         let message = "deserialization failed";
 
@@ -74,7 +78,8 @@ mod deserialize_error {
     }
 
     #[test]
-    fn should_list_expected_fields_for_unknown_field_when_field_is_missing_then_include_expected_list() {
+    fn should_list_expected_fields_for_unknown_field_when_field_is_missing_then_include_expected_list()
+     {
         // Arrange
         let error = DeserializeError::UnknownField {
             field: "mystery".into(),

@@ -288,7 +288,8 @@ mod struct_roundtrip_tests {
     }
 
     #[test]
-    fn should_preserve_fields_when_struct_roundtrips_via_public_api() -> Result<(), Box<dyn Error>> {
+    fn should_preserve_fields_when_struct_roundtrips_via_public_api() -> Result<(), Box<dyn Error>>
+    {
         // Arrange
         let profile = profile_form();
 
@@ -341,7 +342,8 @@ mod struct_roundtrip_tests {
     }
 
     #[test]
-    fn should_remove_padding_when_custom_deserializer_trims_whitespace() -> Result<(), Box<dyn Error>> {
+    fn should_remove_padding_when_custom_deserializer_trims_whitespace()
+    -> Result<(), Box<dyn Error>> {
         // Arrange
         let raw = concat!(
             "notification_kind=Sms&",
@@ -442,7 +444,8 @@ mod struct_roundtrip_tests {
     }
 
     #[test]
-    fn should_preserve_contact_fields_when_to_json_style_roundtrip_runs() -> Result<(), SerdeQueryError> {
+    fn should_preserve_contact_fields_when_to_json_style_roundtrip_runs()
+    -> Result<(), SerdeQueryError> {
         // Arrange
         let profile = profile_form();
 
@@ -557,7 +560,8 @@ mod enum_roundtrip_tests {
     }
 
     #[test]
-    fn should_report_variant_mismatch_when_untagged_enum_stringified() -> Result<(), Box<dyn Error>> {
+    fn should_report_variant_mismatch_when_untagged_enum_stringified() -> Result<(), Box<dyn Error>>
+    {
         // Arrange
         let envelope = UntaggedEnvelope {
             alias: "coords".into(),
@@ -602,7 +606,8 @@ mod options_behavior_tests {
     }
 
     #[test]
-    fn should_emit_plus_when_stringify_options_control_space_encoding() -> Result<(), Box<dyn Error>> {
+    fn should_emit_plus_when_stringify_options_control_space_encoding() -> Result<(), Box<dyn Error>>
+    {
         // Arrange
         let value = json_from_pairs(&[("note", "hello world")]);
         let options = build_stringify_options(|builder| builder.space_as_plus(true));

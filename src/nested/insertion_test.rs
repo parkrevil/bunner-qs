@@ -191,7 +191,8 @@ mod insert_nested_value_arena {
     }
 
     #[test]
-    fn should_replace_with_latest_value_when_scalar_repeats_and_last_wins_then_store_latest_value() {
+    fn should_replace_with_latest_value_when_scalar_repeats_and_last_wins_then_store_latest_value()
+    {
         // Arrange
         let arena = ParseArena::new();
         let mut map = map_with_capacity(&arena, 0);

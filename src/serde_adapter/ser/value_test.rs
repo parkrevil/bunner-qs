@@ -13,7 +13,8 @@ mod serialize_to_query_map {
     }
 
     #[test]
-    fn should_serialize_struct_into_ordered_map_when_struct_has_simple_fields_then_store_field_strings() {
+    fn should_serialize_struct_into_ordered_map_when_struct_has_simple_fields_then_store_field_strings()
+     {
         // Arrange
         let profile = Profile {
             name: "Mina",
@@ -45,7 +46,8 @@ mod serialize_to_query_map {
     }
 
     #[test]
-    fn should_report_unexpected_skip_when_top_level_option_is_none_then_return_unexpected_skip_error() {
+    fn should_report_unexpected_skip_when_top_level_option_is_none_then_return_unexpected_skip_error()
+     {
         // Arrange
         let value = Option::<String>::None;
 
@@ -122,7 +124,8 @@ mod value_serializer {
     }
 
     #[test]
-    fn should_error_for_newtype_variant_when_serializer_does_not_support_variant_then_return_unsupported_error() {
+    fn should_error_for_newtype_variant_when_serializer_does_not_support_variant_then_return_unsupported_error()
+     {
         // Arrange
         let serializer = ValueSerializer::root();
 
@@ -217,7 +220,8 @@ mod value_serializer {
     }
 
     #[test]
-    fn should_delegate_some_to_inner_serializer_when_option_contains_value_then_return_serialized_value() {
+    fn should_delegate_some_to_inner_serializer_when_option_contains_value_then_return_serialized_value()
+     {
         // Arrange
         let serializer = ValueSerializer::root();
 
@@ -316,7 +320,8 @@ mod value_serializer {
     }
 
     #[test]
-    fn should_error_for_tuple_variant_when_serializer_does_not_support_variant_then_return_unsupported_error() {
+    fn should_error_for_tuple_variant_when_serializer_does_not_support_variant_then_return_unsupported_error()
+     {
         // Arrange
         let serializer = ValueSerializer::root();
 
@@ -334,7 +339,8 @@ mod value_serializer {
     }
 
     #[test]
-    fn should_error_for_struct_variant_when_serializer_does_not_support_variant_then_return_unsupported_error() {
+    fn should_error_for_struct_variant_when_serializer_does_not_support_variant_then_return_unsupported_error()
+     {
         // Arrange
         let serializer = ValueSerializer::root();
 
