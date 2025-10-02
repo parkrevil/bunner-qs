@@ -26,7 +26,7 @@ pub(crate) fn decode_component<'a>(
     decode_with_special_chars(raw, bytes, space_as_plus, offset, scratch)
 }
 
-fn fast_path_ascii<'a>(
+pub(crate) fn fast_path_ascii<'a>(
     raw: &'a str,
     bytes: &[u8],
     offset: usize,
@@ -40,7 +40,7 @@ fn fast_path_ascii<'a>(
     Ok(Cow::Borrowed(raw))
 }
 
-fn decode_with_special_chars<'a>(
+pub(crate) fn decode_with_special_chars<'a>(
     raw: &'a str,
     bytes: &[u8],
     space_as_plus: bool,
@@ -52,81 +52,102 @@ fn decode_with_special_chars<'a>(
 
     let mut cursor = 0usize;
     while cursor < bytes.len() {
-        match bytes[cursor] {
-            b'%' => {
-                if cursor + 2 >= bytes.len() {
-                    return Err(ParseError::InvalidPercentEncoding {
-                        index: offset + cursor,
-                    });
-                }
-                let hi =
-                    hex_value(bytes[cursor + 1]).ok_or(ParseError::InvalidPercentEncoding {
-                        index: offset + cursor,
-                    })?;
-                let lo =
-                    hex_value(bytes[cursor + 2]).ok_or(ParseError::InvalidPercentEncoding {
-                        index: offset + cursor,
-                    })?;
-                let decoded = (hi << 4) | lo;
-                if decoded <= 0x1F || decoded == 0x7F {
-                    return Err(ParseError::InvalidCharacter {
-                        character: decoded as char,
-                        index: offset + cursor,
-                    });
-                }
-                scratch.push(decoded);
-                cursor += 3;
-            }
-            b'+' if space_as_plus => {
-                scratch.push(b' ');
-                cursor += 1;
-            }
-            byte => {
-                if byte <= 0x1F || byte == 0x7F {
-                    return Err(ParseError::InvalidCharacter {
-                        character: byte as char,
-                        index: offset + cursor,
-                    });
-                }
-
-                if byte < 0x80 {
-                    let start = cursor;
-                    cursor += 1;
-
-                    while cursor < bytes.len() {
-                        let next = bytes[cursor];
-
-                        if next <= 0x1F || next == 0x7F {
-                            return Err(ParseError::InvalidCharacter {
-                                character: next as char,
-                                index: offset + cursor,
-                            });
-                        }
-
-                        if next == b'%' || next >= 0x80 || (space_as_plus && next == b'+') {
-                            break;
-                        }
-
-                        cursor += 1;
-                    }
-
-                    scratch.extend_from_slice(&bytes[start..cursor]);
-                } else {
-                    let slice = &raw[cursor..];
-                    if let Some(ch) = slice.chars().next() {
-                        let len = ch.len_utf8();
-                        scratch.extend_from_slice(&bytes[cursor..cursor + len]);
-                        cursor += len;
-                    } else {
-                        return Err(ParseError::InvalidUtf8);
-                    }
-                }
-            }
-        }
+        cursor = match bytes[cursor] {
+            b'%' => decode_percent_sequence(bytes, cursor, offset, scratch)?,
+            b'+' if space_as_plus => decode_plus(cursor, scratch),
+            byte if byte < 0x80 => decode_ascii_run(bytes, cursor, offset, space_as_plus, scratch)?,
+            _ => decode_utf8_cluster(raw, bytes, cursor, scratch)?,
+        };
     }
 
+    finalize_decoded(scratch)
+}
+
+pub(crate) fn hex_value(byte: u8) -> Option<u8> {
+    match byte {
+        b'0'..=b'9' => Some(byte - b'0'),
+        b'a'..=b'f' => Some(byte - b'a' + 10),
+        b'A'..=b'F' => Some(byte - b'A' + 10),
+        _ => None,
+    }
+}
+
+pub(crate) fn decode_percent_sequence(
+    bytes: &[u8],
+    cursor: usize,
+    offset: usize,
+    scratch: &mut Vec<u8>,
+) -> Result<usize, ParseError> {
+    if cursor + 2 >= bytes.len() {
+        return Err(ParseError::InvalidPercentEncoding {
+            index: offset + cursor,
+        });
+    }
+
+    let hi = hex_value(bytes[cursor + 1]).ok_or(ParseError::InvalidPercentEncoding {
+        index: offset + cursor,
+    })?;
+    let lo = hex_value(bytes[cursor + 2]).ok_or(ParseError::InvalidPercentEncoding {
+        index: offset + cursor,
+    })?;
+
+    let decoded = (hi << 4) | lo;
+    ensure_visible(decoded, offset + cursor)?;
+
+    scratch.push(decoded);
+    Ok(cursor + 3)
+}
+
+pub(crate) fn decode_plus(cursor: usize, scratch: &mut Vec<u8>) -> usize {
+    scratch.push(b' ');
+    cursor + 1
+}
+
+pub(crate) fn decode_ascii_run(
+    bytes: &[u8],
+    start: usize,
+    offset: usize,
+    space_as_plus: bool,
+    scratch: &mut Vec<u8>,
+) -> Result<usize, ParseError> {
+    ensure_visible(bytes[start], offset + start)?;
+
+    let mut cursor = start + 1;
+    while cursor < bytes.len() {
+        let next = bytes[cursor];
+        ensure_visible(next, offset + cursor)?;
+
+        if next == b'%' || next >= 0x80 || (space_as_plus && next == b'+') {
+            break;
+        }
+
+        cursor += 1;
+    }
+
+    scratch.extend_from_slice(&bytes[start..cursor]);
+    Ok(cursor)
+}
+
+pub(crate) fn decode_utf8_cluster(
+    raw: &str,
+    bytes: &[u8],
+    cursor: usize,
+    scratch: &mut Vec<u8>,
+) -> Result<usize, ParseError> {
+    let slice = &raw[cursor..];
+    if let Some(ch) = slice.chars().next() {
+        let len = ch.len_utf8();
+        scratch.extend_from_slice(&bytes[cursor..cursor + len]);
+        Ok(cursor + len)
+    } else {
+        Err(ParseError::InvalidUtf8)
+    }
+}
+
+pub(crate) fn finalize_decoded<'a>(scratch: &mut Vec<u8>) -> Result<Cow<'a, str>, ParseError> {
     let decoded_len = scratch.len();
     let decoded_bytes = std::mem::take(scratch);
+
     match String::from_utf8(decoded_bytes) {
         Ok(decoded) => {
             scratch.reserve(decoded_len);
@@ -139,14 +160,29 @@ fn decode_with_special_chars<'a>(
     }
 }
 
-fn hex_value(byte: u8) -> Option<u8> {
-    match byte {
-        b'0'..=b'9' => Some(byte - b'0'),
-        b'a'..=b'f' => Some(byte - b'a' + 10),
-        b'A'..=b'F' => Some(byte - b'A' + 10),
-        _ => None,
+pub(crate) fn ensure_visible(byte: u8, index: usize) -> Result<(), ParseError> {
+    if byte <= 0x1F || byte == 0x7F {
+        Err(ParseError::InvalidCharacter {
+            character: byte as char,
+            index,
+        })
+    } else {
+        Ok(())
     }
 }
+
+#[cfg(test)]
+pub(crate) use {
+    decode_ascii_run as decode_ascii_run_for_test,
+    decode_percent_sequence as decode_percent_sequence_for_test,
+    decode_plus as decode_plus_for_test,
+    decode_utf8_cluster as decode_utf8_cluster_for_test,
+    decode_with_special_chars as decode_with_special_chars_for_test,
+    ensure_visible as ensure_visible_for_test,
+    fast_path_ascii as fast_path_ascii_for_test,
+    finalize_decoded as finalize_decoded_for_test,
+    hex_value as hex_value_for_test,
+};
 
 #[cfg(test)]
 #[path = "decoder_test.rs"]

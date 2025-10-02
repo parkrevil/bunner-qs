@@ -1,18 +1,18 @@
 use super::*;
 use std::borrow::Cow;
 
+fn scratch_vec() -> Vec<u8> {
+    Vec::new()
+}
+
 mod decode_component {
     use super::*;
-
-    fn scratch() -> Vec<u8> {
-        Vec::new()
-    }
 
     #[test]
     fn should_return_borrowed_slice_when_input_is_plain_ascii_then_avoid_allocation() {
         // Arrange
         let raw = "simple";
-        let mut scratch = scratch();
+        let mut scratch = super::scratch_vec();
 
         // Act
         let result = decode_component(raw, false, 0, &mut scratch).expect("decode ascii");
@@ -24,53 +24,22 @@ mod decode_component {
     #[test]
     fn should_decode_plus_signs_as_spaces_when_space_as_plus_is_enabled_then_convert_plus_to_space()
     {
-        // Arrange
         let raw = "one+two";
-        let mut scratch = scratch();
+        let mut scratch = super::scratch_vec();
 
-        // Act
         let result = decode_component(raw, true, 5, &mut scratch).expect("decode plus");
 
-        // Assert
         assert!(matches!(result, Cow::Owned(string) if string == "one two"));
     }
 
     #[test]
-    fn should_decode_leading_lowercase_hex_sequence_then_return_expected_character() {
-        // Arrange
-        let raw = "%2a";
-        let mut scratch = scratch();
-
-        // Act
-        let result = decode_component(raw, false, 0, &mut scratch)
-            .expect("leading lowercase percent sequence should decode");
-
-        // Assert
-        assert!(matches!(result, Cow::Owned(text) if text == "*"));
-    }
-
-    #[test]
-    fn should_resolve_lowercase_hex_digits_using_helper_then_return_expected_value() {
-        // Act
-        let lower_a = super::hex_value(b'a');
-        let lower_f = super::hex_value(b'f');
-
-        // Assert
-        assert_eq!(lower_a, Some(10));
-        assert_eq!(lower_f, Some(15));
-    }
-
-    #[test]
     fn should_return_invalid_percent_error_when_second_hex_digit_is_invalid_then_report_index() {
-        // Arrange
         let raw = "%2G";
-        let mut scratch = scratch();
+        let mut scratch = super::scratch_vec();
 
-        // Act
         let error = decode_component(raw, false, 12, &mut scratch)
             .expect_err("invalid second hex digit should fail");
 
-        // Assert
         match error {
             ParseError::InvalidPercentEncoding { index } => assert_eq!(index, 12),
             other => panic!("expected InvalidPercentEncoding error, got {other:?}"),
@@ -78,33 +47,13 @@ mod decode_component {
     }
 
     #[test]
-    fn should_return_invalid_percent_error_when_sequence_is_truncated_then_report_truncation_index()
-    {
-        // Arrange
-        let raw = "%2";
-        let mut scratch = scratch();
-
-        // Act
-        let error = decode_component(raw, false, 10, &mut scratch).expect_err("truncated percent");
-
-        // Assert
-        match error {
-            ParseError::InvalidPercentEncoding { index } => assert_eq!(index, 10),
-            other => panic!("expected InvalidPercentEncoding error, got {other:?}"),
-        }
-    }
-
-    #[test]
     fn should_return_invalid_character_error_when_control_character_is_present_then_report_character_and_index()
-     {
-        // Arrange
+    {
         let raw = "bad\u{0007}";
-        let mut scratch = scratch();
+        let mut scratch = super::scratch_vec();
 
-        // Act
         let error = decode_component(raw, false, 3, &mut scratch).expect_err("control char");
 
-        // Assert
         match error {
             ParseError::InvalidCharacter { character, index } => {
                 assert_eq!(character, '\u{0007}');
@@ -113,116 +62,257 @@ mod decode_component {
             other => panic!("expected InvalidCharacter error, got {other:?}"),
         }
     }
+}
+
+mod fast_path_ascii {
+    use super::*;
 
     #[test]
-    fn should_return_invalid_utf8_error_when_percent_encoding_is_invalid_then_signal_invalid_utf8()
-    {
-        // Arrange
-        let raw = "%FF";
-        let mut scratch = scratch();
-
-        // Act
-        let error = decode_component(raw, false, 2, &mut scratch).expect_err("invalid utf8");
-
-        // Assert
-        assert!(matches!(error, ParseError::InvalidUtf8));
+    fn should_return_borrowed_result_when_all_bytes_visible() {
+        let raw = "visible";
+        let outcome =
+            fast_path_ascii_for_test(raw, raw.as_bytes(), 0).expect("fast path should borrow");
+        assert!(matches!(outcome, Cow::Borrowed("visible")));
     }
 
     #[test]
-    fn should_return_invalid_percent_error_when_hex_digit_is_invalid_then_report_index() {
-        // Arrange
-        let raw = "%4Z";
-        let mut scratch = scratch();
+    fn should_error_when_control_character_detected() {
+        let raw = "bad\u{0007}";
+        let err = fast_path_ascii_for_test(raw, raw.as_bytes(), 10)
+            .expect_err("control characters should error");
 
-        // Act
-        let error = decode_component(raw, false, 7, &mut scratch)
-            .expect_err("invalid hex digit should error");
-
-        // Assert
-        match error {
-            ParseError::InvalidPercentEncoding { index } => assert_eq!(index, 7),
-            other => panic!("expected InvalidPercentEncoding error, got {other:?}"),
-        }
-    }
-
-    #[test]
-    fn should_return_invalid_character_when_ascii_run_contains_control_after_percent_sequence() {
-        // Arrange
-        let raw = "%20ok\u{001F}";
-        let mut scratch = scratch();
-
-        // Act
-        let error = decode_component(raw, false, 0, &mut scratch)
-            .expect_err("control character should be rejected");
-
-        // Assert
-        match error {
-            ParseError::InvalidCharacter { character, index } => {
-                assert_eq!(character, '\u{001F}');
-                assert_eq!(index, 5);
-            }
-            other => panic!("expected InvalidCharacter error, got {other:?}"),
-        }
-    }
-
-    #[test]
-    fn should_report_invalid_character_when_control_follows_percent_sequence_then_return_error() {
-        // Arrange
-        let raw = "%41\u{0007}";
-        let mut scratch = scratch();
-
-        // Act
-        let error = decode_component(raw, false, 0, &mut scratch)
-            .expect_err("control character should trigger error");
-
-        // Assert
-        match error {
+        match err {
             ParseError::InvalidCharacter { character, index } => {
                 assert_eq!(character, '\u{0007}');
-                assert_eq!(index, 3);
+                assert_eq!(index, 13);
             }
-            other => panic!("expected InvalidCharacter error, got {other:?}"),
+            other => panic!("expected InvalidCharacter, got {other:?}"),
         }
     }
+}
+
+mod decode_with_special_chars {
+    use super::*;
 
     #[test]
-    fn should_preserve_multibyte_segments_when_present_with_percent_encoding_then_collect_utf8() {
-        // Arrange
-        let raw = "😊%20";
-        let mut scratch = scratch();
+    fn should_decode_percent_sequences_and_plus_runs() {
+        let raw = "%2B+matrix";
+        let mut scratch = super::scratch_vec();
 
-        // Act
-        let result = decode_component(raw, false, 0, &mut scratch)
-            .expect("emoji plus percent should decode");
+        let result = decode_with_special_chars_for_test(
+            raw,
+            raw.as_bytes(),
+            true,
+            0,
+            &mut scratch,
+        )
+        .expect("percent and plus decode");
 
-        // Assert
-        assert!(matches!(result, Cow::Owned(text) if text == "😊 "));
+    assert!(matches!(result, Cow::Owned(text) if text == "+ matrix"));
     }
 
     #[test]
-    fn should_decode_lowercase_hex_sequence_then_normalize_percent_encoding() {
-        // Arrange
-        let raw = "stars%2a%2a";
-        let mut scratch = scratch();
+    fn should_propagate_invalid_percent_error_from_sequence_helper() {
+        let raw = "%2Z";
+        let mut scratch = super::scratch_vec();
 
-        // Act
-        let result = decode_component(raw, false, 0, &mut scratch).expect("lowercase hex");
+        let err = decode_with_special_chars_for_test(
+            raw,
+            raw.as_bytes(),
+            false,
+            4,
+            &mut scratch,
+        )
+        .expect_err("invalid percent should bubble up");
 
-        // Assert
-        assert!(matches!(result, Cow::Owned(text) if text == "stars**"));
-    }
-
-    #[test]
-    fn should_decode_plus_with_ascii_prefix_and_suffix_then_split_runs_correctly() {
-        // Arrange
-        let raw = "pre+mid+post";
-        let mut scratch = scratch();
-
-        // Act
-        let result =
-            decode_component(raw, true, 100, &mut scratch).expect("plus signs should decode");
-
-        // Assert
-        assert!(matches!(result, Cow::Owned(text) if text == "pre mid post"));
+        assert!(matches!(err, ParseError::InvalidPercentEncoding { index: 4 }));
     }
 }
+
+mod decode_percent_sequence {
+    use super::*;
+
+    #[test]
+    fn should_push_decoded_byte_and_return_next_cursor() {
+    let bytes = b"%2A";
+    let mut scratch = super::scratch_vec();
+
+        let next =
+            decode_percent_sequence_for_test(bytes, 0, 0, &mut scratch).expect("percent sequence");
+
+        assert_eq!(next, 3);
+        assert_eq!(scratch, vec![b'*']);
+    }
+
+    #[test]
+    fn should_error_when_sequence_truncated() {
+        let bytes = b"%2";
+        let mut scratch = super::scratch_vec();
+
+        let err = decode_percent_sequence_for_test(bytes, 0, 2, &mut scratch)
+            .expect_err("truncated percent should err");
+
+        assert!(matches!(err, ParseError::InvalidPercentEncoding { index: 2 }));
+    }
+
+    #[test]
+    fn should_error_when_hex_digit_invalid() {
+        let bytes = b"%4Z";
+        let mut scratch = super::scratch_vec();
+
+        let err = decode_percent_sequence_for_test(bytes, 0, 7, &mut scratch)
+            .expect_err("invalid hex digit should err");
+
+        assert!(matches!(err, ParseError::InvalidPercentEncoding { index: 7 }));
+    }
+}
+
+mod decode_plus {
+    use super::*;
+
+    #[test]
+    fn should_write_space_to_scratch_and_increment_cursor() {
+        let mut scratch = super::scratch_vec();
+
+        let next = decode_plus_for_test(3, &mut scratch);
+
+        assert_eq!(next, 4);
+        assert_eq!(scratch, vec![b' ']);
+    }
+}
+
+mod decode_ascii_run {
+    use super::*;
+
+    #[test]
+    fn should_collect_ascii_until_percent_boundary() {
+        let bytes = b"abc%20";
+        let mut scratch = super::scratch_vec();
+
+        let next = decode_ascii_run_for_test(bytes, 0, 0, false, &mut scratch)
+            .expect("ascii run should succeed");
+
+        assert_eq!(next, 3);
+        assert_eq!(scratch, b"abc");
+    }
+
+    #[test]
+    fn should_stop_when_plus_encountered_and_space_flag_enabled() {
+        let bytes = b"pre+more";
+        let mut scratch = super::scratch_vec();
+
+        let next = decode_ascii_run_for_test(bytes, 0, 0, true, &mut scratch)
+            .expect("ascii run should stop at plus");
+
+        assert_eq!(next, 3);
+        assert_eq!(scratch, b"pre");
+    }
+
+    #[test]
+    fn should_error_when_control_character_present_in_run() {
+        let bytes = b"ok\x07";
+        let mut scratch = super::scratch_vec();
+
+        let err = decode_ascii_run_for_test(bytes, 0, 5, false, &mut scratch)
+            .expect_err("control char should fail");
+
+        match err {
+            ParseError::InvalidCharacter { character, index } => {
+                assert_eq!(character, '\u{0007}');
+                assert_eq!(index, 7);
+            }
+            other => panic!("expected InvalidCharacter, got {other:?}"),
+        }
+    }
+}
+
+mod decode_utf8_cluster {
+    use super::*;
+
+    #[test]
+    fn should_copy_utf8_sequence_and_return_next_cursor() {
+        let raw = "😊 rest";
+        let mut scratch = super::scratch_vec();
+
+        let next = decode_utf8_cluster_for_test(raw, raw.as_bytes(), 0, &mut scratch)
+            .expect("utf8 cluster should succeed");
+
+        assert_eq!(next, "😊".len());
+        assert_eq!(scratch, "😊".as_bytes());
+    }
+
+    #[test]
+    fn should_error_when_cursor_out_of_bounds() {
+        let raw = "data";
+        let mut scratch = super::scratch_vec();
+
+        let err = decode_utf8_cluster_for_test(raw, raw.as_bytes(), raw.len(), &mut scratch)
+            .expect_err("out of bounds should error");
+
+        assert!(matches!(err, ParseError::InvalidUtf8));
+    }
+}
+
+mod finalize_decoded {
+    use super::*;
+
+    #[test]
+    fn should_return_owned_string_when_bytes_are_valid_utf8() {
+        let mut scratch = b"hello".to_vec();
+
+        let result = finalize_decoded_for_test(&mut scratch).expect("valid utf8");
+
+        assert!(matches!(result, Cow::Owned(text) if text == "hello"));
+        assert!(scratch.capacity() >= 5);
+    }
+
+    #[test]
+    fn should_return_invalid_utf8_error_and_restore_bytes() {
+        let mut scratch = vec![0xF0, 0x28, 0x8C, 0x28];
+
+        let err = finalize_decoded_for_test(&mut scratch).expect_err("invalid utf8");
+
+        assert!(matches!(err, ParseError::InvalidUtf8));
+        assert_eq!(scratch, vec![0xF0, 0x28, 0x8C, 0x28]);
+    }
+}
+
+mod ensure_visible {
+    use super::*;
+
+    #[test]
+    fn should_allow_visible_ascii_character() {
+        ensure_visible_for_test(b'A', 0).expect("visible char should succeed");
+    }
+
+    #[test]
+    fn should_error_for_control_character() {
+        let err = ensure_visible_for_test(0x1F, 42).expect_err("control char should error");
+
+        match err {
+            ParseError::InvalidCharacter { character, index } => {
+                assert_eq!(character, '\u{001F}');
+                assert_eq!(index, 42);
+            }
+            other => panic!("expected InvalidCharacter, got {other:?}"),
+        }
+    }
+}
+
+mod hex_value {
+    use super::*;
+
+    #[test]
+    fn should_decode_numeric_and_hex_letters() {
+        assert_eq!(hex_value_for_test(b'0'), Some(0));
+        assert_eq!(hex_value_for_test(b'9'), Some(9));
+        assert_eq!(hex_value_for_test(b'a'), Some(10));
+        assert_eq!(hex_value_for_test(b'F'), Some(15));
+    }
+
+    #[test]
+    fn should_return_none_for_non_hex_character() {
+        assert_eq!(hex_value_for_test(b'G'), None);
+    }
+}
+
