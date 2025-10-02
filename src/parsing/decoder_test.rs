@@ -48,7 +48,7 @@ mod decode_component {
 
     #[test]
     fn should_return_invalid_character_error_when_control_character_is_present_then_report_character_and_index()
-    {
+     {
         let raw = "bad\u{0007}";
         let mut scratch = super::scratch_vec();
 
@@ -99,16 +99,10 @@ mod decode_with_special_chars {
         let raw = "%2B+matrix";
         let mut scratch = super::scratch_vec();
 
-        let result = decode_with_special_chars_for_test(
-            raw,
-            raw.as_bytes(),
-            true,
-            0,
-            &mut scratch,
-        )
-        .expect("percent and plus decode");
+        let result = decode_with_special_chars_for_test(raw, raw.as_bytes(), true, 0, &mut scratch)
+            .expect("percent and plus decode");
 
-    assert!(matches!(result, Cow::Owned(text) if text == "+ matrix"));
+        assert!(matches!(result, Cow::Owned(text) if text == "+ matrix"));
     }
 
     #[test]
@@ -116,16 +110,13 @@ mod decode_with_special_chars {
         let raw = "%2Z";
         let mut scratch = super::scratch_vec();
 
-        let err = decode_with_special_chars_for_test(
-            raw,
-            raw.as_bytes(),
-            false,
-            4,
-            &mut scratch,
-        )
-        .expect_err("invalid percent should bubble up");
+        let err = decode_with_special_chars_for_test(raw, raw.as_bytes(), false, 4, &mut scratch)
+            .expect_err("invalid percent should bubble up");
 
-        assert!(matches!(err, ParseError::InvalidPercentEncoding { index: 4 }));
+        assert!(matches!(
+            err,
+            ParseError::InvalidPercentEncoding { index: 4 }
+        ));
     }
 }
 
@@ -134,8 +125,8 @@ mod decode_percent_sequence {
 
     #[test]
     fn should_push_decoded_byte_and_return_next_cursor() {
-    let bytes = b"%2A";
-    let mut scratch = super::scratch_vec();
+        let bytes = b"%2A";
+        let mut scratch = super::scratch_vec();
 
         let next =
             decode_percent_sequence_for_test(bytes, 0, 0, &mut scratch).expect("percent sequence");
@@ -152,7 +143,10 @@ mod decode_percent_sequence {
         let err = decode_percent_sequence_for_test(bytes, 0, 2, &mut scratch)
             .expect_err("truncated percent should err");
 
-        assert!(matches!(err, ParseError::InvalidPercentEncoding { index: 2 }));
+        assert!(matches!(
+            err,
+            ParseError::InvalidPercentEncoding { index: 2 }
+        ));
     }
 
     #[test]
@@ -163,7 +157,10 @@ mod decode_percent_sequence {
         let err = decode_percent_sequence_for_test(bytes, 0, 7, &mut scratch)
             .expect_err("invalid hex digit should err");
 
-        assert!(matches!(err, ParseError::InvalidPercentEncoding { index: 7 }));
+        assert!(matches!(
+            err,
+            ParseError::InvalidPercentEncoding { index: 7 }
+        ));
     }
 }
 
@@ -315,4 +312,3 @@ mod hex_value {
         assert_eq!(hex_value_for_test(b'G'), None);
     }
 }
-

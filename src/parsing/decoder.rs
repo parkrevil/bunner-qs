@@ -175,13 +175,10 @@ pub(crate) fn ensure_visible(byte: u8, index: usize) -> Result<(), ParseError> {
 pub(crate) use {
     decode_ascii_run as decode_ascii_run_for_test,
     decode_percent_sequence as decode_percent_sequence_for_test,
-    decode_plus as decode_plus_for_test,
-    decode_utf8_cluster as decode_utf8_cluster_for_test,
+    decode_plus as decode_plus_for_test, decode_utf8_cluster as decode_utf8_cluster_for_test,
     decode_with_special_chars as decode_with_special_chars_for_test,
-    ensure_visible as ensure_visible_for_test,
-    fast_path_ascii as fast_path_ascii_for_test,
-    finalize_decoded as finalize_decoded_for_test,
-    hex_value as hex_value_for_test,
+    ensure_visible as ensure_visible_for_test, fast_path_ascii as fast_path_ascii_for_test,
+    finalize_decoded as finalize_decoded_for_test, hex_value as hex_value_for_test,
 };
 
 #[cfg(test)]
