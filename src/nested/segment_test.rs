@@ -139,6 +139,19 @@ mod segment_key_debug {
         assert!(formatted.contains("<invalid utf-8"));
         assert!(formatted.contains("SegmentKey"));
     }
+
+    #[test]
+    fn should_display_text_segment_when_utf8_is_valid_then_show_original_text() {
+        // Arrange
+        let key = SegmentKey::new("status");
+
+        // Act
+        let formatted = format!("{key:?}");
+
+        // Assert
+        assert!(formatted.contains("status"));
+        assert!(formatted.contains("SegmentKey"));
+    }
 }
 
 mod resolved_segment_new {

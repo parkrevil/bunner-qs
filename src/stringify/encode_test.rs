@@ -157,3 +157,18 @@ mod component_set_behavior {
         assert_eq!(encoded, "%20%2B-_");
     }
 }
+
+mod append_encoded_behavior {
+    #[test]
+    fn should_leave_buffer_unchanged_when_segment_is_empty_then_skip_encoding() {
+        // Arrange
+        let mut buffer = String::from("seed");
+        let segment = std::hint::black_box("");
+
+        // Act
+        super::super::append_encoded(segment, &mut buffer);
+
+        // Assert
+        assert_eq!(buffer, "seed");
+    }
+}

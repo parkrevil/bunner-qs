@@ -129,6 +129,19 @@ mod parse_with_api {
     }
 
     #[test]
+    fn should_return_struct_default_when_parse_with_sees_empty_map_then_invoke_type_default() {
+        // Arrange
+        let query = "&&";
+
+        // Act
+        let parsed = parse_with::<Credentials>(query, &ParseOptions::default())
+            .expect("parse_with should succeed");
+
+        // Assert
+        assert_eq!(parsed, Credentials::default());
+    }
+
+    #[test]
     fn should_wrap_deserialize_failures_when_target_type_rejects_value_then_return_serde_error() {
         // Arrange
         #[allow(dead_code)]

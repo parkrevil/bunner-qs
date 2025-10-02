@@ -36,6 +36,48 @@ mod decode_component {
     }
 
     #[test]
+    fn should_decode_leading_lowercase_hex_sequence_then_return_expected_character() {
+        // Arrange
+        let raw = "%2a";
+        let mut scratch = scratch();
+
+        // Act
+        let result = decode_component(raw, false, 0, &mut scratch)
+            .expect("leading lowercase percent sequence should decode");
+
+        // Assert
+        assert!(matches!(result, Cow::Owned(text) if text == "*"));
+    }
+
+    #[test]
+    fn should_resolve_lowercase_hex_digits_using_helper_then_return_expected_value() {
+        // Act
+        let lower_a = super::hex_value(b'a');
+        let lower_f = super::hex_value(b'f');
+
+        // Assert
+        assert_eq!(lower_a, Some(10));
+        assert_eq!(lower_f, Some(15));
+    }
+
+    #[test]
+    fn should_return_invalid_percent_error_when_second_hex_digit_is_invalid_then_report_index() {
+        // Arrange
+        let raw = "%2G";
+        let mut scratch = scratch();
+
+        // Act
+        let error = decode_component(raw, false, 12, &mut scratch)
+            .expect_err("invalid second hex digit should fail");
+
+        // Assert
+        match error {
+            ParseError::InvalidPercentEncoding { index } => assert_eq!(index, 12),
+            other => panic!("expected InvalidPercentEncoding error, got {other:?}"),
+        }
+    }
+
+    #[test]
     fn should_return_invalid_percent_error_when_sequence_is_truncated_then_report_truncation_index()
     {
         // Arrange
@@ -84,6 +126,23 @@ mod decode_component {
 
         // Assert
         assert!(matches!(error, ParseError::InvalidUtf8));
+    }
+
+    #[test]
+    fn should_return_invalid_percent_error_when_hex_digit_is_invalid_then_report_index() {
+        // Arrange
+        let raw = "%4Z";
+        let mut scratch = scratch();
+
+        // Act
+        let error = decode_component(raw, false, 7, &mut scratch)
+            .expect_err("invalid hex digit should error");
+
+        // Assert
+        match error {
+            ParseError::InvalidPercentEncoding { index } => assert_eq!(index, 7),
+            other => panic!("expected InvalidPercentEncoding error, got {other:?}"),
+        }
     }
 
     #[test]
@@ -138,5 +197,32 @@ mod decode_component {
 
         // Assert
         assert!(matches!(result, Cow::Owned(text) if text == "😊 "));
+    }
+
+    #[test]
+    fn should_decode_lowercase_hex_sequence_then_normalize_percent_encoding() {
+        // Arrange
+        let raw = "stars%2a%2a";
+        let mut scratch = scratch();
+
+        // Act
+        let result = decode_component(raw, false, 0, &mut scratch).expect("lowercase hex");
+
+        // Assert
+        assert!(matches!(result, Cow::Owned(text) if text == "stars**"));
+    }
+
+    #[test]
+    fn should_decode_plus_with_ascii_prefix_and_suffix_then_split_runs_correctly() {
+        // Arrange
+        let raw = "pre+mid+post";
+        let mut scratch = scratch();
+
+        // Act
+        let result =
+            decode_component(raw, true, 100, &mut scratch).expect("plus signs should decode");
+
+        // Assert
+        assert!(matches!(result, Cow::Owned(text) if text == "pre mid post"));
     }
 }

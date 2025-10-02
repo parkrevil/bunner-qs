@@ -1,9 +1,23 @@
 use super::*;
 use crate::model::Value;
-use serde::ser::{SerializeSeq, SerializeTuple, SerializeTupleStruct, SerializeTupleVariant};
+use serde::ser::{SerializeTuple, SerializeTupleStruct, SerializeTupleVariant};
 
 mod value_seq_serializer {
     use super::*;
+    use serde::Serialize;
+    use serde::ser::{Error as _, SerializeSeq};
+
+    #[derive(Debug)]
+    struct FailingElement;
+
+    impl Serialize for FailingElement {
+        fn serialize<S>(&self, _serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: serde::Serializer,
+        {
+            Err(S::Error::custom("element serialization failed"))
+        }
+    }
 
     #[test]
     fn should_convert_none_to_empty_string_when_option_sequence_contains_none_then_emit_empty_string()
@@ -128,5 +142,58 @@ mod value_seq_serializer {
             error.to_string(),
             "tuple variants are unsupported in query string serialization"
         );
+    }
+
+    #[test]
+    fn should_convert_none_sequence_element_into_empty_string_when_pushed_directly() {
+        // Arrange
+        let mut serializer = ValueSeqSerializer::new(Some(1));
+
+        // Act
+        serializer.push_value(None);
+        let result = SerializeSeq::end(serializer).expect("sequence end should succeed");
+
+        // Assert
+        let array = match result.expect("sequence serializer should produce value") {
+            Value::Array(items) => items,
+            other => panic!("unexpected value: {other:?}"),
+        };
+        assert_eq!(array, vec![Value::String(String::new())]);
+    }
+
+    #[test]
+    fn should_propagate_error_when_sequence_element_serialization_fails_then_return_message() {
+        // Arrange
+        let mut serializer = ValueSeqSerializer::new(None);
+
+        // Act
+        let error = SerializeSeq::serialize_element(&mut serializer, &FailingElement)
+            .expect_err("failing element should error");
+
+        // Assert
+        match error {
+            SerializeError::Message(message) => {
+                assert_eq!(message, "element serialization failed")
+            }
+            other => panic!("unexpected error type: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn should_push_empty_string_when_value_is_none_then_append_placeholder_element() {
+        // Arrange
+        let mut serializer = ValueSeqSerializer::new(Some(1));
+
+        // Act
+        serializer.push_value(None);
+        let result =
+            SerializeSeq::end(serializer).expect("sequence should finish after manual push");
+
+        // Assert
+        let array = match result.expect("sequence serializer should produce a value") {
+            Value::Array(items) => items,
+            other => panic!("unexpected value: {other:?}"),
+        };
+        assert_eq!(array, vec![Value::String(String::new())]);
     }
 }

@@ -124,4 +124,25 @@ mod acquire_pattern_state {
         assert!(guard.container_type(&["foo"]).is_none());
         assert_eq!(guard.child_capacity(&[]), 0);
     }
+
+    #[test]
+    fn should_reuse_free_nodes_after_reset_then_restart_numeric_indices() {
+        // Arrange
+        {
+            let mut guard = acquire_pattern_state();
+            let path = make_segments(&["items"]);
+            resolve_numeric(&mut guard, &path, "items");
+        }
+
+        // Act
+        let mut guard = acquire_pattern_state();
+        let path = make_segments(&["items"]);
+        let first = resolve_numeric(&mut guard, &path, "items");
+        let second = resolve_numeric(&mut guard, &path, "items");
+
+        // Assert
+        assert_eq!(first, "0");
+        assert_eq!(second, "1");
+        assert_eq!(guard.child_capacity(&["items"]), 2);
+    }
 }

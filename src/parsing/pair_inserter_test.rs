@@ -172,4 +172,35 @@ mod insert_pair_arena {
             panic!("expected string value");
         }
     }
+
+    #[test]
+    fn should_return_duplicate_key_error_when_empty_key_repeats_then_signal_root_duplicate() {
+        // Arrange
+        let arena = ParseArena::new();
+        let mut map = ArenaQueryMap::with_capacity(&arena, 2);
+        let mut pattern_state = acquire_pattern_state();
+        insert_pair_arena(
+            &arena,
+            &mut map,
+            &mut pattern_state,
+            Cow::Borrowed(""),
+            Cow::Borrowed("first"),
+            DuplicateKeyBehavior::Reject,
+        )
+        .expect("initial insert succeeds");
+
+        // Act
+        let error = insert_pair_arena(
+            &arena,
+            &mut map,
+            &mut pattern_state,
+            Cow::Borrowed(""),
+            Cow::Borrowed("second"),
+            DuplicateKeyBehavior::Reject,
+        )
+        .expect_err("duplicate root key should error");
+
+        // Assert
+        expect_duplicate_key(error, "");
+    }
 }

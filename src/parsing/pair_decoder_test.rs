@@ -52,4 +52,22 @@ mod decode_pair {
         // Assert
         assert!(matches!(error, ParseError::UnmatchedBracket { ref key } if key == "foo["));
     }
+
+    #[test]
+    fn should_return_invalid_percent_error_when_key_percent_encoding_is_invalid_then_report_index()
+    {
+        // Arrange
+        let options = ParseOptions::default();
+        let mut scratch = Vec::new();
+
+        // Act
+        let error = decode_pair("%2Z", "value", 3, 9, &options, &mut scratch)
+            .expect_err("invalid key percent encoding should fail");
+
+        // Assert
+        match error {
+            ParseError::InvalidPercentEncoding { index } => assert_eq!(index, 3),
+            other => panic!("expected InvalidPercentEncoding error, got {other:?}"),
+        }
+    }
 }

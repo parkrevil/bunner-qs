@@ -4,6 +4,32 @@ use serde::ser::SerializeMap;
 
 mod value_map_serializer {
     use super::*;
+    use serde::Serialize;
+    use serde::ser::Error as _;
+
+    #[derive(Debug)]
+    struct FailingKey;
+
+    impl Serialize for FailingKey {
+        fn serialize<S>(&self, _serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: serde::Serializer,
+        {
+            Err(S::Error::custom("key serialization failed"))
+        }
+    }
+
+    #[derive(Debug)]
+    struct FailingValue;
+
+    impl Serialize for FailingValue {
+        fn serialize<S>(&self, _serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: serde::Serializer,
+        {
+            Err(S::Error::custom("value serialization failed"))
+        }
+    }
 
     #[test]
     fn should_store_string_value_when_serializing_single_entry_then_return_object_with_value() {
@@ -82,5 +108,43 @@ mod value_map_serializer {
             other => panic!("unexpected value: {other:?}"),
         };
         assert_eq!(map.get("42"), Some(&Value::String("answer".into())));
+    }
+
+    #[test]
+    fn should_propagate_error_when_key_serialization_fails_then_return_message() {
+        // Arrange
+        let mut serializer = ValueMapSerializer::new();
+
+        // Act
+        let error = SerializeMap::serialize_key(&mut serializer, &FailingKey)
+            .expect_err("failing key should error");
+
+        // Assert
+        match error {
+            SerializeError::Message(message) => {
+                assert_eq!(message, "key serialization failed")
+            }
+            other => panic!("unexpected error type: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn should_propagate_error_when_value_serialization_fails_then_return_message() {
+        // Arrange
+        let mut serializer = ValueMapSerializer::new();
+        SerializeMap::serialize_key(&mut serializer, &"problem")
+            .expect("serializing key should succeed");
+
+        // Act
+        let error = SerializeMap::serialize_value(&mut serializer, &FailingValue)
+            .expect_err("failing value should error");
+
+        // Assert
+        match error {
+            SerializeError::Message(message) => {
+                assert_eq!(message, "value serialization failed")
+            }
+            other => panic!("unexpected error type: {other:?}"),
+        }
     }
 }

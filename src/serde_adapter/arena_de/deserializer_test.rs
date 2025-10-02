@@ -112,6 +112,8 @@ mod deserialize_from_arena_map {
 
 mod arena_value_deserializer {
     use super::*;
+    use serde::de::{Deserializer, SeqAccess, Visitor};
+    use std::fmt;
 
     #[allow(dead_code)]
     #[derive(Debug, Deserialize)]
@@ -133,6 +135,9 @@ mod arena_value_deserializer {
 
     #[derive(Debug, Deserialize, PartialEq)]
     struct Marker;
+
+    #[derive(Debug, Deserialize, PartialEq)]
+    struct Trio(u8, u8, u8);
 
     #[allow(dead_code)]
     #[derive(Debug, Deserialize)]
@@ -198,6 +203,66 @@ mod arena_value_deserializer {
         assert_eq!(
             error.to_string(),
             "expected tuple struct `Pair` with 2 elements, found 1"
+        );
+    }
+
+    #[test]
+    fn should_dispatch_deserialize_any_to_sequence_branch_when_value_is_sequence() {
+        // Arrange
+        struct CountingVisitor;
+
+        impl<'de> Visitor<'de> for CountingVisitor {
+            type Value = usize;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+                formatter.write_str("a sequence of values")
+            }
+
+            fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+            where
+                A: SeqAccess<'de>,
+            {
+                let mut count = 0;
+                while seq.next_element::<String>()?.is_some() {
+                    count += 1;
+                }
+                Ok(count)
+            }
+        }
+
+        let arena = ParseArena::new();
+        let sequence_value = make_sequence(&arena, &["one", "two"]);
+        let deserializer = deserializer_for(&sequence_value);
+
+        // Act
+        let visited = deserializer
+            .deserialize_any(CountingVisitor)
+            .expect("sequence branch should deserialize");
+
+        // Assert
+        assert_eq!(visited, 2);
+    }
+
+    #[test]
+    fn should_report_tuple_struct_length_mismatch_with_dynamic_length_then_format_message() {
+        // Arrange
+        let arena = ParseArena::new();
+        let mut sequence_value = ArenaValue::seq_with_capacity(&arena, 0);
+        if let ArenaValue::Seq(items) = &mut sequence_value {
+            for label in ["1", "2"] {
+                items.push(ArenaValue::string(arena.alloc_str(label)));
+            }
+        }
+        let deserializer = deserializer_for(&sequence_value);
+
+        // Act
+        let error =
+            Trio::deserialize(deserializer).expect_err("tuple struct length mismatch should fail");
+
+        // Assert
+        assert_eq!(
+            error.to_string(),
+            "expected tuple struct `Trio` with 3 elements, found 2"
         );
     }
 
@@ -387,6 +452,113 @@ mod arena_value_deserializer {
     }
 
     #[test]
+    fn should_dispatch_deserialize_any_to_string_branch() {
+        use serde::de::{Deserializer, Visitor};
+        use std::fmt;
+
+        struct BorrowVisitor;
+
+        impl<'de> Visitor<'de> for BorrowVisitor {
+            type Value = String;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                formatter.write_str("a borrowed string")
+            }
+
+            fn visit_borrowed_str<E>(self, value: &'de str) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                Ok(value.to_string())
+            }
+        }
+
+        // Arrange
+        let arena = ParseArena::new();
+        let value = make_string(&arena, "orion");
+        let deserializer = deserializer_for(&value);
+
+        // Act
+        let text = deserializer
+            .deserialize_any(BorrowVisitor)
+            .expect("deserialize_any should visit borrowed string");
+
+        // Assert
+        assert_eq!(text, "orion");
+    }
+
+    #[test]
+    fn should_dispatch_deserialize_any_to_map_branch() {
+        use serde::de::{Deserializer, MapAccess, Visitor};
+        use std::fmt;
+
+        struct MapCollector;
+
+        impl<'de> Visitor<'de> for MapCollector {
+            type Value = Vec<(String, String)>;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                formatter.write_str("a map representing object values")
+            }
+
+            fn visit_map<A>(self, mut access: A) -> Result<Self::Value, A::Error>
+            where
+                A: MapAccess<'de>,
+            {
+                let mut entries = Vec::new();
+                while let Some((key, value)) = access.next_entry::<String, String>()? {
+                    entries.push((key, value));
+                }
+                Ok(entries)
+            }
+        }
+
+        // Arrange
+        let arena = ParseArena::new();
+        let mut entries = arena.alloc_vec();
+        entries.push((alloc_key(&arena, "alpha"), make_string(&arena, "1")));
+        entries.push((alloc_key(&arena, "beta"), make_string(&arena, "2")));
+        let map_value = ArenaValue::Map {
+            entries,
+            index: Default::default(),
+        };
+        let deserializer = deserializer_for(&map_value);
+
+        // Act
+        let collected = deserializer
+            .deserialize_any(MapCollector)
+            .expect("deserialize_any should visit map");
+
+        // Assert
+        assert_eq!(
+            collected,
+            vec![("alpha".into(), "1".into()), ("beta".into(), "2".into())]
+        );
+    }
+
+    #[test]
+    fn should_report_unexpected_type_when_tuple_expected_but_value_is_string() {
+        // Arrange
+        let arena = ParseArena::new();
+        let value = make_string(&arena, "not-a-tuple");
+        let deserializer = deserializer_for(&value);
+
+        // Act
+        let error = <(u8, u8)>::deserialize(deserializer)
+            .expect_err("string should not deserialize as tuple");
+
+        // Assert
+        match error.kind() {
+            DeserializeErrorKind::UnexpectedType { expected, found } => {
+                assert_eq!(*expected, "tuple");
+                assert_eq!(*found, "string");
+            }
+            other => panic!("unexpected error kind: {other:?}"),
+        }
+        assert_eq!(error.path(), &[]);
+    }
+
+    #[test]
     fn should_deserialize_all_integer_types_successfully() {
         // Arrange
         let arena = ParseArena::new();
@@ -425,6 +597,24 @@ mod arena_value_deserializer {
         assert_unsigned!(u32, positive, 42);
         assert_unsigned!(u64, positive, 42);
         assert_unsigned!(u128, positive, 42);
+    }
+
+    #[test]
+    fn should_report_invalid_number_when_unsigned_parse_fails_then_return_invalid_number_error() {
+        // Arrange
+        let arena = ParseArena::new();
+        let value = make_string(&arena, "12nope");
+        let deserializer = deserializer_for(&value);
+
+        // Act
+        let error = u16::deserialize(deserializer).expect_err("invalid digits should fail");
+
+        // Assert
+        match error.kind() {
+            DeserializeErrorKind::InvalidNumber { value } => assert_eq!(value, "12nope"),
+            other => panic!("unexpected error kind: {other:?}"),
+        }
+        assert!(error.path().is_empty());
     }
 
     #[test]
@@ -493,6 +683,49 @@ mod arena_value_deserializer {
         // Act
         let error =
             String::deserialize(deserializer).expect_err("map should not deserialize to string");
+
+        // Assert
+        match error.kind() {
+            DeserializeErrorKind::ExpectedString { found } => assert_eq!(*found, "object"),
+            other => panic!("unexpected error kind: {other:?}"),
+        }
+        assert!(error.path().is_empty());
+    }
+
+    #[test]
+    fn should_report_expected_string_when_number_requested_from_array_then_return_expected_string_error()
+     {
+        // Arrange
+        let arena = ParseArena::new();
+        let sequence = make_sequence(&arena, &["5"]);
+        let deserializer = deserializer_for(&sequence);
+
+        // Act
+        let error =
+            u8::deserialize(deserializer).expect_err("array should not deserialize to number");
+
+        // Assert
+        match error.kind() {
+            DeserializeErrorKind::ExpectedString { found } => assert_eq!(*found, "array"),
+            other => panic!("unexpected error kind: {other:?}"),
+        }
+        assert!(error.path().is_empty());
+    }
+
+    #[test]
+    fn should_report_expected_string_when_bool_requested_from_object_then_return_expected_string_error()
+     {
+        // Arrange
+        let arena = ParseArena::new();
+        let map_value = ArenaValue::Map {
+            entries: arena.alloc_vec(),
+            index: Default::default(),
+        };
+        let deserializer = deserializer_for(&map_value);
+
+        // Act
+        let error =
+            bool::deserialize(deserializer).expect_err("map should not deserialize to bool");
 
         // Assert
         match error.kind() {

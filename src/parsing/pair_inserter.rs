@@ -45,23 +45,24 @@ fn insert_root_value<'arena>(
     value: &'arena str,
     duplicate_keys: DuplicateKeyBehavior,
 ) -> ParseResult<()> {
-    if let Some(existing) = map.get_mut(key) {
-        return match duplicate_keys {
-            DuplicateKeyBehavior::Reject => Err(ParseError::DuplicateKey {
-                key: duplicate_key_label(key),
-            }),
-            DuplicateKeyBehavior::FirstWins => Ok(()),
-            DuplicateKeyBehavior::LastWins => {
-                *existing = ArenaValue::string(value);
-                Ok(())
+    match map.try_insert_str(arena, key, ArenaValue::string(value)) {
+        Ok(()) => Ok(()),
+        Err(()) => {
+            let existing = map
+                .get_mut(key)
+                .expect("duplicate key should exist in query map");
+            match duplicate_keys {
+                DuplicateKeyBehavior::Reject => Err(ParseError::DuplicateKey {
+                    key: duplicate_key_label(key),
+                }),
+                DuplicateKeyBehavior::FirstWins => Ok(()),
+                DuplicateKeyBehavior::LastWins => {
+                    *existing = ArenaValue::string(value);
+                    Ok(())
+                }
             }
-        };
+        }
     }
-
-    map.try_insert_str(arena, key, ArenaValue::string(value))
-        .map_err(|_| ParseError::DuplicateKey {
-            key: duplicate_key_label(key),
-        })
 }
 
 #[cfg(test)]

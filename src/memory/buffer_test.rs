@@ -72,7 +72,10 @@ mod acquire_string {
     fn should_drop_string_buffer_when_capacity_exceeds_limit_then_release_oversized_buffer() {
         // Arrange
         let oversized = MAX_STRING_BUFFER_CAPACITY + 1024;
-        record_string_capacity(|buf| buf.reserve(oversized));
+        record_string_capacity(|buf| {
+            buf.reserve_exact(oversized);
+            buf.push_str(&"x".repeat(oversized));
+        });
 
         // Act
         let mut guard = acquire_string();
@@ -103,7 +106,10 @@ mod acquire_bytes {
     fn should_drop_byte_buffer_when_capacity_exceeds_limit_then_release_oversized_buffer() {
         // Arrange
         let oversized = MAX_BYTE_BUFFER_CAPACITY + 4096;
-        record_byte_capacity(|buf| buf.reserve(oversized));
+        record_byte_capacity(|buf| {
+            buf.reserve_exact(oversized);
+            buf.extend(std::iter::repeat_n(0xAB, oversized));
+        });
 
         // Act
         let mut guard = acquire_bytes();

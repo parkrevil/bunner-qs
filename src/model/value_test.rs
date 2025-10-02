@@ -126,3 +126,53 @@ mod value_from {
         assert_eq!(value, Value::String(String::from(source)));
     }
 }
+
+mod conversions {
+    use super::*;
+
+    #[test]
+    fn should_construct_query_map_from_ordered_map_then_preserve_entries() {
+        // Arrange
+        let mut ordered = OrderedMap::default();
+        ordered.insert(String::from("id"), Value::from("42"));
+
+        // Act
+        let query_map = QueryMap::from(ordered.clone());
+
+        // Assert
+        assert_eq!(query_map.len(), 1);
+        assert_eq!(query_map.get("id"), ordered.get("id"));
+    }
+
+    #[test]
+    fn should_convert_query_map_back_into_ordered_map_then_yield_same_contents() {
+        // Arrange
+        let mut query_map = QueryMap::new();
+        query_map.insert(String::from("role"), Value::from("admin"));
+
+        // Act
+        let ordered: OrderedMap<_, _> = query_map.clone().into();
+
+        // Assert
+        assert_eq!(ordered.len(), 1);
+        assert_eq!(ordered.get("role"), Some(&Value::from("admin")));
+        assert!(
+            query_map.get("role").is_some(),
+            "original map should remain intact"
+        );
+    }
+
+    #[test]
+    fn should_consume_query_map_when_using_from_then_preserve_entries() {
+        // Arrange
+        let mut query_map = QueryMap::new();
+        query_map.insert(String::from("token"), Value::from("abc123"));
+
+        // Act
+        let ordered = OrderedMap::from(query_map);
+
+        // Assert
+        assert_eq!(ordered.len(), 1);
+        assert_eq!(ordered.get("token"), Some(&Value::from("abc123")));
+    }
+}

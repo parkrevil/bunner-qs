@@ -68,6 +68,18 @@ mod parse_key_path {
     }
 
     #[test]
+    fn should_stop_when_bracket_opens_at_end_then_ignore_incomplete_segment() {
+        // Arrange
+        let input = std::hint::black_box("orphan[");
+
+        // Act
+        let segments = parse_key_path(input);
+
+        // Assert
+        assert_eq!(segments.as_slice(), ["orphan"]);
+    }
+
+    #[test]
     fn should_return_empty_segments_when_input_is_empty_then_return_empty_result() {
         // Arrange
         let input = "";

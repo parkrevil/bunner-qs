@@ -1,7 +1,7 @@
 use super::*;
 use crate::model::Value;
 use serde::Serialize;
-use serde::ser::{SerializeMap, SerializeSeq, SerializeTuple, Serializer};
+use serde::ser::{SerializeMap, SerializeSeq, SerializeTuple, SerializeTupleStruct, Serializer};
 
 mod serialize_to_query_map {
     use super::*;
@@ -297,6 +297,29 @@ mod value_serializer {
         assert_eq!(array.len(), 2);
         assert_eq!(array[0], Value::String("left".into()));
         assert_eq!(array[1], Value::String("right".into()));
+    }
+
+    #[test]
+    fn should_collect_tuple_struct_fields_when_serializing_tuple_struct_then_return_array_value() {
+        // Arrange
+        let mut serializer = Serializer::serialize_tuple_struct(ValueSerializer::root(), "Pair", 2)
+            .expect("tuple struct serializer should be created");
+
+        // Act
+        SerializeTupleStruct::serialize_field(&mut serializer, &"first")
+            .expect("first field should serialize");
+        SerializeTupleStruct::serialize_field(&mut serializer, &"second")
+            .expect("second field should serialize");
+        let result = SerializeTupleStruct::end(serializer).expect("tuple struct should finish");
+
+        // Assert
+        let array = match result.expect("tuple struct should produce value") {
+            Value::Array(items) => items,
+            other => panic!("unexpected value: {other:?}"),
+        };
+        assert_eq!(array.len(), 2);
+        assert_eq!(array[0], Value::String("first".into()));
+        assert_eq!(array[1], Value::String("second".into()));
     }
 
     #[test]

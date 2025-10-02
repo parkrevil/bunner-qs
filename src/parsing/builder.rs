@@ -136,17 +136,17 @@ fn parse_segments_into_map(
             };
 
             let idx = search + rel;
-            if bytes[idx] == b'=' && eq_index.is_none() {
-                eq_index = Some(idx);
-                search = idx + 1;
-                continue;
-            }
-
             if bytes[idx] == b'&' {
                 segment_end = idx;
                 break;
             }
 
+            debug_assert_eq!(bytes[idx], b'=');
+            debug_assert!(
+                eq_index.is_none(),
+                "multiple '=' characters in query segment"
+            );
+            eq_index = Some(idx);
             search = idx + 1;
         }
 

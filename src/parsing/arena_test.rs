@@ -29,11 +29,27 @@ mod parse_arena_new {
 
     #[test]
     fn should_delegate_zero_capacity_to_new_arena_when_with_capacity_called_with_zero() {
+        // Arrange
+        let zero = std::hint::black_box(0usize);
+
         // Act
-        let arena = ParseArena::with_capacity(0);
+        let arena = ParseArena::with_capacity(zero);
 
         // Assert
         assert_eq!(arena.capacity_hint(), 0);
+    }
+
+    #[test]
+    fn should_shrink_arena_when_runtime_hint_is_small_then_reallocate_with_new_capacity() {
+        // Arrange
+        let mut arena = ParseArena::with_capacity(512 * 1024);
+        let requested = std::hint::black_box(8 * 1024);
+
+        // Act
+        arena.prepare(requested);
+
+        // Assert
+        assert_eq!(arena.capacity_hint(), requested);
     }
 
     #[test]
@@ -50,16 +66,59 @@ mod parse_arena_new {
     }
 
     #[test]
-    fn should_shrink_arena_when_prepare_requests_capacity_below_threshold_ratio() {
-        // Arrange
-        let mut arena = ParseArena::with_capacity(512 * 1024);
-        assert_eq!(arena.capacity_hint(), 512 * 1024);
-
+    fn should_allocate_capacity_hint_when_constructed_with_non_zero_capacity() {
         // Act
-        arena.prepare(8 * 1024);
+        let arena = ParseArena::with_capacity(4096);
 
         // Assert
-        assert_eq!(arena.capacity_hint(), 8 * 1024);
+        assert_eq!(arena.capacity_hint(), 4096);
+    }
+
+    #[test]
+    fn should_reallocate_arena_when_prepare_requests_more_capacity_than_current() {
+        // Arrange
+        let mut arena = ParseArena::with_capacity(1024);
+
+        // Act
+        arena.prepare(4096);
+
+        // Assert
+        assert_eq!(arena.capacity_hint(), 4096);
+    }
+
+    #[test]
+    fn should_reset_without_shrinking_when_capacity_below_threshold_and_minimum_is_smaller() {
+        // Arrange
+        let mut arena = ParseArena::with_capacity(64 * 1024);
+        arena.alloc_str("primed");
+
+        // Act
+        arena.prepare(32 * 1024);
+
+        // Assert
+        assert_eq!(arena.capacity_hint(), 64 * 1024);
+        let stored = arena.alloc_str("reset");
+        assert_eq!(stored, "reset");
+    }
+}
+
+mod parse_arena_pooling {
+    use super::*;
+
+    #[test]
+    fn should_reuse_pooled_arena_between_acquisitions() {
+        // Arrange
+        {
+            let lease = acquire_parse_arena(2048);
+            lease.alloc_str("warmup");
+            assert_eq!(lease.capacity_hint(), 2048);
+        }
+
+        // Act
+        let lease = acquire_parse_arena(0);
+
+        // Assert
+        assert_eq!(lease.capacity_hint(), 2048);
     }
 }
 
@@ -99,6 +158,34 @@ mod arena_query_map_insert {
 
         // Assert
         assert!(result.is_err());
+    }
+}
+
+mod arena_query_map_iter {
+    use super::*;
+
+    #[test]
+    fn should_iterate_in_insertion_order_when_entries_exist() {
+        // Arrange
+        let lease = acquire_parse_arena(0);
+        let arena: &ParseArena = &lease;
+        let mut map = ArenaQueryMap::with_capacity(arena, 2);
+        map.try_insert_str(arena, "first", ArenaValue::string(arena.alloc_str("1")))
+            .expect("insert first");
+        map.try_insert_str(arena, "second", ArenaValue::string(arena.alloc_str("2")))
+            .expect("insert second");
+
+        // Act
+        let collected: Vec<(&str, &str)> = map
+            .iter()
+            .map(|(key, value)| match value {
+                ArenaValue::String(text) => (key, *text),
+                _ => panic!("expected string value"),
+            })
+            .collect();
+
+        // Assert
+        assert_eq!(collected, vec![("first", "1"), ("second", "2")]);
     }
 }
 
@@ -208,5 +295,31 @@ mod arena_value_accessors {
         // Assert
         let entries = value.as_seq_slice().expect("seq slice");
         assert!(entries.is_empty());
+    }
+
+    #[test]
+    fn should_return_none_from_as_seq_slice_when_value_is_map() {
+        // Arrange
+        let lease = acquire_parse_arena(0);
+        let arena: &ParseArena = &lease;
+
+        // Act
+        let value = ArenaValue::map_with_capacity(arena, 1);
+
+        // Assert
+        assert!(value.as_seq_slice().is_none());
+    }
+
+    #[test]
+    fn should_return_none_from_as_map_slice_when_value_is_sequence() {
+        // Arrange
+        let lease = acquire_parse_arena(0);
+        let arena: &ParseArena = &lease;
+
+        // Act
+        let value = ArenaValue::seq_with_capacity(arena, 1);
+
+        // Assert
+        assert!(value.as_map_slice().is_none());
     }
 }

@@ -1,4 +1,5 @@
-use crate::{SerdeStringifyError, StringifyError, StringifyOptions};
+use crate::serde_adapter::SerializeError;
+use crate::{SerdeQueryError, SerdeStringifyError, StringifyError, StringifyOptions};
 use serde::Serialize;
 
 #[derive(Serialize)]
@@ -53,6 +54,39 @@ mod stringify {
                 assert_eq!(key, "body")
             }
             other => panic!("expected stringify error, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn should_wrap_serialize_error_when_top_level_is_not_map_then_return_serde_error() {
+        // Act
+        let error = crate::stringify(&"plain").expect_err("non-map top level should fail");
+
+        // Assert
+        match error {
+            SerdeStringifyError::Serialize(SerdeQueryError::Serialize(inner)) => match inner {
+                SerializeError::TopLevel(kind) => assert_eq!(kind, "string"),
+                other => panic!("expected TopLevel error, got {other:?}"),
+            },
+            other => panic!("expected serialize error, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn should_wrap_unexpected_skip_error_when_option_is_none_then_return_serde_error() {
+        // Arrange
+        let data: Option<Profile> = None;
+
+        // Act
+        let error = crate::stringify(&data).expect_err("option none should be rejected");
+
+        // Assert
+        match error {
+            SerdeStringifyError::Serialize(SerdeQueryError::Serialize(inner)) => match inner {
+                SerializeError::UnexpectedSkip => {}
+                other => panic!("expected UnexpectedSkip, got {other:?}"),
+            },
+            other => panic!("expected serialize error, got {other:?}"),
         }
     }
 }

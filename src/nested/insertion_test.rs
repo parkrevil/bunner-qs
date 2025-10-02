@@ -1,7 +1,7 @@
 use super::{
-    ArenaSetContext, arena_set_nested_value, get_root_value, handle_map_segment,
-    handle_seq_segment, insert_nested_value_arena, resolve_segments, try_insert_or_duplicate,
-    with_string_promotion_suppressed,
+    ArenaSetContext, arena_is_placeholder, arena_set_nested_value, get_root_value,
+    handle_map_segment, handle_seq_segment, insert_nested_value_arena, resolve_segments,
+    try_insert_or_duplicate, unexpected_nested_string, with_string_promotion_suppressed,
 };
 use crate::DuplicateKeyBehavior;
 use crate::ParseError;
@@ -113,6 +113,18 @@ mod insert_nested_value_arena {
 
         // Assert
         assert!(map.is_empty());
+    }
+
+    #[test]
+    fn should_detect_placeholders_only_for_empty_strings() {
+        // Arrange
+        let arena = ParseArena::new();
+        let empty = ArenaValue::string(arena.alloc_str(""));
+        let filled = ArenaValue::string(arena.alloc_str("value"));
+
+        // Assert
+        assert!(arena_is_placeholder(&empty));
+        assert!(!arena_is_placeholder(&filled));
     }
 
     #[test]
@@ -736,6 +748,42 @@ mod insert_nested_value_arena {
         // Assert
         expect_duplicate_key(error, "root");
     }
+
+    #[test]
+    fn should_error_with_unexpected_string_when_promotion_disabled_without_hints() {
+        // Arrange
+        let arena = ParseArena::new();
+        let state = acquire_pattern_state();
+        let segments = [
+            ResolvedSegment::new(Cow::Borrowed("root")),
+            ResolvedSegment::new(Cow::Borrowed("child")),
+        ];
+        let mut current = ArenaValue::string(arena.alloc_str("leaf"));
+        let ctx = ArenaSetContext {
+            arena: &arena,
+            state: &state,
+            root_key: "root",
+            duplicate_keys: DuplicateKeyBehavior::Reject,
+        };
+
+        // Act
+        let error = with_string_promotion_suppressed(|| {
+            arena_set_nested_value(&ctx, &mut current, &segments, 1, arena.alloc_str("value"))
+        })
+        .expect_err("suppressed promotion without hints should report duplicate key");
+
+        // Assert
+        expect_duplicate_key(error, "root");
+    }
+
+    #[test]
+    fn should_surface_duplicate_key_error_when_unexpected_string_encountered() {
+        // Act
+        let error = unexpected_nested_string("profile");
+
+        // Assert
+        expect_duplicate_key(error, "profile");
+    }
 }
 
 mod resolve_segments {
@@ -884,6 +932,59 @@ mod helper_segments {
         match result {
             Ok(_) => panic!("expected duplicate key error"),
             Err(err) => expect_duplicate_key(err, "child"),
+        }
+    }
+
+    #[test]
+    fn should_replace_map_entry_when_last_wins_allows_duplicate_key() {
+        // Arrange
+        let arena = ParseArena::new();
+        let state = acquire_pattern_state();
+        let ctx = make_ctx(&arena, &state, "root", DuplicateKeyBehavior::LastWins);
+        let mut entries = arena.alloc_vec();
+        let mut index = HashMap::<&str, usize, RandomState>::with_capacity_and_hasher(
+            0,
+            RandomState::default(),
+        );
+        let segments = [ResolvedSegment::new(Cow::Borrowed("root"))];
+        let mut path: SmallVec<[&str; 16]> = SmallVec::new();
+        let mut initial = Some(arena.alloc_str("first"));
+        handle_map_segment(
+            &ctx,
+            &mut entries,
+            &mut index,
+            &segments,
+            &mut path,
+            0,
+            "child",
+            true,
+            &mut initial,
+        )
+        .expect("initial insert should record value");
+
+        let mut replacement = Some(arena.alloc_str("second"));
+
+        // Act
+        handle_map_segment(
+            &ctx,
+            &mut entries,
+            &mut index,
+            &segments,
+            &mut SmallVec::<[&str; 16]>::new(),
+            0,
+            "child",
+            true,
+            &mut replacement,
+        )
+        .expect("last wins should overwrite existing entry");
+
+        // Assert
+        assert_eq!(entries.len(), 1);
+        let (key, value) = &entries[0];
+        assert_eq!(*key, "child");
+        match value {
+            ArenaValue::String(text) => assert_eq!(*text, "second"),
+            _ => panic!("expected string value"),
         }
     }
 

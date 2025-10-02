@@ -165,6 +165,111 @@ mod with_arena_query_map {
             ParseError::UnmatchedBracket { ref key } if key == "foo["
         ));
     }
+
+    #[test]
+    fn should_ignore_trailing_ampersand_when_query_ends_with_separator_then_parse_existing_pairs() {
+        // Arrange
+        let options = ParseOptions::default();
+
+        // Act
+        let result = with_arena_query_map("foo=bar&", 0, &options, |_, map| {
+            let entries = map.entries_slice();
+            assert_eq!(entries.len(), 1);
+            assert_eq!(entries[0].0, "foo");
+            match &entries[0].1 {
+                ArenaValue::String(value) => assert_eq!(*value, "bar"),
+                _ => panic!("expected string value"),
+            }
+            Ok(())
+        });
+
+        // Assert
+        result.expect("trailing separator should be ignored");
+    }
+
+    #[test]
+    fn should_return_invalid_percent_error_when_value_contains_non_hex_digits_then_report_index() {
+        // Arrange
+        let options = ParseOptions::default();
+
+        // Act
+        let error = with_arena_query_map("foo=%GG", 0, &options, |_, _| Ok(()))
+            .expect_err("invalid percent encoding should error");
+
+        // Assert
+        match error {
+            ParseError::InvalidPercentEncoding { index } => assert_eq!(index, 4),
+            other => panic!("expected InvalidPercentEncoding error, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn should_store_key_without_value_when_equals_missing_then_use_empty_value() {
+        // Arrange
+        let options = ParseOptions::default();
+        let trimmed = "flag";
+
+        // Act
+        let result = with_arena_query_map(trimmed, 12, &options, |_, map| {
+            let entries = map.entries_slice();
+            assert_eq!(entries.len(), 1);
+            let (key, value) = &entries[0];
+            assert_eq!(*key, "flag");
+            match value {
+                ArenaValue::String(text) => assert!(text.is_empty()),
+                _ => panic!("expected string value"),
+            }
+            Ok(())
+        });
+
+        // Assert
+        result.expect("missing equals should produce empty value");
+    }
+
+    #[test]
+    fn should_skip_empty_segments_when_multiple_separators_appear_consecutively() {
+        // Arrange
+        let options = ParseOptions::default();
+        let trimmed = "&&foo=bar";
+
+        // Act
+        let result = with_arena_query_map(trimmed, 0, &options, |_, map| {
+            let entries = map.entries_slice();
+            assert_eq!(entries.len(), 1);
+            assert_eq!(entries[0].0, "foo");
+            match &entries[0].1 {
+                ArenaValue::String(value) => assert_eq!(*value, "bar"),
+                _ => panic!("expected string"),
+            }
+            Ok(())
+        });
+
+        // Assert
+        result.expect("consecutive separators should be ignored");
+    }
+
+    #[test]
+    fn should_include_additional_equals_in_value_when_present_then_keep_full_segment() {
+        // Arrange
+        let options = ParseOptions::default();
+        let trimmed = "token==value";
+
+        // Act
+        let result = with_arena_query_map(trimmed, 3, &options, |_, map| {
+            let entries = map.entries_slice();
+            assert_eq!(entries.len(), 1);
+            let (key, value) = &entries[0];
+            assert_eq!(*key, "token");
+            match value {
+                ArenaValue::String(text) => assert_eq!(*text, "=value"),
+                _ => panic!("expected string value"),
+            }
+            Ok(())
+        });
+
+        // Assert
+        result.expect("additional equals should remain in value");
+    }
 }
 
 mod parse_segments_into_map {

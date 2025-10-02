@@ -192,7 +192,7 @@ fn arena_set_nested_value<'arena>(
             }
             ArenaValue::String(_) => {
                 debug_assert!(
-                    false,
+                    matches!(ctx.duplicate_keys, DuplicateKeyBehavior::Reject),
                     "unexpected string value encountered during nested insertion"
                 );
                 return Err(unexpected_nested_string(ctx.root_key));

@@ -122,6 +122,23 @@ mod stringify_query_map_with {
             other => panic!("expected InvalidKey error, got {other:?}"),
         }
     }
+
+    #[test]
+    fn should_error_on_control_characters_when_root_key_contains_control_then_return_invalid_key_error()
+     {
+        // Arrange
+        let map = QueryMap::from_iter([(String::from("bad\u{0007}key"), Value::from("data"))]);
+        let options = StringifyOptions::default();
+
+        // Act
+        let error = stringify_map(map, options).expect_err("invalid root key should fail");
+
+        // Assert
+        match error {
+            StringifyError::InvalidKey { key } => assert_eq!(key, "bad\u{0007}key"),
+            other => panic!("expected InvalidKey error, got {other:?}"),
+        }
+    }
 }
 
 mod stringify_runtime {
@@ -137,5 +154,17 @@ mod stringify_runtime {
 
         // Assert
         assert!(runtime.space_as_plus);
+    }
+
+    #[cfg(debug_assertions)]
+    #[test]
+    #[should_panic(expected = "prepare_stringify_state should not be called with an empty map")]
+    fn should_debug_assert_when_prepare_state_receives_empty_map() {
+        // Arrange
+        let map = QueryMap::new();
+        let options = StringifyOptions::default();
+
+        // Act
+        let _ = super::super::prepare_stringify_state(&map, &options);
     }
 }
