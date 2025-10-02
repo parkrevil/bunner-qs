@@ -131,17 +131,7 @@ fn arena_set_nested_value<'arena>(
     path.extend(segments[..depth].iter().map(|segment| segment.as_str()));
 
     loop {
-        let container_hint = ctx.state.container_type(&path);
-        if let Some(expected) = container_hint {
-            arena_ensure_container(ctx.arena, node, expected, ctx.root_key)?;
-        }
-
-        if matches!(node, ArenaValue::String(_)) && should_promote_string_node() {
-            *node = arena_initial_container(
-                ctx.arena,
-                container_hint.unwrap_or(ContainerType::Object),
-                0,
-            );
+        if let NodePreparation::NeedsRetry = prepare_current_node(ctx, node, &path)? {
             continue;
         }
 
@@ -150,46 +140,42 @@ fn arena_set_nested_value<'arena>(
 
         match node {
             // Handle insertion into map structures
-            ArenaValue::Map { entries, index } => {
-                match handle_map_segment(
-                    ctx,
-                    entries,
-                    index,
-                    segments,
-                    &mut path,
-                    depth,
-                    segment,
-                    is_last,
-                    &mut value_to_set,
-                )? {
-                    StepOutcome::Complete => return Ok(()),
-                    StepOutcome::Descend { next_index } => {
-                        node = &mut entries[next_index].1;
-                        depth += 1;
-                        path.push(segment);
-                    }
+            ArenaValue::Map { entries, index } => match visit_map_node(
+                ctx,
+                entries,
+                index,
+                segments,
+                &mut path,
+                depth,
+                segment,
+                is_last,
+                &mut value_to_set,
+            )? {
+                TraversalStep::Complete => return Ok(()),
+                TraversalStep::Descend(next_node) => {
+                    node = next_node;
+                    depth += 1;
+                    path.push(segment);
                 }
-            }
+            },
             // Handle insertion into sequence structures
-            ArenaValue::Seq(items) => {
-                match handle_seq_segment(
-                    ctx,
-                    items,
-                    segments,
-                    &mut path,
-                    depth,
-                    segment,
-                    is_last,
-                    &mut value_to_set,
-                )? {
-                    StepOutcome::Complete => return Ok(()),
-                    StepOutcome::Descend { next_index } => {
-                        node = &mut items[next_index];
-                        depth += 1;
-                        path.push(segment);
-                    }
+            ArenaValue::Seq(items) => match visit_seq_node(
+                ctx,
+                items,
+                segments,
+                &mut path,
+                depth,
+                segment,
+                is_last,
+                &mut value_to_set,
+            )? {
+                TraversalStep::Complete => return Ok(()),
+                TraversalStep::Descend(next_node) => {
+                    node = next_node;
+                    depth += 1;
+                    path.push(segment);
                 }
-            }
+            },
             ArenaValue::String(_) => {
                 debug_assert!(
                     matches!(ctx.duplicate_keys, DuplicateKeyBehavior::Reject),
@@ -204,6 +190,35 @@ fn arena_set_nested_value<'arena>(
 enum StepOutcome {
     Complete,
     Descend { next_index: usize },
+}
+
+enum NodePreparation {
+    Ready,
+    NeedsRetry,
+}
+
+enum TraversalStep<'node, 'arena> {
+    Complete,
+    Descend(&'node mut ArenaValue<'arena>),
+}
+
+fn prepare_current_node<'arena>(
+    ctx: &ArenaSetContext<'arena, '_>,
+    node: &mut ArenaValue<'arena>,
+    path: &[&str],
+) -> Result<NodePreparation, ParseError> {
+    let container_hint = ctx.state.container_type(path);
+    if let Some(expected) = container_hint {
+        arena_ensure_container(ctx.arena, node, expected, ctx.root_key)?;
+    }
+
+    if matches!(node, ArenaValue::String(_)) && should_promote_string_node() {
+        let container = container_hint.unwrap_or(ContainerType::Object);
+        *node = arena_initial_container(ctx.arena, container, 0);
+        return Ok(NodePreparation::NeedsRetry);
+    }
+
+    Ok(NodePreparation::Ready)
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -282,6 +297,39 @@ where
     Ok(StepOutcome::Descend {
         next_index: entry_index,
     })
+}
+
+#[allow(clippy::too_many_arguments)]
+fn visit_map_node<'arena, 'node, S>(
+    ctx: &ArenaSetContext<'arena, '_>,
+    entries: &'node mut ArenaVec<'arena, (&'arena str, ArenaValue<'arena>)>,
+    index: &'node mut hashbrown::HashMap<&'arena str, usize, S>,
+    segments: &[ResolvedSegment<'_>],
+    path: &mut SmallVec<[&str; 16]>,
+    depth: usize,
+    segment: &str,
+    is_last: bool,
+    value_to_set: &mut Option<&'arena str>,
+) -> Result<TraversalStep<'node, 'arena>, ParseError>
+where
+    S: std::hash::BuildHasher,
+{
+    match handle_map_segment(
+        ctx,
+        entries,
+        index,
+        segments,
+        path,
+        depth,
+        segment,
+        is_last,
+        value_to_set,
+    )? {
+        StepOutcome::Complete => Ok(TraversalStep::Complete),
+        StepOutcome::Descend { next_index } => {
+            Ok(TraversalStep::Descend(&mut entries[next_index].1))
+        }
+    }
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -374,6 +422,32 @@ fn handle_seq_segment<'arena>(
     }
 
     Ok(StepOutcome::Descend { next_index: idx })
+}
+
+#[allow(clippy::too_many_arguments)]
+fn visit_seq_node<'arena, 'node>(
+    ctx: &ArenaSetContext<'arena, '_>,
+    items: &'node mut ArenaVec<'arena, ArenaValue<'arena>>,
+    segments: &[ResolvedSegment<'_>],
+    path: &mut SmallVec<[&str; 16]>,
+    depth: usize,
+    segment: &str,
+    is_last: bool,
+    value_to_set: &mut Option<&'arena str>,
+) -> Result<TraversalStep<'node, 'arena>, ParseError> {
+    match handle_seq_segment(
+        ctx,
+        items,
+        segments,
+        path,
+        depth,
+        segment,
+        is_last,
+        value_to_set,
+    )? {
+        StepOutcome::Complete => Ok(TraversalStep::Complete),
+        StepOutcome::Descend { next_index } => Ok(TraversalStep::Descend(&mut items[next_index])),
+    }
 }
 
 fn child_capacity_hint(state: &PatternState, path: &[&str], segment: &str) -> usize {
