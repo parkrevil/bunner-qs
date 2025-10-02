@@ -75,6 +75,11 @@ impl ParseArena {
             self.reset();
         }
     }
+
+    #[cfg(test)]
+    pub(crate) fn capacity_hint(&self) -> usize {
+        self.capacity_hint
+    }
 }
 
 impl Default for ParseArena {

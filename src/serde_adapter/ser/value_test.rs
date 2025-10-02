@@ -357,3 +357,20 @@ mod value_serializer {
         }
     }
 }
+
+mod describe_value_fn {
+    use super::*;
+
+    #[test]
+    fn should_describe_object_value_when_value_is_object() {
+        // Arrange
+        let mut map = OrderedMap::default();
+        map.insert("id".into(), Value::String("42".into()));
+
+        // Act
+        let description = describe_value(&Value::Object(map));
+
+        // Assert
+        assert_eq!(description, "object");
+    }
+}

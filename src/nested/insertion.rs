@@ -8,6 +8,14 @@ use super::container::{arena_ensure_container, arena_initial_container};
 use super::pattern_state::PatternState;
 use super::segment::{ContainerType, ResolvedSegment, SegmentKind};
 
+#[cfg(test)]
+use std::cell::Cell;
+
+#[cfg(test)]
+thread_local! {
+    static STRING_PROMOTION_SUPPRESSED: Cell<bool> = const { Cell::new(false) };
+}
+
 fn arena_is_placeholder(value: &ArenaValue<'_>) -> bool {
     matches!(value, ArenaValue::String(s) if s.is_empty())
 }
@@ -42,10 +50,9 @@ pub(crate) fn insert_nested_value_arena<'arena>(
             };
         }
 
-        map.try_insert_str(arena, root_key, ArenaValue::string(value))
-            .map_err(|_| ParseError::DuplicateKey {
-                key: root_key.to_string(),
-            })?;
+        try_insert_or_duplicate(root_key, || {
+            map.try_insert_str(arena, root_key, ArenaValue::string(value))
+        })?;
         return Ok(());
     }
 
@@ -85,17 +92,12 @@ fn arena_build_nested_path<'arena>(
         arena_ensure_container(arena, existing, container_type, root_key)?;
     } else {
         let initial = arena_initial_container(arena, container_type, capacity_hint);
-        map.try_insert_str(arena, root_segment, initial)
-            .map_err(|_| ParseError::DuplicateKey {
-                key: root_key.to_string(),
-            })?;
+        try_insert_or_duplicate(root_key, || {
+            map.try_insert_str(arena, root_segment, initial)
+        })?;
     }
 
-    let root_value = map
-        .get_mut(root_segment)
-        .ok_or_else(|| ParseError::DuplicateKey {
-            key: root_key.to_string(),
-        })?;
+    let root_value = get_root_value(map, root_segment, root_key)?;
     let ctx = ArenaSetContext {
         arena,
         state,
@@ -134,7 +136,7 @@ fn arena_set_nested_value<'arena>(
             arena_ensure_container(ctx.arena, node, expected, ctx.root_key)?;
         }
 
-        if matches!(node, ArenaValue::String(_)) {
+        if matches!(node, ArenaValue::String(_)) && should_promote_string_node() {
             *node = arena_initial_container(
                 ctx.arena,
                 container_hint.unwrap_or(ContainerType::Object),
@@ -193,9 +195,7 @@ fn arena_set_nested_value<'arena>(
                     false,
                     "unexpected string value encountered during nested insertion"
                 );
-                return Err(ParseError::DuplicateKey {
-                    key: ctx.root_key.to_string(),
-                });
+                return Err(unexpected_nested_string(ctx.root_key));
             }
         }
     }
@@ -383,6 +383,61 @@ fn child_capacity_hint(state: &PatternState, path: &[&str], segment: &str) -> us
     state
         .child_capacity(&full_path)
         .min(MAX_CHILD_CAPACITY_HINT)
+}
+
+#[inline]
+fn try_insert_or_duplicate<F>(key: &str, insert: F) -> Result<(), ParseError>
+where
+    F: FnOnce() -> Result<(), ()>,
+{
+    insert().map_err(|_| ParseError::DuplicateKey {
+        key: key.to_string(),
+    })
+}
+
+#[inline]
+fn get_root_value<'arena, 'map>(
+    map: &'map mut ArenaQueryMap<'arena>,
+    root_segment: &str,
+    root_key: &str,
+) -> Result<&'map mut ArenaValue<'arena>, ParseError> {
+    map.get_mut(root_segment)
+        .ok_or_else(|| ParseError::DuplicateKey {
+            key: root_key.to_string(),
+        })
+}
+
+#[inline]
+fn unexpected_nested_string(root_key: &str) -> ParseError {
+    ParseError::DuplicateKey {
+        key: root_key.to_string(),
+    }
+}
+
+#[inline]
+fn should_promote_string_node() -> bool {
+    #[cfg(test)]
+    {
+        !STRING_PROMOTION_SUPPRESSED.with(|flag| flag.get())
+    }
+
+    #[cfg(not(test))]
+    {
+        true
+    }
+}
+
+#[cfg(test)]
+pub(crate) fn with_string_promotion_suppressed<F, R>(operation: F) -> R
+where
+    F: FnOnce() -> R,
+{
+    STRING_PROMOTION_SUPPRESSED.with(|flag| {
+        let previous = flag.replace(true);
+        let result = operation();
+        flag.set(previous);
+        result
+    })
 }
 
 pub(crate) fn resolve_segments<'a>(

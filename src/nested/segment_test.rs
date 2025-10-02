@@ -1,4 +1,5 @@
 use super::{ContainerType, ResolvedSegment, SegmentKey, SegmentKind};
+use crate::ParseError;
 use std::borrow::{Borrow, Cow};
 
 mod classify {
@@ -107,6 +108,36 @@ mod segment_key_new {
         drop(source);
         assert!(matches!(key.as_str(), Ok("status")));
         assert_eq!(<SegmentKey as Borrow<[u8]>>::borrow(&key), b"status");
+    }
+}
+
+mod segment_key_debug {
+    use super::*;
+    use smallvec::SmallVec;
+
+    #[test]
+    fn should_return_invalid_utf8_error_when_segment_bytes_are_not_valid_utf8() {
+        // Arrange
+        let key = SegmentKey(SmallVec::from_slice(&[0xFF]));
+
+        // Act
+        let result = key.as_str();
+
+        // Assert
+        assert!(matches!(result, Err(ParseError::InvalidUtf8)));
+    }
+
+    #[test]
+    fn should_include_fallback_marker_in_debug_output_when_segment_contains_invalid_utf8_bytes() {
+        // Arrange
+        let key = SegmentKey(SmallVec::from_slice(&[0xF0, 0x28]));
+
+        // Act
+        let formatted = format!("{key:?}");
+
+        // Assert
+        assert!(formatted.contains("<invalid utf-8"));
+        assert!(formatted.contains("SegmentKey"));
     }
 }
 

@@ -1,9 +1,18 @@
-use super::{insert_nested_value_arena, resolve_segments};
+use super::{
+    ArenaSetContext, arena_set_nested_value, get_root_value, handle_map_segment,
+    handle_seq_segment, insert_nested_value_arena, resolve_segments, try_insert_or_duplicate,
+    with_string_promotion_suppressed,
+};
 use crate::DuplicateKeyBehavior;
 use crate::ParseError;
 use crate::nested::pattern_state::{PatternStateGuard, acquire_pattern_state};
+use crate::nested::segment::{ContainerType, ResolvedSegment};
 use crate::parsing::arena::{ArenaQueryMap, ArenaValue, ParseArena};
 use crate::parsing_helpers::expect_duplicate_key;
+use ahash::RandomState;
+use hashbrown::HashMap;
+use smallvec::SmallVec;
+use std::borrow::Cow;
 
 fn map_with_capacity<'arena>(arena: &'arena ParseArena, capacity: usize) -> ArenaQueryMap<'arena> {
     ArenaQueryMap::with_capacity(arena, capacity)
@@ -422,6 +431,23 @@ mod insert_nested_value_arena {
     }
 
     #[test]
+    fn should_convert_duplicate_error_when_root_insertion_fails_via_helper() {
+        // Act
+        let error = try_insert_or_duplicate("token", || Err(()))
+            .expect_err("helper should convert duplicate into ParseError");
+
+        // Assert
+        expect_duplicate_key(error, "token");
+    }
+
+    #[test]
+    fn should_return_ok_when_helper_insert_succeeds() {
+        // Act
+        try_insert_or_duplicate("token", || Ok(()))
+            .expect("helper should propagate successful insertion");
+    }
+
+    #[test]
     fn should_expand_sequence_of_maps_when_array_pattern_is_used_then_create_sequence_entries() {
         // Arrange
         let arena = ParseArena::new();
@@ -441,6 +467,37 @@ mod insert_nested_value_arena {
 
         // Assert
         assert_sequence_of_maps(&map, "items", "name", &["alice", "bob"]);
+    }
+
+    #[test]
+    fn should_return_duplicate_key_when_sequence_segment_is_non_numeric_then_reject_insertion() {
+        // Arrange
+        let arena = ParseArena::new();
+        let mut map = map_with_capacity(&arena, 0);
+        let mut state = acquire_pattern_state();
+        insert_value(
+            &arena,
+            &mut map,
+            &["items", "", "name"],
+            "alice",
+            &mut state,
+            DuplicateKeyBehavior::Reject,
+        )
+        .expect("initial array-backed insertion");
+
+        // Act
+        let error = insert_value(
+            &arena,
+            &mut map,
+            &["items", "name"],
+            "override",
+            &mut state,
+            DuplicateKeyBehavior::Reject,
+        )
+        .expect_err("non-numeric segment should fail");
+
+        // Assert
+        expect_duplicate_key(error, "items");
     }
 
     #[test]
@@ -472,6 +529,22 @@ mod insert_nested_value_arena {
 
         // Assert
         expect_duplicate_key(error, "token");
+    }
+
+    #[test]
+    fn should_return_duplicate_key_when_root_value_missing_in_helper() {
+        // Arrange
+        let arena = ParseArena::new();
+        let mut map = map_with_capacity(&arena, 0);
+
+        // Act
+        let error = match get_root_value(&mut map, "profile", "profile") {
+            Ok(_) => panic!("expected duplicate error"),
+            Err(err) => err,
+        };
+
+        // Assert
+        expect_duplicate_key(error, "profile");
     }
 
     #[test]
@@ -536,6 +609,133 @@ mod insert_nested_value_arena {
         // Assert
         assert_single_string_entry(&map, "token", "second");
     }
+
+    #[test]
+    fn should_return_ok_when_depth_exceeds_segment_length_then_exit_early() {
+        // Arrange
+        let arena = ParseArena::new();
+        let state = acquire_pattern_state();
+        let segments = [ResolvedSegment::new(Cow::Borrowed("root"))];
+        let mut current = ArenaValue::map(&arena);
+        let ctx = ArenaSetContext {
+            arena: &arena,
+            state: &state,
+            root_key: "root",
+            duplicate_keys: DuplicateKeyBehavior::LastWins,
+        };
+
+        // Act
+        arena_set_nested_value(
+            &ctx,
+            &mut current,
+            &segments,
+            segments.len(),
+            arena.alloc_str("ignored"),
+        )
+        .expect("depth exhaustion should succeed");
+
+        // Assert
+        match current {
+            ArenaValue::Map { entries, .. } => assert!(entries.is_empty()),
+            _ => panic!("expected map container"),
+        }
+    }
+
+    #[test]
+    fn should_promote_string_node_to_map_when_state_has_no_hint_then_create_child_entry() {
+        // Arrange
+        let arena = ParseArena::new();
+        let state = acquire_pattern_state();
+        let segments = [
+            ResolvedSegment::new(Cow::Borrowed("root")),
+            ResolvedSegment::new(Cow::Borrowed("child")),
+        ];
+        let placeholder = arena.alloc_str("");
+        let mut current = ArenaValue::string(placeholder);
+        let ctx = ArenaSetContext {
+            arena: &arena,
+            state: &state,
+            root_key: "root",
+            duplicate_keys: DuplicateKeyBehavior::LastWins,
+        };
+
+        // Act
+        arena_set_nested_value(&ctx, &mut current, &segments, 1, arena.alloc_str("leaf"))
+            .expect("string node should promote to map");
+
+        // Assert
+        match current {
+            ArenaValue::Map { entries, .. } => {
+                assert_eq!(entries.len(), 1);
+                assert_eq!(entries[0].0, "child");
+                match &entries[0].1 {
+                    ArenaValue::String(text) => assert_eq!(*text, "leaf"),
+                    _ => panic!("expected string leaf"),
+                }
+            }
+            _ => panic!("expected promoted map"),
+        }
+    }
+
+    #[test]
+    fn should_use_container_hint_to_convert_sequence_into_object_then_store_nested_value() {
+        // Arrange
+        let arena = ParseArena::new();
+        let mut state = acquire_pattern_state();
+        let resolved = resolve_segments(&mut state, &["items", "name"]).expect("resolve");
+        assert_eq!(
+            state.container_type(&["items"]),
+            Some(ContainerType::Object)
+        );
+        let mut current = ArenaValue::seq_with_capacity(&arena, 0);
+        let ctx = ArenaSetContext {
+            arena: &arena,
+            state: &state,
+            root_key: "items",
+            duplicate_keys: DuplicateKeyBehavior::LastWins,
+        };
+
+        // Act
+        arena_set_nested_value(&ctx, &mut current, &resolved, 1, arena.alloc_str("value"))
+            .expect("state hint should convert to map container");
+
+        // Assert
+        match current {
+            ArenaValue::Map { entries, .. } => {
+                assert_eq!(entries.len(), 1);
+                assert_eq!(entries[0].0, "name");
+                match &entries[0].1 {
+                    ArenaValue::String(text) => assert_eq!(*text, "value"),
+                    _ => panic!("expected string leaf"),
+                }
+            }
+            _ => panic!("expected map container after state hint conversion"),
+        }
+    }
+
+    #[test]
+    fn should_return_duplicate_key_when_string_node_cannot_promote_with_override() {
+        // Arrange
+        let arena = ParseArena::new();
+        let mut state = acquire_pattern_state();
+        let resolved = resolve_segments(&mut state, &["root", "child"]).expect("resolve");
+        let mut current = ArenaValue::string(arena.alloc_str("leaf"));
+        let ctx = ArenaSetContext {
+            arena: &arena,
+            state: &state,
+            root_key: "root",
+            duplicate_keys: DuplicateKeyBehavior::Reject,
+        };
+
+        // Act
+        let error = with_string_promotion_suppressed(|| {
+            arena_set_nested_value(&ctx, &mut current, &resolved, 1, arena.alloc_str("value"))
+        })
+        .expect_err("suppressed promotion should surface duplicate key error");
+
+        // Assert
+        expect_duplicate_key(error, "root");
+    }
 }
 
 mod resolve_segments {
@@ -569,5 +769,274 @@ mod resolve_segments {
         assert_eq!(resolved.len(), path.len());
         assert_eq!(resolved[0].as_str(), "profile");
         assert_eq!(resolved[1].as_str(), "name");
+    }
+
+    #[test]
+    fn should_return_single_segment_when_path_contains_only_root_segment() {
+        // Arrange
+        let mut state = acquire_pattern_state();
+        let path = ["token"];
+
+        // Act
+        let resolved = resolve_segments(&mut state, &path).expect("resolve");
+
+        // Assert
+        assert_eq!(resolved.len(), 1);
+        assert_eq!(resolved[0].as_str(), "token");
+    }
+}
+
+mod helper_segments {
+    use super::*;
+
+    fn make_ctx<'arena, 'pattern>(
+        arena: &'arena ParseArena,
+        state: &'pattern PatternStateGuard,
+        root: &'pattern str,
+        duplicate_keys: DuplicateKeyBehavior,
+    ) -> ArenaSetContext<'arena, 'pattern> {
+        ArenaSetContext {
+            arena,
+            state,
+            root_key: root,
+            duplicate_keys,
+        }
+    }
+
+    #[test]
+    fn should_error_when_map_segment_missing_value_in_vacant_branch() {
+        // Arrange
+        let arena = ParseArena::new();
+        let state = acquire_pattern_state();
+        let ctx = make_ctx(&arena, &state, "root", DuplicateKeyBehavior::LastWins);
+        let mut entries = arena.alloc_vec();
+        let mut index = HashMap::<&str, usize, RandomState>::with_capacity_and_hasher(
+            0,
+            RandomState::default(),
+        );
+        let segments = [ResolvedSegment::new(Cow::Borrowed("root"))];
+        let mut path: SmallVec<[&str; 16]> = SmallVec::new();
+        let mut missing: Option<&str> = None;
+
+        // Act
+        let result = handle_map_segment(
+            &ctx,
+            &mut entries,
+            &mut index,
+            &segments,
+            &mut path,
+            0,
+            "child",
+            true,
+            &mut missing,
+        );
+
+        // Assert
+        match result {
+            Ok(_) => panic!("expected duplicate key error"),
+            Err(err) => expect_duplicate_key(err, "child"),
+        }
+    }
+
+    #[test]
+    fn should_error_when_map_segment_updates_without_value_then_signal_duplicate() {
+        // Arrange
+        let arena = ParseArena::new();
+        let state = acquire_pattern_state();
+        let ctx = make_ctx(&arena, &state, "root", DuplicateKeyBehavior::LastWins);
+        let mut entries = arena.alloc_vec();
+        let mut index = HashMap::<&str, usize, RandomState>::with_capacity_and_hasher(
+            0,
+            RandomState::default(),
+        );
+        let segments = [ResolvedSegment::new(Cow::Borrowed("root"))];
+        let mut path: SmallVec<[&str; 16]> = SmallVec::new();
+        let mut initial = Some(arena.alloc_str("first"));
+        handle_map_segment(
+            &ctx,
+            &mut entries,
+            &mut index,
+            &segments,
+            &mut path,
+            0,
+            "child",
+            true,
+            &mut initial,
+        )
+        .expect("initial insert should succeed");
+
+        let mut missing: Option<&str> = None;
+
+        // Act
+        let result = handle_map_segment(
+            &ctx,
+            &mut entries,
+            &mut index,
+            &segments,
+            &mut SmallVec::<[&str; 16]>::new(),
+            0,
+            "child",
+            true,
+            &mut missing,
+        );
+
+        // Assert
+        match result {
+            Ok(_) => panic!("expected duplicate key error"),
+            Err(err) => expect_duplicate_key(err, "child"),
+        }
+    }
+
+    #[test]
+    fn should_error_when_numeric_segment_overflows_then_report_duplicate_key() {
+        // Arrange
+        let arena = ParseArena::new();
+        let state = acquire_pattern_state();
+        let ctx = make_ctx(&arena, &state, "items", DuplicateKeyBehavior::LastWins);
+        let mut items = arena.alloc_vec();
+        let overflow = "184467440737095516160"; // larger than usize::MAX
+        let segments = [ResolvedSegment::new(Cow::Borrowed(overflow))];
+        let mut path: SmallVec<[&str; 16]> = SmallVec::new();
+        let mut value_to_set = Some(arena.alloc_str("value"));
+
+        // Act
+        let result = handle_seq_segment(
+            &ctx,
+            &mut items,
+            &segments,
+            &mut path,
+            0,
+            overflow,
+            true,
+            &mut value_to_set,
+        );
+
+        // Assert
+        match result {
+            Ok(_) => panic!("expected duplicate key error"),
+            Err(err) => expect_duplicate_key(err, "items"),
+        }
+    }
+
+    #[test]
+    fn should_error_when_last_wins_sequence_missing_value_then_signal_duplicate() {
+        // Arrange
+        let arena = ParseArena::new();
+        let state = acquire_pattern_state();
+        let ctx = make_ctx(&arena, &state, "items", DuplicateKeyBehavior::LastWins);
+        let mut items = arena.alloc_vec();
+        items.push(ArenaValue::string(arena.alloc_str("existing")));
+        let segments = [ResolvedSegment::new(Cow::Borrowed("0"))];
+        let mut path: SmallVec<[&str; 16]> = SmallVec::new();
+        let mut missing: Option<&str> = None;
+
+        // Act
+        let result = handle_seq_segment(
+            &ctx,
+            &mut items,
+            &segments,
+            &mut path,
+            0,
+            "0",
+            true,
+            &mut missing,
+        );
+
+        // Assert
+        match result {
+            Ok(_) => panic!("expected duplicate key error"),
+            Err(err) => expect_duplicate_key(err, "0"),
+        }
+    }
+
+    #[test]
+    fn should_error_when_sequence_segment_is_non_numeric_then_signal_duplicate_key() {
+        // Arrange
+        let arena = ParseArena::new();
+        let state = acquire_pattern_state();
+        let ctx = make_ctx(&arena, &state, "items", DuplicateKeyBehavior::Reject);
+        let mut items = arena.alloc_vec();
+        let segments = [ResolvedSegment::new(Cow::Borrowed("alpha"))];
+        let mut path = SmallVec::<[&str; 16]>::new();
+        let mut value_to_set = Some(arena.alloc_str("value"));
+
+        // Act
+        let error = match handle_seq_segment(
+            &ctx,
+            &mut items,
+            &segments,
+            &mut path,
+            0,
+            "alpha",
+            true,
+            &mut value_to_set,
+        ) {
+            Ok(_) => panic!("expected duplicate key error"),
+            Err(err) => err,
+        };
+
+        // Assert
+        expect_duplicate_key(error, "items");
+    }
+
+    #[test]
+    fn should_error_when_sequence_append_missing_value_then_report_duplicate_key() {
+        // Arrange
+        let arena = ParseArena::new();
+        let state = acquire_pattern_state();
+        let ctx = make_ctx(&arena, &state, "items", DuplicateKeyBehavior::LastWins);
+        let mut items = arena.alloc_vec();
+        let segments = [ResolvedSegment::new(Cow::Borrowed("0"))];
+        let mut path = SmallVec::<[&str; 16]>::new();
+        let mut value_to_set: Option<&str> = None;
+
+        // Act
+        let error = match handle_seq_segment(
+            &ctx,
+            &mut items,
+            &segments,
+            &mut path,
+            0,
+            "0",
+            true,
+            &mut value_to_set,
+        ) {
+            Ok(_) => panic!("expected duplicate key error"),
+            Err(err) => err,
+        };
+
+        // Assert
+        expect_duplicate_key(error, "0");
+    }
+
+    #[test]
+    fn should_error_when_sequence_placeholder_missing_value_then_report_duplicate_key() {
+        // Arrange
+        let arena = ParseArena::new();
+        let state = acquire_pattern_state();
+        let ctx = make_ctx(&arena, &state, "items", DuplicateKeyBehavior::LastWins);
+        let mut items = arena.alloc_vec();
+        items.push(ArenaValue::string(arena.alloc_str("")));
+        let segments = [ResolvedSegment::new(Cow::Borrowed("0"))];
+        let mut path = SmallVec::<[&str; 16]>::new();
+        let mut value_to_set: Option<&str> = None;
+
+        // Act
+        let error = match handle_seq_segment(
+            &ctx,
+            &mut items,
+            &segments,
+            &mut path,
+            0,
+            "0",
+            true,
+            &mut value_to_set,
+        ) {
+            Ok(_) => panic!("expected duplicate key error"),
+            Err(err) => err,
+        };
+
+        // Assert
+        expect_duplicate_key(error, "0");
     }
 }
