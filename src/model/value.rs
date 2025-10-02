@@ -1,12 +1,57 @@
 use crate::model::OrderedMap;
+use crate::parsing::arena::{ArenaQueryMap, ArenaValue, ParseArena};
+use crate::serde_adapter::{SerdeQueryError, deserialize_from_arena_map, serialize_to_query_map};
 use ahash::RandomState;
 use indexmap::map::{IntoIter, Iter, IterMut};
+use serde::de::DeserializeOwned;
+use serde::Serialize;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Value {
     String(String),
     Array(Vec<Value>),
     Object(OrderedMap<String, Value>),
+}
+
+impl Value {
+    #[inline]
+    pub fn as_str(&self) -> Option<&str> {
+        match self {
+            Value::String(s) => Some(s.as_str()),
+            _ => None,
+        }
+    }
+
+    #[inline]
+    pub fn as_array(&self) -> Option<&[Value]> {
+        match self {
+            Value::Array(items) => Some(items.as_slice()),
+            _ => None,
+        }
+    }
+
+    #[inline]
+    pub fn as_object(&self) -> Option<&OrderedMap<String, Value>> {
+        match self {
+            Value::Object(map) => Some(map),
+            _ => None,
+        }
+    }
+
+    #[inline]
+    pub fn is_string(&self) -> bool {
+        matches!(self, Value::String(_))
+    }
+
+    #[inline]
+    pub fn is_array(&self) -> bool {
+        matches!(self, Value::Array(_))
+    }
+
+    #[inline]
+    pub fn is_object(&self) -> bool {
+        matches!(self, Value::Object(_))
+    }
 }
 
 impl From<String> for Value {
@@ -37,6 +82,65 @@ impl QueryMap {
                 capacity,
                 RandomState::default(),
             ))
+        }
+    }
+
+    pub fn to_struct<T>(&self) -> Result<T, SerdeQueryError>
+    where
+        T: DeserializeOwned,
+    {
+        let arena = ParseArena::new();
+        let mut arena_map = ArenaQueryMap::with_capacity(&arena, self.len());
+
+        for (key, value) in self.iter() {
+            let arena_value = clone_value_into_arena(&arena, value);
+            let result = arena_map.try_insert_str(&arena, key, arena_value);
+            debug_assert!(result.is_ok(), "QueryMap must not contain duplicate keys");
+            result.expect("QueryMap must not contain duplicate keys");
+        }
+
+        deserialize_from_arena_map(&arena_map).map_err(SerdeQueryError::from)
+    }
+
+    pub fn from_struct<T>(value: &T) -> Result<Self, SerdeQueryError>
+    where
+        T: Serialize,
+    {
+        let map = serialize_to_query_map(value)?;
+        Ok(QueryMap::from(map))
+    }
+}
+
+pub(crate) fn clone_value_into_arena<'arena>(arena: &'arena ParseArena, value: &Value) -> ArenaValue<'arena> {
+    match value {
+        Value::String(text) => ArenaValue::string(arena.alloc_str(text)),
+        Value::Array(items) => {
+            let mut seq = arena.alloc_vec();
+            if items.len() > 4 {
+                seq.reserve(items.len());
+            }
+            for item in items {
+                seq.push(clone_value_into_arena(arena, item));
+            }
+            ArenaValue::Seq(seq)
+        }
+        Value::Object(map) => {
+            let mut object = if map.is_empty() {
+                ArenaValue::map(arena)
+            } else {
+                ArenaValue::map_with_capacity(arena, map.len())
+            };
+
+            if let ArenaValue::Map { entries, index } = &mut object {
+                for (key, child) in map.iter() {
+                    let key_ref = arena.alloc_str(key);
+                    let idx = entries.len();
+                    entries.push((key_ref, clone_value_into_arena(arena, child)));
+                    index.insert(key_ref, idx);
+                }
+            }
+
+            object
         }
     }
 }
@@ -107,6 +211,9 @@ impl<'a> IntoIterator for &'a mut QueryMap {
         self.0.iter_mut()
     }
 }
+
+#[cfg(test)]
+pub(crate) use clone_value_into_arena as clone_value_into_arena_for_test;
 
 #[cfg(test)]
 #[path = "value_test.rs"]

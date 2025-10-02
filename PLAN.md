@@ -5,6 +5,42 @@
 
 ---
 
+## 진행 중인 기능·테스트 작업 계획 (2025-10-03 갱신)
+
+> 완료 시 해당 섹션을 PLAN.md에서 제거합니다.
+
+### Percent Decoder 리팩터링
+- **목표**: `decode_with_special_chars` 복잡도를 낮추고 분기별 책임을 분리한다.
+- **작업 단계**
+    1. percent 시퀀스 처리, ASCII fast-path, multi-byte 처리 등을 별도 함수로 추출
+    2. 기존 로직과 동등한 동작을 보장하는 회귀 테스트·프로퍼티 테스트 실행
+    3. 성능 회귀가 없는지 기준 벤치마크(선택) 확인
+- **완료 기준**: 기존 테스트 스위트가 모두 통과하고 코드 복잡도가 감소한다.
+
+### Nested Insertion 리팩터링
+- **목표**: `arena_set_nested_value`의 루프 로직을 단계별 함수로 분리해 유지보수를 용이하게 한다.
+- **작업 단계**
+    1. Map/Seq 분기 처리 코드를 전용 헬퍼로 추출하고 경로 관리 개선
+    2. 문자열 승격 로직과 duplicate key 처리 케이스를 회귀 테스트로 검증
+    3. 성능 영향 최소화를 위해 벤치마크(선택) 비교
+- **완료 기준**: 모든 관련 테스트 통과, 코드 복잡도 감소, unsafe 사용 여부 불변
+
+### 테스트 헬퍼 공통화
+- **목표**: 중복된 테스트 헬퍼를 `tests/common` 혹은 `crate::test_support`에 통합한다.
+- **작업 단계**
+    1. 중복 헬퍼 목록화 (`map_with_capacity`, `make_map` 등)
+    2. 신규 헬퍼 모듈 작성 및 `cfg(test)`로 제한
+    3. 기존 테스트에서 새 헬퍼를 사용하도록 수정
+- **완료 기준**: 중복 헬퍼 정의 제거, 모든 테스트 통과
+
+### 테스트 데이터 픽스처 도입
+- **목표**: 반복되는 쿼리 문자열을 공통 상수/함수로 추출해 유지보수성을 높인다.
+- **작업 단계**
+    1. 대표 쿼리 문자열을 `tests/common/fixtures.rs`에 정의
+    2. 통합·단위 테스트에서 상수를 사용하도록 리팩터링
+    3. 가독성 검증 및 필요 시 선택적 인라인 유지
+- **완료 기준**: 반복 문자열 대부분이 픽스처로 대체되고 테스트가 통과한다.
+
 ### ⚠️ 개선 권장사항
 
 #### 중요도: 높음 🔴
@@ -43,93 +79,21 @@ rustdoc-args = ["--cfg", "docsrs"]
 - 메타데이터: crates.io 검색 최적화, 문서 자동 생성
 
 ##### 5. README API 예시 불일치
-**현황**: README에 존재하지 않는 API 사용 예시
+**현황**: README의 Serde 예시에 새로 추가된 `QueryMap::to_struct` / `QueryMap::from_struct` 메서드를 반영해야 한다.
 ```rust
-// ❌ README에 있지만 실제로는 구현되지 않음
-let parsed = parse("title=Post&tags[0]=rust&tags[1]=web")?;
-let form: Form = parsed.to_struct()?;  // ❌ QueryMap에 to_struct 메서드 없음
+// ✅ README에 수록될 수 있는 최신 예시
+let parsed = parse::<QueryMap>("title=Post&tags[0]=rust&tags[1]=web")?;
+let form: Form = parsed.to_struct()?;
 
-let rebuilt = QueryMap::from_struct(&form)?;  // ❌ from_struct 메서드 없음
-```
-
-**실제 동작하는 코드**:
-```rust
-// ✅ 올바른 사용법
-let form: Form = parse("title=Post&tags[0]=rust&tags[1]=web")?;
-
-let rebuilt: String = stringify(&form)?;
+let rebuilt_map = QueryMap::from_struct(&form)?;
+let rebuilt = stringify(&rebuilt_map)?;
 ```
 
 **권장 조치**:
-1. README.md의 Serde 섹션 수정
-2. 또는 `QueryMap`에 편의 메서드 추가:
-```rust
-impl QueryMap {
-    pub fn to_struct<T: DeserializeOwned>(&self) -> Result<T, SerdeQueryError> {
-        // serde_json 중간 변환 사용
-        let json = serde_json::to_value(self)?;
-        serde_json::from_value(json).map_err(Into::into)
-    }
-    
-    pub fn from_struct<T: Serialize>(value: &T) -> Result<Self, SerdeQueryError> {
-        let json = serde_json::to_value(value)?;
-        serde_json::from_value(json).map_err(Into::into)
-    }
-}
-```
+1. README.md의 Serde 섹션을 최신 API 시그니처에 맞게 갱신
+2. 예제 코드에 새 편의 메서드 사용법을 포함하고 doctest 추가 고려
 
 #### 중요도: 낮음 🟢
-
-##### 6. Value enum 접근자 메서드 부족
-**현황**: 패턴 매칭만 가능
-```rust
-// 현재 사용법
-match value {
-    Value::String(s) => println!("{}", s),
-    Value::Array(arr) => println!("{:?}", arr),
-    Value::Object(obj) => println!("{:?}", obj),
-}
-```
-
-**권장**: 편의 메서드 추가
-```rust
-impl Value {
-    pub fn as_str(&self) -> Option<&str> {
-        match self {
-            Value::String(s) => Some(s.as_str()),
-            _ => None,
-        }
-    }
-    
-    pub fn as_array(&self) -> Option<&[Value]> {
-        match self {
-            Value::Array(arr) => Some(arr.as_slice()),
-            _ => None,
-        }
-    }
-    
-    pub fn as_object(&self) -> Option<&OrderedMap<String, Value>> {
-        match self {
-            Value::Object(obj) => Some(obj),
-            _ => None,
-        }
-    }
-    
-    pub fn is_string(&self) -> bool {
-        matches!(self, Value::String(_))
-    }
-    
-    pub fn is_array(&self) -> bool {
-        matches!(self, Value::Array(_))
-    }
-    
-    pub fn is_object(&self) -> bool {
-        matches!(self, Value::Object(_))
-    }
-}
-```
-
----
 
 ### ⚠️ 개선 권장사항
 
@@ -352,26 +316,6 @@ pub mod assertions {
 }
 ```
 
-##### 5. 에러 메시지 일관성
-
-**현재 상태**:
-```rust
-// 구체적 메시지
-"input exceeds maximum length of {limit} characters"
-"too many parameters: received {actual}, limit {limit}"
-
-// 일반적 메시지
-"duplicate key '{key}' not allowed"
-"decoded component is not valid UTF-8"
-```
-
-**평가**: 
-- ✅ 전반적으로 명확하고 유용함
-- ✅ 디버깅에 필요한 정보 포함
-- 🟡 추후 i18n 고려 시 메시지 카탈로그 분리 권장
-
----
-
 ## 4️⃣ 테스트 품질 검토
 
 ### ⚠️ 개선 권장사항
@@ -540,15 +484,10 @@ Results: `target/criterion/report/index.html`
    - 예상 시간: 30분
 
 4. ✅ **Value enum 접근자 메서드 추가**
-   - `as_str()`, `as_array()`, `as_object()`
-   - `is_string()`, `is_array()`, `is_object()`
-   - 테스트 추가
-   - 예상 시간: 1시간
-
-5. ✅ **QueryMap 편의 메서드 추가** (선택)
-   - `to_struct()`, `from_struct()`
-   - README 예시 호환성 확보
-   - 예상 시간: 2시간
+    - `as_str()`, `as_array()`, `as_object()`
+    - `is_string()`, `is_array()`, `is_object()`
+    - 테스트 추가
+    - 예상 시간: 1시간
 
 **체크리스트**:
 ```bash
@@ -556,7 +495,6 @@ Results: `target/criterion/report/index.html`
 □ GitHub Actions 설정 완료
 □ 템플릿 파일 추가 완료
 □ Value 접근자 구현 및 테스트 완료
-□ QueryMap 편의 메서드 구현 (선택)
 □ CI 테스트 통과
 ```
 
@@ -591,18 +529,12 @@ Results: `target/criterion/report/index.html`
    - `cargo doc --open` 검토
    - 예상 시간: 4시간
 
-5. 🔵 **국제화 (i18n) 준비**
-   - 에러 메시지 카탈로그 분리
-   - `fluent-rs` 통합 검토
-   - 예상 시간: 6시간 (미래 버전)
-
 **체크리스트**:
 ```bash
 □ 긴 함수 리팩토링 완료
 □ 테스트 헬퍼 통합 완료
 □ BENCHMARKS.md 추가 완료
 □ API 문서 강화 완료
-□ i18n 구조 설계 (미래)
 ```
 
 **완료 기준**: 코드 가독성 향상, 문서 품질 향상
@@ -653,8 +585,7 @@ Results: `target/criterion/report/index.html`
 
 #### 중기 조치 (1-2개월)
 7. 🔵 Value enum 접근자 추가
-8. 🔵 QueryMap 편의 메서드 추가
-9. 🔵 API 문서화 강화
+8. 🔵 API 문서화 강화
 
 #### 장기 조치 (3-6개월)
 10. 🔵 코드 리팩토링 (긴 함수)
@@ -739,7 +670,6 @@ Results: `target/criterion/report/index.html`
 
 ## 개선
 - [ ] Value 접근자 메서드
-- [ ] QueryMap 편의 메서드
 - [ ] 벤치마크 문서화
 - [ ] 더 많은 예시 추가
 

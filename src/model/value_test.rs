@@ -176,3 +176,331 @@ mod conversions {
         assert_eq!(ordered.get("token"), Some(&Value::from("abc123")));
     }
 }
+
+mod value_accessors {
+    use super::*;
+
+    #[test]
+    fn should_return_borrowed_str_when_value_is_string_then_expose_slice() {
+        // Arrange
+        let value = Value::from("access");
+
+        // Act
+        let result = value.as_str();
+
+        // Assert
+        assert_eq!(result, Some("access"));
+        assert!(value.is_string());
+        assert!(!value.is_array());
+        assert!(!value.is_object());
+    }
+
+    #[test]
+    fn should_return_none_when_calling_as_str_on_non_string_then_reject_conversion() {
+        // Arrange
+        let value = Value::Array(vec![]);
+
+        // Act & Assert
+        assert!(value.as_str().is_none());
+        assert!(!value.is_string());
+    }
+
+    #[test]
+    fn should_return_slice_when_value_is_array_then_expose_elements() {
+        // Arrange
+        let value = Value::Array(vec![Value::from("a"), Value::from("b")]);
+
+        // Act
+        let slice = value.as_array().expect("array should be exposed as slice");
+
+        // Assert
+        assert_eq!(slice.len(), 2);
+        assert!(value.is_array());
+        assert!(!value.is_object());
+    }
+
+    #[test]
+    fn should_return_map_reference_when_value_is_object_then_expose_entries() {
+        // Arrange
+        let mut map = OrderedMap::default();
+        map.insert(String::from("name"), Value::from("Neo"));
+        let value = Value::Object(map);
+
+        // Act
+        let object = value
+            .as_object()
+            .expect("object should be exposed as ordered map");
+
+        // Assert
+        assert_eq!(object.get("name"), Some(&Value::from("Neo")));
+        assert!(value.is_object());
+        assert!(!value.is_string());
+        assert!(!value.is_array());
+    }
+}
+
+mod query_map_from_struct {
+    use super::*;
+    use serde::{Deserialize, Serialize};
+
+    #[derive(Debug, Serialize, Deserialize, PartialEq)]
+    struct Credentials {
+        username: String,
+        token: String,
+        active: bool,
+        roles: Vec<String>,
+        nickname: Option<String>,
+    }
+
+    #[derive(Debug, Serialize, Deserialize, PartialEq)]
+    struct Entry {
+        id: u32,
+        title: String,
+    }
+
+    #[derive(Debug, Serialize, Deserialize, PartialEq)]
+    struct Library {
+        owner: Credentials,
+        entries: Vec<Entry>,
+    }
+
+    #[test]
+    fn should_serialize_struct_into_query_map_when_using_from_struct() {
+        // Arrange
+        let payload = Credentials {
+            username: String::from("neo"),
+            token: String::from("abc123"),
+            active: true,
+            roles: vec![String::from("admin"), String::from("operator")],
+            nickname: None,
+        };
+
+        // Act
+        let map = QueryMap::from_struct(&payload).expect("serialization should succeed");
+
+        // Assert
+        assert_eq!(map.get("username"), Some(&Value::from("neo")));
+        assert_eq!(map.get("token"), Some(&Value::from("abc123")));
+        assert_eq!(map.get("active"), Some(&Value::from("true")));
+
+        let roles = map
+            .get("roles")
+            .and_then(Value::as_array)
+            .expect("roles should serialize as array");
+        assert_eq!(roles.len(), 2);
+        assert!(map.get("nickname").is_none(), "None should be omitted");
+    }
+
+    #[test]
+    fn should_serialize_nested_structures_and_arrays_when_using_from_struct() {
+        // Arrange
+        let payload = Library {
+            owner: Credentials {
+                username: String::from("trinity"),
+                token: String::from("xyz789"),
+                active: false,
+                roles: vec![String::from("reader")],
+                nickname: Some(String::from("Tri")),
+            },
+            entries: vec![
+                Entry {
+                    id: 1,
+                    title: String::from("Matrix 101"),
+                },
+                Entry {
+                    id: 2,
+                    title: String::from("Rust Patterns"),
+                },
+            ],
+        };
+
+        // Act
+        let map = QueryMap::from_struct(&payload).expect("serialization should succeed");
+
+        // Assert
+        let owner = map
+            .get("owner")
+            .and_then(Value::as_object)
+            .expect("owner should be serialized as object");
+        assert_eq!(owner.get("username"), Some(&Value::from("trinity")));
+        assert_eq!(owner.get("active"), Some(&Value::from("false")));
+
+        let entries = map
+            .get("entries")
+            .and_then(Value::as_array)
+            .expect("entries should serialize as array");
+        assert_eq!(entries.len(), 2);
+        assert!(entries.iter().all(Value::is_object));
+    }
+}
+
+mod query_map_to_struct {
+    use super::*;
+    use serde::{Deserialize, Serialize};
+    use crate::SerdeQueryError;
+
+    #[derive(Debug, Serialize, Deserialize, PartialEq)]
+    struct Dimensions {
+        width: u32,
+        height: u32,
+    }
+
+    #[derive(Debug, Serialize, Deserialize, PartialEq)]
+    struct Document {
+        title: String,
+        cover: Dimensions,
+        tags: Vec<String>,
+    }
+
+    #[test]
+    fn should_deserialize_nested_struct_from_query_map_when_using_to_struct() {
+        // Arrange
+        let mut cover = OrderedMap::default();
+        cover.insert(String::from("width"), Value::from("800"));
+        cover.insert(String::from("height"), Value::from("600"));
+
+        let mut map = QueryMap::new();
+        map.insert(String::from("title"), Value::from("Rust Adventures"));
+        map.insert(String::from("cover"), Value::Object(cover));
+        map.insert(
+            String::from("tags"),
+            Value::Array(vec![Value::from("rust"), Value::from("web")]),
+        );
+
+        // Act
+        let document: Document = map.to_struct().expect("deserialization should succeed");
+
+        // Assert
+        assert_eq!(document.title, "Rust Adventures");
+        assert_eq!(document.cover.width, 800);
+        assert_eq!(document.tags, vec!["rust", "web"]);
+    }
+
+    #[derive(Debug, Serialize, Deserialize, PartialEq)]
+    struct Profile {
+        name: String,
+        age: u8,
+    }
+
+    #[test]
+    fn should_return_error_when_field_type_mismatch_then_propagate_serde_failure() {
+        // Arrange
+        let mut map = QueryMap::new();
+        map.insert(String::from("name"), Value::from("Morpheus"));
+        map.insert(String::from("age"), Value::from("not-a-number"));
+
+        // Act
+        let result = map.to_struct::<Profile>();
+
+        // Assert
+        let err = result.expect_err("invalid number should fail");
+        match err {
+            SerdeQueryError::Deserialize(source) => {
+                assert!(source.to_string().contains("invalid number"));
+            }
+            other => panic!("unexpected error: {other:?}"),
+        }
+    }
+}
+
+mod clone_value_into_arena {
+    use super::*;
+    use super::clone_value_into_arena_for_test;
+
+    #[test]
+    fn should_clone_string_into_arena_then_produce_arena_string_value() {
+        // Arrange
+        let arena = ParseArena::new();
+        let value = Value::from("matrix");
+
+        // Act
+        let cloned = clone_value_into_arena_for_test(&arena, &value);
+
+        // Assert
+        if let ArenaValue::String(text) = cloned {
+            assert_eq!(text, "matrix");
+        } else {
+            panic!("expected ArenaValue::String");
+        }
+    }
+
+    #[test]
+    fn should_clone_array_into_arena_then_preserve_element_structure() {
+        // Arrange
+        let arena = ParseArena::new();
+        let value = Value::Array(vec![
+            Value::from("alpha"),
+            Value::Object({
+                let mut inner = OrderedMap::default();
+                inner.insert(String::from("beta"), Value::from("bravo"));
+                inner
+            }),
+        ]);
+
+        // Act
+        let cloned = clone_value_into_arena_for_test(&arena, &value);
+
+        // Assert
+        match cloned {
+            ArenaValue::Seq(items) => {
+                assert_eq!(items.len(), 2);
+                match &items[0] {
+                    ArenaValue::String(text) => assert_eq!(*text, "alpha"),
+                    _ => panic!("expected first element to be ArenaValue::String"),
+                }
+                match &items[1] {
+                    ArenaValue::Map { entries, .. } => {
+                        assert_eq!(entries.len(), 1);
+                        assert_eq!(entries[0].0, "beta");
+                        match &entries[0].1 {
+                            ArenaValue::String(text) => assert_eq!(*text, "bravo"),
+                            _ => panic!("expected nested value to be ArenaValue::String"),
+                        }
+                    }
+                    _ => panic!("expected second element to be ArenaValue::Map"),
+                }
+            }
+            _ => panic!("expected cloned value to be ArenaValue::Seq"),
+        }
+    }
+
+    #[test]
+    fn should_clone_object_into_arena_then_build_indexed_entries() {
+        // Arrange
+        let arena = ParseArena::new();
+        let mut payload = OrderedMap::default();
+        payload.insert(String::from("gamma"), Value::from("3"));
+        payload.insert(String::from("delta"), Value::Array(vec![Value::from("1")]));
+        let value = Value::Object(payload);
+
+        // Act
+        let cloned = clone_value_into_arena_for_test(&arena, &value);
+
+        // Assert
+        match cloned {
+            ArenaValue::Map { entries, index } => {
+                assert_eq!(entries.len(), 2);
+                assert_eq!(index.len(), 2);
+
+                let &gamma_index = index.get("gamma").expect("gamma key should exist");
+                match &entries[gamma_index].1 {
+                    ArenaValue::String(text) => assert_eq!(*text, "3"),
+                    _ => panic!("expected gamma entry to be ArenaValue::String"),
+                }
+
+                let &delta_index = index.get("delta").expect("delta key should exist");
+                match &entries[delta_index].1 {
+                    ArenaValue::Seq(items) => {
+                        assert_eq!(items.len(), 1);
+                        match &items[0] {
+                            ArenaValue::String(text) => assert_eq!(*text, "1"),
+                            _ => panic!("expected nested array element to be ArenaValue::String"),
+                        }
+                    }
+                    _ => panic!("expected delta entry to be ArenaValue::Seq"),
+                }
+            }
+            _ => panic!("expected cloned value to be ArenaValue::Map"),
+        }
+    }
+}
