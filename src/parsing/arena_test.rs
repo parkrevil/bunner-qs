@@ -1,4 +1,5 @@
 use super::*;
+use crate::arena_helpers::{map, map_with_capacity};
 
 mod parse_arena_new {
     use super::*;
@@ -130,7 +131,7 @@ mod arena_query_map_insert {
         // Arrange
         let lease = acquire_parse_arena(0);
         let arena: &ParseArena = &lease;
-        let mut map = ArenaQueryMap::with_capacity(arena, 1);
+        let mut map = map_with_capacity(arena, 1);
         let value = ArenaValue::string(arena.alloc_str("value"));
 
         // Act
@@ -147,7 +148,7 @@ mod arena_query_map_insert {
         // Arrange
         let lease = acquire_parse_arena(0);
         let arena: &ParseArena = &lease;
-        let mut map = ArenaQueryMap::with_capacity(arena, 1);
+        let mut map = map_with_capacity(arena, 1);
         let value = ArenaValue::string(arena.alloc_str("first"));
         map.try_insert_str(arena, "key", value)
             .expect("first insert");
@@ -169,7 +170,7 @@ mod arena_query_map_iter {
         // Arrange
         let lease = acquire_parse_arena(0);
         let arena: &ParseArena = &lease;
-        let mut map = ArenaQueryMap::with_capacity(arena, 2);
+        let mut map = map_with_capacity(arena, 2);
         map.try_insert_str(arena, "first", ArenaValue::string(arena.alloc_str("1")))
             .expect("insert first");
         map.try_insert_str(arena, "second", ArenaValue::string(arena.alloc_str("2")))
@@ -199,7 +200,7 @@ mod arena_query_map_zero_capacity {
         let arena: &ParseArena = &lease;
 
         // Act
-        let map = ArenaQueryMap::with_capacity(arena, 0);
+        let map = map(arena);
 
         // Assert
         assert!(map.is_empty());
@@ -215,7 +216,7 @@ mod arena_query_map_get_mut {
         // Arrange
         let lease = acquire_parse_arena(0);
         let arena: &ParseArena = &lease;
-        let mut map = ArenaQueryMap::with_capacity(arena, 1);
+        let mut map = map_with_capacity(arena, 1);
         let sequence = ArenaValue::seq_with_capacity(arena, 0);
         map.try_insert_str(arena, "items", sequence)
             .expect("insert sequence");

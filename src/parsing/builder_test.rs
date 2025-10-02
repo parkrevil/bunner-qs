@@ -1,4 +1,5 @@
 use super::*;
+use crate::arena_helpers::map_with_capacity;
 use crate::config::{DuplicateKeyBehavior, ParseOptions};
 use crate::parsing::ParseError;
 use crate::parsing::arena::ArenaValue;
@@ -279,7 +280,7 @@ mod parse_segments_into_map {
     fn should_parse_segments_into_map_when_query_contains_multiple_pairs_then_populate_map() {
         // Arrange
         let arena = ParseArena::new();
-        let mut map = ArenaQueryMap::with_capacity(&arena, 2);
+        let mut map = map_with_capacity(&arena, 2);
         let mut pattern_state = acquire_pattern_state();
         let options = ParseOptions::default();
         let trimmed = "foo=bar&baz=qux";
@@ -313,7 +314,7 @@ mod parse_segments_into_map {
     fn should_return_too_many_parameters_error_when_pairs_exceed_limit_then_report_counts() {
         // Arrange
         let arena = ParseArena::new();
-        let mut map = ArenaQueryMap::with_capacity(&arena, 4);
+        let mut map = map_with_capacity(&arena, 4);
         let mut pattern_state = acquire_pattern_state();
         let options = ParseOptions::builder()
             .max_params(1)

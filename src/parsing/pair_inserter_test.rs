@@ -1,7 +1,8 @@
 use super::*;
 use crate::DuplicateKeyBehavior;
+use crate::arena_helpers::map_with_capacity;
 use crate::nested::pattern_state::acquire_pattern_state;
-use crate::parsing::arena::{ArenaQueryMap, ArenaValue};
+use crate::parsing::arena::ArenaValue;
 use crate::parsing_helpers::expect_duplicate_key;
 
 mod insert_pair_arena {
@@ -11,7 +12,7 @@ mod insert_pair_arena {
     fn should_insert_string_value_when_flat_key_is_unique_then_store_entry_once() {
         // Arrange
         let arena = ParseArena::new();
-        let mut map = ArenaQueryMap::with_capacity(&arena, 2);
+        let mut map = map_with_capacity(&arena, 2);
         let mut pattern_state = acquire_pattern_state();
 
         // Act
@@ -40,7 +41,7 @@ mod insert_pair_arena {
     fn should_return_duplicate_key_error_when_flat_key_repeats_then_include_conflicting_key() {
         // Arrange
         let arena = ParseArena::new();
-        let mut map = ArenaQueryMap::with_capacity(&arena, 2);
+        let mut map = map_with_capacity(&arena, 2);
         let mut pattern_state = acquire_pattern_state();
         insert_pair_arena(
             &arena,
@@ -72,7 +73,7 @@ mod insert_pair_arena {
     {
         // Arrange
         let arena = ParseArena::new();
-        let mut map = ArenaQueryMap::with_capacity(&arena, 2);
+        let mut map = map_with_capacity(&arena, 2);
         let mut pattern_state = acquire_pattern_state();
         insert_pair_arena(
             &arena,
@@ -110,7 +111,7 @@ mod insert_pair_arena {
     fn should_replace_value_when_flat_key_repeats_and_last_wins_then_store_latest_value() {
         // Arrange
         let arena = ParseArena::new();
-        let mut map = ArenaQueryMap::with_capacity(&arena, 2);
+        let mut map = map_with_capacity(&arena, 2);
         let mut pattern_state = acquire_pattern_state();
         insert_pair_arena(
             &arena,
@@ -148,7 +149,7 @@ mod insert_pair_arena {
     fn should_store_under_empty_label_when_key_is_empty_then_use_empty_key() {
         // Arrange
         let arena = ParseArena::new();
-        let mut map = ArenaQueryMap::with_capacity(&arena, 2);
+        let mut map = map_with_capacity(&arena, 2);
         let mut pattern_state = acquire_pattern_state();
 
         // Act
@@ -177,7 +178,7 @@ mod insert_pair_arena {
     fn should_return_duplicate_key_error_when_empty_key_repeats_then_signal_root_duplicate() {
         // Arrange
         let arena = ParseArena::new();
-        let mut map = ArenaQueryMap::with_capacity(&arena, 2);
+        let mut map = map_with_capacity(&arena, 2);
         let mut pattern_state = acquire_pattern_state();
         insert_pair_arena(
             &arena,

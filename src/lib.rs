@@ -22,3 +22,7 @@ pub use stringify::{
 #[cfg(test)]
 #[path = "../tests/common/parsing_helpers.rs"]
 pub(crate) mod parsing_helpers;
+
+#[cfg(test)]
+#[path = "../tests/common/arena_helpers.rs"]
+pub(crate) mod arena_helpers;

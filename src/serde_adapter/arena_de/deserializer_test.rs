@@ -3,18 +3,11 @@ use super::{
     ArenaMapDeserializer, ArenaStructDeserializer, ArenaValueDeserializer,
     deserialize_from_arena_map,
 };
-use crate::parsing::arena::{ArenaQueryMap, ArenaValue, ParseArena};
+use crate::arena_helpers::{alloc_key, map_with_capacity};
+use crate::parsing::arena::{ArenaValue, ParseArena};
 use crate::parsing_helpers::{make_sequence, make_string};
 use crate::serde_adapter::errors::{DeserializeErrorKind, PathSegment};
 use serde::Deserialize;
-
-fn make_map<'arena>(arena: &'arena ParseArena) -> ArenaQueryMap<'arena> {
-    ArenaQueryMap::with_capacity(arena, 4)
-}
-
-fn alloc_key<'arena>(arena: &'arena ParseArena, key: &str) -> &'arena str {
-    arena.alloc_str(key)
-}
 
 fn deserializer_for<'arena>(value: &'arena ArenaValue<'arena>) -> ArenaValueDeserializer<'arena> {
     ArenaValueDeserializer::new(ArenaValueRef::from_value(value), Vec::new())
@@ -40,7 +33,7 @@ mod deserialize_from_arena_map {
      {
         // Arrange
         let arena = ParseArena::new();
-        let mut map = make_map(&arena);
+        let mut map = map_with_capacity(&arena, 4);
         map.try_insert_str(&arena, "name", make_string(&arena, "Yuna"))
             .expect("unique key should insert");
         map.try_insert_str(&arena, "active", make_string(&arena, "true"))
@@ -65,7 +58,7 @@ mod deserialize_from_arena_map {
      {
         // Arrange
         let arena = ParseArena::new();
-        let mut map = make_map(&arena);
+        let mut map = map_with_capacity(&arena, 4);
         map.try_insert_str(&arena, "flag", make_string(&arena, "not-bool"))
             .expect("unique key should insert");
 
@@ -88,7 +81,7 @@ mod deserialize_from_arena_map {
      {
         // Arrange
         let arena = ParseArena::new();
-        let mut map = make_map(&arena);
+        let mut map = map_with_capacity(&arena, 4);
         map.try_insert_str(&arena, "name", make_string(&arena, "Dana"))
             .expect("unique key should insert");
         map.try_insert_str(&arena, "extra", make_string(&arena, "nope"))

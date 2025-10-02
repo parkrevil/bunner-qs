@@ -10,6 +10,7 @@ use super::{
 };
 use crate::DuplicateKeyBehavior;
 use crate::ParseError;
+use crate::arena_helpers::map_with_capacity;
 use crate::nested::pattern_state::{PatternStateGuard, acquire_pattern_state};
 use crate::nested::segment::{ContainerType, ResolvedSegment};
 use crate::parsing::arena::{ArenaQueryMap, ArenaValue, ParseArena};
@@ -18,10 +19,6 @@ use ahash::RandomState;
 use hashbrown::HashMap;
 use smallvec::SmallVec;
 use std::borrow::Cow;
-
-fn map_with_capacity<'arena>(arena: &'arena ParseArena, capacity: usize) -> ArenaQueryMap<'arena> {
-    ArenaQueryMap::with_capacity(arena, capacity)
-}
 
 fn insert_value<'arena>(
     arena: &'arena ParseArena,

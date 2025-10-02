@@ -1,5 +1,6 @@
 use super::*;
-use crate::parsing::arena::{ArenaQueryMap, ArenaValue, ParseArena};
+use crate::arena_helpers::map_with_capacity;
+use crate::parsing::arena::{ArenaValue, ParseArena};
 use serde_json::json;
 
 mod arena_value_to_json {
@@ -69,7 +70,7 @@ mod arena_map_to_json_value {
      {
         // Arrange
         let arena = ParseArena::new();
-        let mut query_map = ArenaQueryMap::with_capacity(&arena, 2);
+        let mut query_map = map_with_capacity(&arena, 2);
         query_map
             .try_insert_str(&arena, "name", ArenaValue::string(arena.alloc_str("Jane")))
             .expect("unique key should insert");
