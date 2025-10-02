@@ -3,8 +3,8 @@ use crate::parsing::arena::{ArenaQueryMap, ArenaValue, ParseArena};
 use crate::serde_adapter::{SerdeQueryError, deserialize_from_arena_map, serialize_to_query_map};
 use ahash::RandomState;
 use indexmap::map::{IntoIter, Iter, IterMut};
-use serde::de::DeserializeOwned;
 use serde::Serialize;
+use serde::de::DeserializeOwned;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Value {
@@ -111,7 +111,10 @@ impl QueryMap {
     }
 }
 
-pub(crate) fn clone_value_into_arena<'arena>(arena: &'arena ParseArena, value: &Value) -> ArenaValue<'arena> {
+pub(crate) fn clone_value_into_arena<'arena>(
+    arena: &'arena ParseArena,
+    value: &Value,
+) -> ArenaValue<'arena> {
     match value {
         Value::String(text) => ArenaValue::string(arena.alloc_str(text)),
         Value::Array(items) => {

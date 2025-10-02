@@ -336,8 +336,8 @@ mod query_map_from_struct {
 
 mod query_map_to_struct {
     use super::*;
-    use serde::{Deserialize, Serialize};
     use crate::SerdeQueryError;
+    use serde::{Deserialize, Serialize};
 
     #[derive(Debug, Serialize, Deserialize, PartialEq)]
     struct Dimensions {
@@ -404,8 +404,8 @@ mod query_map_to_struct {
 }
 
 mod clone_value_into_arena {
-    use super::*;
     use super::clone_value_into_arena_for_test;
+    use super::*;
 
     #[test]
     fn should_clone_string_into_arena_then_produce_arena_string_value() {
