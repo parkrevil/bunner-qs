@@ -5,6 +5,7 @@ use hashbrown::hash_map::RawEntryMut;
 use smallvec::SmallVec;
 
 use super::container::{arena_ensure_container, arena_initial_container};
+use super::key_path::KEY_PATH_INLINE_SEGMENTS;
 use super::pattern_state::PatternState;
 use super::segment::{ContainerType, ResolvedSegment, SegmentKind};
 
@@ -127,7 +128,8 @@ fn arena_set_nested_value<'arena>(
 
     let mut node = current;
     let mut value_to_set = Some(final_value);
-    let mut path: SmallVec<[&str; 16]> = SmallVec::with_capacity(segments.len().min(16));
+    let mut path: SmallVec<[&str; KEY_PATH_INLINE_SEGMENTS]> =
+        SmallVec::with_capacity(segments.len().min(KEY_PATH_INLINE_SEGMENTS));
     path.extend(segments[..depth].iter().map(|segment| segment.as_str()));
 
     loop {
@@ -225,7 +227,7 @@ fn handle_map_segment<'arena, S>(
     entries: &mut ArenaVec<'arena, (&'arena str, ArenaValue<'arena>)>,
     index: &mut hashbrown::HashMap<&'arena str, usize, S>,
     segments: &[ResolvedSegment<'_>],
-    path: &mut SmallVec<[&str; 16]>,
+    path: &mut SmallVec<[&str; KEY_PATH_INLINE_SEGMENTS]>,
     depth: usize,
     segment: &str,
     is_last: bool,
@@ -303,7 +305,7 @@ fn visit_map_node<'arena, 'node, S>(
     entries: &'node mut ArenaVec<'arena, (&'arena str, ArenaValue<'arena>)>,
     index: &'node mut hashbrown::HashMap<&'arena str, usize, S>,
     segments: &[ResolvedSegment<'_>],
-    path: &mut SmallVec<[&str; 16]>,
+    path: &mut SmallVec<[&str; KEY_PATH_INLINE_SEGMENTS]>,
     depth: usize,
     segment: &str,
     is_last: bool,
@@ -335,7 +337,7 @@ fn handle_seq_segment<'arena>(
     ctx: &ArenaSetContext<'arena, '_>,
     items: &mut ArenaVec<'arena, ArenaValue<'arena>>,
     segments: &[ResolvedSegment<'_>],
-    path: &mut SmallVec<[&str; 16]>,
+    path: &mut SmallVec<[&str; KEY_PATH_INLINE_SEGMENTS]>,
     depth: usize,
     segment: &str,
     is_last: bool,
@@ -427,7 +429,7 @@ fn visit_seq_node<'arena, 'node>(
     ctx: &ArenaSetContext<'arena, '_>,
     items: &'node mut ArenaVec<'arena, ArenaValue<'arena>>,
     segments: &[ResolvedSegment<'_>],
-    path: &mut SmallVec<[&str; 16]>,
+    path: &mut SmallVec<[&str; KEY_PATH_INLINE_SEGMENTS]>,
     depth: usize,
     segment: &str,
     is_last: bool,
@@ -449,7 +451,8 @@ fn visit_seq_node<'arena, 'node>(
 }
 
 fn child_capacity_hint(state: &PatternState, path: &[&str], segment: &str) -> usize {
-    let mut full_path: SmallVec<[&str; 16]> = SmallVec::with_capacity(path.len() + 1);
+    let mut full_path: SmallVec<[&str; KEY_PATH_INLINE_SEGMENTS]> =
+        SmallVec::with_capacity(path.len() + 1);
     full_path.extend_from_slice(path);
     full_path.push(segment);
     state
@@ -515,16 +518,18 @@ where
 pub(crate) fn resolve_segments<'a>(
     state: &mut PatternState,
     original: &[&'a str],
-) -> Result<SmallVec<[ResolvedSegment<'a>; 16]>, ParseError> {
+) -> Result<SmallVec<[ResolvedSegment<'a>; KEY_PATH_INLINE_SEGMENTS]>, ParseError> {
     if original.len() <= 1 {
-        let mut out: SmallVec<[ResolvedSegment<'a>; 16]> = SmallVec::with_capacity(original.len());
+        let mut out: SmallVec<[ResolvedSegment<'a>; KEY_PATH_INLINE_SEGMENTS]> =
+            SmallVec::with_capacity(original.len());
         for segment in original {
             out.push(ResolvedSegment::new(std::borrow::Cow::Borrowed(*segment)));
         }
         return Ok(out);
     }
 
-    let mut resolved: SmallVec<[ResolvedSegment<'a>; 16]> = SmallVec::with_capacity(original.len());
+    let mut resolved: SmallVec<[ResolvedSegment<'a>; KEY_PATH_INLINE_SEGMENTS]> =
+        SmallVec::with_capacity(original.len());
 
     resolved.push(ResolvedSegment::new(std::borrow::Cow::Borrowed(
         original[0],

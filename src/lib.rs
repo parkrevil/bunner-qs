@@ -7,6 +7,7 @@ mod nested;
 pub mod parsing;
 mod serde_adapter;
 mod stringify;
+mod util;
 
 pub use config::{
     DuplicateKeyBehavior, ParseOptions, ParseOptionsBuilder, StringifyOptions,

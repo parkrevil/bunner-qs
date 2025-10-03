@@ -10,8 +10,10 @@ pub(crate) enum SegmentKind {
     Other,
 }
 
+pub(crate) const SEGMENT_KEY_INLINE_CAPACITY: usize = 24;
+
 #[derive(Clone, PartialEq, Eq, Hash)]
-pub(crate) struct SegmentKey(SmallVec<[u8; 24]>);
+pub(crate) struct SegmentKey(SmallVec<[u8; SEGMENT_KEY_INLINE_CAPACITY]>);
 
 impl SegmentKey {
     pub(crate) fn new(segment: &str) -> Self {

@@ -1,8 +1,10 @@
 use memchr::memchr;
 use smallvec::SmallVec;
 
-pub fn parse_key_path(key: &str) -> SmallVec<[&str; 16]> {
-    let mut segments: SmallVec<[&str; 16]> = SmallVec::new();
+pub(crate) const KEY_PATH_INLINE_SEGMENTS: usize = 16;
+
+pub fn parse_key_path(key: &str) -> SmallVec<[&str; KEY_PATH_INLINE_SEGMENTS]> {
+    let mut segments: SmallVec<[&str; KEY_PATH_INLINE_SEGMENTS]> = SmallVec::new();
     let bytes = key.as_bytes();
     let mut start = 0usize;
     let mut cursor = 0usize;

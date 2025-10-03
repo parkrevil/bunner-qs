@@ -129,4 +129,49 @@ mod value_map_serializer {
             other => panic!("unexpected error type: {other:?}"),
         }
     }
+
+    #[test]
+    fn should_replace_pending_key_when_next_key_overwritten_then_use_latest_value_label() {
+        let mut serializer = ValueMapSerializer::new();
+
+        SerializeMap::serialize_key(&mut serializer, &"stale")
+            .expect("serializing first key should succeed");
+        SerializeMap::serialize_key(&mut serializer, &"fresh")
+            .expect("serializing replacement key should succeed");
+        SerializeMap::serialize_value(&mut serializer, &"value")
+            .expect("serializing value should succeed");
+        let result = SerializeMap::end(serializer).expect("ending serializer should succeed");
+
+        let map = match result.expect("map serializer should produce a value") {
+            Value::Object(map) => map,
+            other => panic!("unexpected value: {other:?}"),
+        };
+        assert_eq!(map.len(), 1);
+        assert_eq!(map.get("fresh"), Some(&Value::String("value".into())));
+    }
+
+    #[test]
+    fn should_allow_recovery_after_key_serialization_error_then_accept_new_key() {
+        let mut serializer = ValueMapSerializer::new();
+
+        let error = SerializeMap::serialize_key(&mut serializer, &FailingKey)
+            .expect_err("failing key should raise error");
+        match error {
+            SerializeError::Message(message) => assert_eq!(message, "key serialization failed"),
+            other => panic!("unexpected error type: {other:?}"),
+        }
+
+        SerializeMap::serialize_key(&mut serializer, &"recovered")
+            .expect("serializer should continue after key failure");
+        SerializeMap::serialize_value(&mut serializer, &"value")
+            .expect("value should serialize with recovered key");
+        let result = SerializeMap::end(serializer).expect("ending serializer should succeed");
+
+        let map = match result.expect("serializer should yield value") {
+            Value::Object(map) => map,
+            other => panic!("unexpected value: {other:?}"),
+        };
+        assert_eq!(map.len(), 1);
+        assert_eq!(map.get("recovered"), Some(&Value::String("value".into())));
+    }
 }

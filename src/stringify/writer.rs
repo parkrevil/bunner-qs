@@ -1,4 +1,4 @@
-use super::encode::{encode_key_into, encode_value_into};
+use super::encode::{encode_key_into, encode_value_into, estimate_encoded_extra};
 
 pub(crate) fn write_pair(
     output: &mut String,
@@ -9,8 +9,9 @@ pub(crate) fn write_pair(
 ) {
     let separators = 1 + usize::from(!*first_pair);
     let base = separators + key.len() + value.len();
-    let worst_extra = key.len().saturating_mul(2) + value.len().saturating_mul(2);
-    let required = base.saturating_add(worst_extra);
+    let extra = estimate_encoded_extra(key, space_as_plus)
+        .saturating_add(estimate_encoded_extra(value, space_as_plus));
+    let required = base.saturating_add(extra);
     let available = output.capacity() - output.len();
     if available < required {
         output.reserve(required - available);

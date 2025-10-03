@@ -8,6 +8,9 @@ use super::validate::ensure_no_control;
 use super::walker::{Segment, StackItem, append_segment};
 use super::writer::write_pair;
 
+const STACK_INLINE_CAPACITY: usize = 96;
+type StringifyStack<'a> = SmallVec<[StackItem<'a>; STACK_INLINE_CAPACITY]>;
+
 #[derive(Clone, Copy)]
 pub(crate) struct StringifyRuntime {
     pub(crate) space_as_plus: bool,
@@ -52,7 +55,7 @@ struct PreparedState<'map> {
     runtime: StringifyRuntime,
     output: String,
     key_guard: StringGuard,
-    stack: SmallVec<[StackItem<'map>; 96]>,
+    stack: StringifyStack<'map>,
 }
 
 fn prepare_stringify_state<'map>(
@@ -67,7 +70,8 @@ fn prepare_stringify_state<'map>(
     let runtime = StringifyRuntime::new(options);
     let output = String::with_capacity(map.len().saturating_mul(16));
     let key_guard = acquire_string();
-    let mut stack: SmallVec<[StackItem<'map>; 96]> = SmallVec::with_capacity(map.len().min(96));
+    let mut stack: StringifyStack<'map> =
+        SmallVec::with_capacity(map.len().min(STACK_INLINE_CAPACITY));
 
     for (key, value) in map.iter().rev() {
         ensure_no_control(key).map_err(|_| StringifyError::InvalidKey {
@@ -90,7 +94,7 @@ fn prepare_stringify_state<'map>(
 
 fn process_pairs(
     runtime: StringifyRuntime,
-    stack: &mut SmallVec<[StackItem<'_>; 96]>,
+    stack: &mut StringifyStack<'_>,
     key_buffer: &mut String,
     output: &mut String,
     first_pair: &mut bool,
@@ -114,6 +118,7 @@ fn process_pairs(
             }
             Value::Array(arr) => {
                 let current_len = key_buffer.len();
+                stack.reserve(arr.len());
                 for idx in (0..arr.len()).rev() {
                     stack.push(StackItem {
                         parent_len: current_len,
@@ -124,6 +129,7 @@ fn process_pairs(
             }
             Value::Object(obj) => {
                 let current_len = key_buffer.len();
+                stack.reserve(obj.len());
                 for (sub_key, sub_value) in obj.iter().rev() {
                     if ensure_no_control(sub_key).is_err() {
                         return Err(StringifyError::InvalidKey {

@@ -590,6 +590,23 @@ mod error_reporting_tests {
     }
 
     #[test]
+    fn should_report_duplicate_field_when_same_key_repeats() {
+        let err = parse::<SimpleUser>("username=ada&username=bronte")
+            .expect_err("expected duplicate key error");
+
+        match err {
+            ParseError::DuplicateKey { ref key } if key == "username" => {
+                let message = err.to_string();
+                assert!(
+                    message.contains("duplicate key"),
+                    "unexpected duplicate key message: {message}"
+                );
+            }
+            other => panic!("expected duplicate key error, got {other:?}"),
+        }
+    }
+
+    #[test]
     fn should_surface_serde_error_when_encoded_value_modified() {
         let encoded = concat!(
             "profile%E2%9C%A8name=Alias%20User&",

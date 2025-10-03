@@ -1,8 +1,7 @@
+use crate::util::is_ascii_control;
+
 pub(crate) fn ensure_no_control(value: &str) -> Result<(), ()> {
-    if value
-        .chars()
-        .any(|ch| matches!(ch, '\u{0000}'..='\u{001F}' | '\u{007F}'))
-    {
+    if value.chars().any(is_ascii_control) {
         Err(())
     } else {
         Ok(())

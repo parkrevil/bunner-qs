@@ -95,4 +95,17 @@ mod stringify_with {
 
         assert_eq!(result, "body=hello+world");
     }
+
+    #[test]
+    fn should_percent_encode_spaces_when_option_disabled_then_preserve_percent_encoding() {
+        let message = make_message("hello world");
+        let options = StringifyOptions {
+            space_as_plus: false,
+        };
+
+        let result =
+            crate::stringify_with(&message, &options).expect("stringify_with should succeed");
+
+        assert_eq!(result, "body=hello%20world");
+    }
 }

@@ -1,5 +1,6 @@
 use crate::config::ParseOptions;
 use crate::parsing::ParseError;
+use crate::util::is_ascii_control;
 
 pub(crate) fn preflight<'a>(
     raw: &'a str,
@@ -37,7 +38,7 @@ fn check_character(ch: char, index: usize) -> Result<(), ParseError> {
 }
 
 fn is_disallowed_control(ch: char) -> bool {
-    matches!(ch, '\u{0000}'..='\u{001F}' | '\u{007F}') || ch == ' '
+    is_ascii_control(ch) || ch == ' '
 }
 
 #[cfg(test)]

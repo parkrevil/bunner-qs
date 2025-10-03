@@ -174,6 +174,16 @@ mod parse_limits_tests {
         assert_str_path(&parsed, &["a"], "1");
         assert_str_path(&parsed, &["b"], "2");
     }
+
+    #[test]
+    fn should_error_on_parameter_limit_even_when_length_threshold_is_met() {
+        let query = "a=1&b=second";
+        let options = build_parse_options(|builder| builder.max_params(1).max_length(query.len()));
+
+        let (limit, actual) = expect_too_many_parameters(query, &options);
+
+        assert_eq!((limit, actual), (1, 2));
+    }
 }
 
 mod parse_builder_tests {

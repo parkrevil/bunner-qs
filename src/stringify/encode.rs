@@ -38,6 +38,14 @@ pub(crate) fn encode_value_into(buffer: &mut String, value: &str, space_as_plus:
     encode_into(value, space_as_plus, buffer);
 }
 
+pub(crate) fn estimate_encoded_extra(component: &str, space_as_plus: bool) -> usize {
+    component
+        .bytes()
+        .filter(|byte| needs_encoding(*byte, space_as_plus))
+        .count()
+        .saturating_mul(2)
+}
+
 fn encode_into(component: &str, space_as_plus: bool, buffer: &mut String) {
     if component.is_empty() {
         return;
@@ -74,6 +82,21 @@ fn append_encoded(segment: &str, buffer: &mut String) {
         "{}",
         utf8_percent_encode(segment, COMPONENT_ENCODE_SET)
     );
+}
+
+#[inline]
+fn needs_encoding(byte: u8, space_as_plus: bool) -> bool {
+    if byte >= 0x80 {
+        return true;
+    }
+
+    match byte {
+        b' ' => !space_as_plus,
+        0x00..=0x1F | 0x7F => true,
+        b'"' | b'#' | b'%' | b'&' | b'+' | b',' | b'/' | b':' | b';' | b'<' | b'>' | b'='
+        | b'?' | b'@' | b'[' | b'\\' | b']' | b'^' | b'`' | b'{' | b'|' | b'}' => true,
+        _ => false,
+    }
 }
 
 #[cfg(test)]

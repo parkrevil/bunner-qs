@@ -1,6 +1,9 @@
 use crate::model::OrderedMap;
 use crate::parsing::arena::{ArenaQueryMap, ArenaValue, ParseArena};
-use crate::serde_adapter::{SerdeQueryError, deserialize_from_arena_map, serialize_to_query_map};
+use crate::serde_adapter::{
+    DeserializeError, DeserializeErrorKind, SerdeQueryError, deserialize_from_arena_map,
+    serialize_to_query_map,
+};
 use ahash::RandomState;
 use indexmap::map::{IntoIter, Iter, IterMut};
 use serde::Serialize;
@@ -94,9 +97,13 @@ impl QueryMap {
 
         for (key, value) in self.iter() {
             let arena_value = clone_value_into_arena(&arena, value);
-            let result = arena_map.try_insert_str(&arena, key, arena_value);
-            debug_assert!(result.is_ok(), "QueryMap must not contain duplicate keys");
-            result.expect("QueryMap must not contain duplicate keys");
+            if let Err(()) = arena_map.try_insert_str(&arena, key, arena_value) {
+                debug_assert!(false, "QueryMap must not contain duplicate keys");
+                let error = DeserializeError::from_kind(DeserializeErrorKind::DuplicateField {
+                    field: key.clone(),
+                });
+                return Err(SerdeQueryError::from(error));
+            }
         }
 
         deserialize_from_arena_map(&arena_map).map_err(SerdeQueryError::from)

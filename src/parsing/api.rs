@@ -37,9 +37,7 @@ where
         } else {
             if TypeId::of::<T>() == TypeId::of::<JsonValue>() {
                 let json_value = arena_map_to_json_value(arena_map);
-                let json_value = ManuallyDrop::new(json_value);
-                let ptr = (&*json_value) as *const JsonValue as *const T;
-                let value = unsafe { ptr.read() };
+                let value = unsafe { assume_json_value::<T>(json_value) };
                 return Ok(value);
             }
             deserialize_from_arena_map::<T>(arena_map)
@@ -47,6 +45,22 @@ where
                 .map_err(ParseError::from)
         }
     })
+}
+
+/// # Safety
+///
+/// `T` must be `serde_json::Value` (verified by the caller before invoking). The
+/// function assumes ownership of the provided `JsonValue` without running Drop
+/// for the original instance.
+#[inline]
+unsafe fn assume_json_value<T>(value: JsonValue) -> T
+where
+    T: 'static,
+{
+    debug_assert_eq!(TypeId::of::<T>(), TypeId::of::<JsonValue>());
+    let value = ManuallyDrop::new(value);
+    let ptr = (&*value) as *const JsonValue as *const T;
+    unsafe { ptr.read() }
 }
 
 #[cfg(test)]
