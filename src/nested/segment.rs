@@ -10,12 +10,6 @@ pub(crate) enum SegmentKind {
     Other,
 }
 
-/// Owned key for nested segment lookups.
-///
-/// ## Invariant
-/// `SegmentKey` instances can only be created through [`SegmentKey::new`], which
-/// accepts `&str` values originating from decoded query segments. This ensures
-/// the internal byte storage always contains valid UTF-8.
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub(crate) struct SegmentKey(SmallVec<[u8; 24]>);
 

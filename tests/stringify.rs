@@ -320,6 +320,5 @@ fn should_preserve_none_placeholders_when_sequence_contains_gaps() {
     };
 
     let encoded = stringify(&payload).expect("sequence placeholders should be preserved");
-    // Order should include the empty slot for index 1.
     assert_eq!(encoded, "tags%5B0%5D=zero&tags%5B1%5D=&tags%5B2%5D=two");
 }

@@ -216,26 +216,20 @@ mod struct_roundtrip_tests {
 
     #[test]
     fn should_use_default_struct_when_parsing_empty_input() -> Result<(), Box<dyn Error>> {
-        // Arrange
         let query = "";
 
-        // Act
         let parsed: SimpleUser = parse(query)?;
 
-        // Assert
         assert_eq!(parsed, SimpleUser::default());
         Ok(())
     }
 
     #[test]
     fn should_populate_fields_when_scalars_struct_is_parsed() -> Result<(), Box<dyn Error>> {
-        // Arrange
         let query = "host=edge.example&port=8080&secure=true";
 
-        // Act
         let peer: NetworkPeer = parse(query)?;
 
-        // Assert
         assert_eq!(peer.host, "edge.example");
         assert_eq!(peer.port, 8080);
         assert!(peer.secure);
@@ -244,7 +238,6 @@ mod struct_roundtrip_tests {
 
     #[test]
     fn should_preserve_values_when_primitive_scalars_roundtrip() -> Result<(), Box<dyn Error>> {
-        // Arrange
         let payload = PrimitiveScalars {
             small_signed: -12,
             medium_signed: -32000,
@@ -256,25 +249,21 @@ mod struct_roundtrip_tests {
             symbol: 'Ω',
         };
 
-        // Act
         let encoded = stringify(&payload)?;
         let reparsed: PrimitiveScalars = parse(&encoded)?;
 
-        // Assert
         assert_eq!(reparsed, payload);
         Ok(())
     }
 
     #[test]
     fn should_preserve_case_when_camel_case_struct_roundtrips() -> Result<(), Box<dyn Error>> {
-        // Arrange
         let user = CamelCaseUser {
             first_name: "Ada".into(),
             last_name: "Lovelace".into(),
             is_active: true,
         };
 
-        // Act
         let encoded = stringify(&user)?;
         assert_encoded_contains(
             &encoded,
@@ -282,7 +271,6 @@ mod struct_roundtrip_tests {
         );
         let reparsed: CamelCaseUser = parse(&encoded)?;
 
-        // Assert
         assert_eq!(reparsed, user);
         Ok(())
     }
@@ -290,23 +278,18 @@ mod struct_roundtrip_tests {
     #[test]
     fn should_preserve_fields_when_struct_roundtrips_via_public_api() -> Result<(), Box<dyn Error>>
     {
-        // Arrange
         let profile = profile_form();
 
-        // Act
         let reparsed = roundtrip_via_public_api(&profile)?;
 
-        // Assert
         assert_eq!(reparsed, profile);
         Ok(())
     }
 
     #[test]
     fn should_keep_flat_fields_when_flattened_struct_roundtrips() -> Result<(), Box<dyn Error>> {
-        // Arrange
         let profile = flattened_profile();
 
-        // Act
         let encoded = stringify(&profile)?;
         assert_encoded_contains(
             &encoded,
@@ -314,17 +297,14 @@ mod struct_roundtrip_tests {
         );
         let reparsed: FlattenedProfile = parse(&encoded)?;
 
-        // Assert
         assert_eq!(reparsed, profile);
         Ok(())
     }
 
     #[test]
     fn should_preserve_variant_when_tagged_enum_roundtrips() -> Result<(), Box<dyn Error>> {
-        // Arrange
         let settings = tagged_settings();
 
-        // Act
         let encoded = stringify(&settings)?;
         assert_encoded_contains(
             &encoded,
@@ -336,7 +316,6 @@ mod struct_roundtrip_tests {
         );
         let reparsed: TaggedSettings = parse(&encoded)?;
 
-        // Assert
         assert_eq!(reparsed, settings);
         Ok(())
     }
@@ -344,61 +323,49 @@ mod struct_roundtrip_tests {
     #[test]
     fn should_remove_padding_when_custom_deserializer_trims_whitespace()
     -> Result<(), Box<dyn Error>> {
-        // Arrange
         let raw = concat!(
             "notification_kind=Sms&",
             "notification%5Bnumber%5D=010-0000&",
             "access_token=%20TRIM%20"
         );
 
-        // Act
         let parsed: TaggedSettings = parse(raw)?;
 
-        // Assert
         assert_eq!(parsed.token, "TRIM");
         Ok(())
     }
 
     #[test]
     fn should_preserve_entries_when_btree_map_roundtrips() -> Result<(), Box<dyn Error>> {
-        // Arrange
         let mut data = BTreeMap::new();
         data.insert("city".to_string(), "Seoul".to_string());
         data.insert("country".to_string(), "KR".to_string());
 
-        // Act
         let restored = roundtrip_via_public_api(&data)?;
 
-        // Assert
         assert_eq!(restored, data);
         Ok(())
     }
 
     #[test]
     fn should_retain_values_when_sequence_field_roundtrips() -> Result<(), Box<dyn Error>> {
-        // Arrange
         let record = TaggedRecord {
             name: "release".into(),
             tags: vec!["stable".into(), "serde".into()],
         };
 
-        // Act
         let restored = roundtrip_via_public_api(&record)?;
 
-        // Assert
         assert_eq!(restored, record);
         Ok(())
     }
 
     #[test]
     fn should_copy_values_when_borrowed_cow_fields_are_parsed() -> Result<(), Box<dyn Error>> {
-        // Arrange
         let query = "title=Bonjour&note=Monde";
 
-        // Act
         let parsed: BorrowedPayload = parse(query)?;
 
-        // Assert
         assert_eq!(parsed.title.as_ref(), "Bonjour");
         assert_eq!(parsed.note.as_deref(), Some("Monde"));
         Ok(())
@@ -406,13 +373,10 @@ mod struct_roundtrip_tests {
 
     #[test]
     fn should_coerce_scalars_when_json_value_is_parsed() -> Result<(), Box<dyn Error>> {
-        // Arrange
         let query = "post%5Btitle%5D=Hello&post%5Bviews%5D=42&post%5Bpublished%5D=false";
 
-        // Act
         let value: Value = parse(query)?;
 
-        // Assert
         let expected = json!({
             "post": {"title": "Hello", "views": "42", "published": "false"}
         });
@@ -422,12 +386,10 @@ mod struct_roundtrip_tests {
 
     #[test]
     fn should_succeed_in_deep_roundtrip_when_custom_options_used() -> Result<(), Box<dyn Error>> {
-        // Arrange
         let profile = complex_profile();
         let stringify_options = plus_space_stringify_options();
         let parse_options = relaxed_parse_options();
 
-        // Act
         let encoded = stringify_with(&profile, &stringify_options)?;
         let reparsed: ProfileForm = parse_with(&encoded, &parse_options)?;
         let profile_value =
@@ -438,7 +400,6 @@ mod struct_roundtrip_tests {
             &parse_options,
         );
 
-        // Assert
         assert_eq!(reparsed, profile);
         Ok(())
     }
@@ -446,24 +407,19 @@ mod struct_roundtrip_tests {
     #[test]
     fn should_preserve_contact_fields_when_to_json_style_roundtrip_runs()
     -> Result<(), SerdeQueryError> {
-        // Arrange
         let profile = profile_form();
 
-        // Act
         let encoded = stringify(&profile).expect("stringify should succeed");
         let value: Value = parse(&encoded).expect("parse should succeed");
 
-        // Assert
         assert_str_path(&value, &["contact📞", "email📧"], "ada@example.com");
         Ok(())
     }
 
     #[test]
     fn should_surface_profile_when_stringify_shapes_nested_data() -> Result<(), Box<dyn Error>> {
-        // Arrange
         let profile = desired_profile();
 
-        // Act
         let encoded = stringify(&profile)?;
         assert_parse_roundtrip(&encoded);
         let parsed: Value = parse(&encoded)?;
@@ -471,7 +427,6 @@ mod struct_roundtrip_tests {
             serde_json::to_value(&profile).expect("profile should convert to Value");
         let _ = assert_stringify_roundtrip(&profile_value);
 
-        // Assert
         assert_str_path(&parsed, &["profile✨name"], "ada");
         assert_str_path(&parsed, &["age✨"], "36");
         assert_str_path(&parsed, &["contact", "email📮"], "ada@example.com");
@@ -530,7 +485,6 @@ mod enum_roundtrip_tests {
     #[test]
     fn should_show_deserialize_error_when_internally_tagged_enum_stringified()
     -> Result<(), Box<dyn Error>> {
-        // Arrange
         let envelope = InternalEnvelope {
             message: InternalMessage::Text {
                 text: "pong".into(),
@@ -538,7 +492,6 @@ mod enum_roundtrip_tests {
             priority: 9,
         };
 
-        // Act
         let encoded = stringify(&envelope)?;
         assert_encoded_contains(
             &encoded,
@@ -549,7 +502,6 @@ mod enum_roundtrip_tests {
             ],
         );
 
-        // Assert
         asserts::assert_err_matches!(
             parse::<InternalEnvelope>(&encoded),
             ParseError::Serde(SerdeQueryError::Deserialize(_)) => |message| {
@@ -562,20 +514,17 @@ mod enum_roundtrip_tests {
     #[test]
     fn should_report_variant_mismatch_when_untagged_enum_stringified() -> Result<(), Box<dyn Error>>
     {
-        // Arrange
         let envelope = UntaggedEnvelope {
             alias: "coords".into(),
             value: UntaggedValue::Pair { left: -3, right: 9 },
         };
 
-        // Act
         let encoded = stringify(&envelope)?;
         assert_encoded_contains(
             &encoded,
             &["alias=coords", "value%5Bleft%5D=-3", "value%5Bright%5D=9"],
         );
 
-        // Assert
         asserts::assert_err_matches!(
             parse::<UntaggedEnvelope>(&encoded),
             ParseError::Serde(SerdeQueryError::Deserialize(_)) => |message| {
@@ -594,28 +543,22 @@ mod options_behavior_tests {
 
     #[test]
     fn should_detect_violation_when_parse_options_are_tightened() {
-        // Arrange
         let options = build_parse_options(|builder| builder.max_params(2));
 
-        // Act
         let err =
             parse_with::<SimpleUser>("username=ada&age=36&active=true", &options).unwrap_err();
 
-        // Assert
         assert!(matches!(err, ParseError::TooManyParameters { .. }));
     }
 
     #[test]
     fn should_emit_plus_when_stringify_options_control_space_encoding() -> Result<(), Box<dyn Error>>
     {
-        // Arrange
         let value = json_from_pairs(&[("note", "hello world")]);
         let options = build_stringify_options(|builder| builder.space_as_plus(true));
 
-        // Act
         let encoded = stringify_with(&value, &options)?;
 
-        // Assert
         assert_eq!(encoded, "note=hello+world");
         Ok(())
     }
@@ -626,87 +569,68 @@ mod error_reporting_tests {
 
     #[test]
     fn should_surface_deserialize_error_when_struct_parse_fails() {
-        // Arrange
         let query = "host=delta&port=not-a-number&secure=maybe";
 
-        // Act
         let err = parse::<NetworkPeer>(query).unwrap_err();
 
-        // Assert
         assert!(matches!(err, ParseError::Serde(_)));
     }
 
     #[test]
     fn should_fail_to_parse_when_unknown_field_is_added() {
-        // Arrange
         let mut object = json!({ "username": "ada", "age": 36, "active": true });
         if let Value::Object(map) = &mut object {
             map.insert("unexpected".into(), Value::String("boom".into()));
         }
 
-        // Act
         let encoded = stringify(&object).expect("stringify should succeed");
         let result = parse::<SimpleUser>(&encoded);
 
-        // Assert
         assert!(matches!(result, Err(ParseError::Serde(_))));
     }
 
     #[test]
     fn should_surface_serde_error_when_encoded_value_modified() {
-        // Arrange
         let encoded = concat!(
             "profile%E2%9C%A8name=Alias%20User&",
             "age%E2%9C%A8=not-a-number&",
             "contact[email%F0%9F%93%AE]=alias%40example.com"
         );
 
-        // Act
         let result = parse::<DesiredProfile>(encoded);
 
-        // Assert
         assert!(matches!(result, Err(ParseError::Serde(_))));
     }
 
     #[test]
     fn should_report_detail_when_invalid_bool_provided() {
-        // Arrange
         let message = parse_serde_error_message::<BoolField>("secure=maybe");
 
-        // Act
         let contains = message.contains("invalid boolean literal `maybe`");
 
-        // Assert
         assert!(contains, "unexpected deserialize error: {message}");
     }
 
     #[test]
     fn should_report_expected_object_when_nested_struct_receives_string() {
-        // Arrange
         let message = parse_serde_error_message::<NestedWrapper>("peer=value");
 
-        // Act
         let contains = message.contains("expected an object for struct `NestedPeer`");
 
-        // Assert
         assert!(contains, "unexpected deserialize error: {message}");
     }
 
     #[test]
     fn should_report_unexpected_type_when_unit_field_receives_value() {
-        // Arrange
         let message = parse_serde_error_message::<UnitHolder>("empty=value");
 
-        // Act
         let contains = message.contains("expected empty string for unit");
 
-        // Assert
         assert!(contains, "unexpected deserialize error: {message}");
     }
 
     #[test]
     fn should_report_expected_string_when_flatten_structure_mismatches() {
-        // Arrange
         #[allow(dead_code)]
         #[derive(Debug, Deserialize, Default)]
         struct FlattenInner {
@@ -721,10 +645,8 @@ mod error_reporting_tests {
             inner: FlattenInner,
         }
 
-        // Act
         let message = parse_serde_error_message::<FlattenWrapper>("prefix=hi&suffix[extra]=boom");
 
-        // Assert
         assert!(
             message.contains("invalid type: map, expected a string"),
             "unexpected flatten error message: {message}"
@@ -791,38 +713,29 @@ mod adapter_behavior_tests {
 
     #[test]
     fn should_report_error_when_custom_adapter_detects_lowercase() {
-        // Arrange
         let message = parse_serde_error_message::<UppercaseAdapter>("code=abc123");
 
-        // Act
         let contains = message.contains("uppercase letters");
 
-        // Assert
         assert!(contains, "unexpected custom adapter error: {message}");
     }
 
     #[test]
     fn should_uppercase_code_when_custom_adapter_transforms_value() -> Result<(), Box<dyn Error>> {
-        // Arrange
         let query = "code=abc123";
 
-        // Act
         let parsed: UppercaseTransformAdapter = parse(query)?;
 
-        // Assert
         assert_eq!(parsed.code, "ABC123");
         Ok(())
     }
 
     #[test]
     fn should_use_default_when_value_is_ignored_by_adapter() -> Result<(), Box<dyn Error>> {
-        // Arrange
         let query = "provided=live&token=client-overrides";
 
-        // Act
         let parsed: SkipAdapter = parse(query)?;
 
-        // Assert
         assert_eq!(parsed.provided, "live");
         assert_eq!(parsed.token, default_token());
         Ok(())
@@ -851,10 +764,8 @@ mod stringify_error_tests {
 
     #[test]
     fn should_return_error_when_tuple_variant_stringified() {
-        // Arrange
         let value = UnsupportedVariant::Tuple("lhs".into(), "rhs".into());
 
-        // Act
         asserts::assert_err_matches!(
             stringify(&value),
             SerdeStringifyError::Serialize(SerdeQueryError::Serialize(_)) => |message| {
@@ -865,11 +776,9 @@ mod stringify_error_tests {
 
     #[test]
     fn should_report_error_when_map_key_not_string() {
-        // Arrange
         let mut map = BTreeMap::new();
         map.insert(UnitKey, "value".to_string());
 
-        // Act
         asserts::assert_err_matches!(
             stringify(&map),
             SerdeStringifyError::Serialize(SerdeQueryError::Serialize(_)) => |message| {

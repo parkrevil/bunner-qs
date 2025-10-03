@@ -40,13 +40,10 @@ mod parse_roundtrip_tests {
 
     #[test]
     fn should_roundtrip_deep_structures_when_nested_contacts_present() {
-        // Arrange
         let query = "profile[name]=Ada&profile[contacts][email]=ada@example.com&profile[contacts][phones][0]=+44%20123&profile[contacts][phones][1]=+44%20987&profile[meta][created]=2024";
 
-        // Act
         let parsed = assert_parse_roundtrip(query);
 
-        // Assert
         assert_str_path(&parsed, &["profile", "name"], "Ada");
         assert_str_path(
             &parsed,
@@ -63,17 +60,14 @@ mod parse_roundtrip_tests {
 
     #[test]
     fn should_preserve_objects_when_arrays_have_gaps() {
-        // Arrange
         let query = "key[0][a]=1&key[1]=&key[2][b]=2";
 
-        // Act
         let parsed = parse_value(query);
         let key_array = parsed
             .get("key")
             .and_then(Value::as_array)
             .expect("key should parse as array");
 
-        // Assert
         assert_eq!(key_array.len(), 3);
         assert_eq!(key_array[0].get("a").and_then(Value::as_str), Some("1"));
         assert_eq!(key_array[1].as_str(), Some(""));
@@ -82,37 +76,28 @@ mod parse_roundtrip_tests {
 
     #[test]
     fn should_collect_values_when_uniform_append_pattern_used() {
-        // Arrange
         let query = "tags[]=rust&tags[]=serde";
 
-        // Act
         let parsed = parse_value(query);
 
-        // Assert
         assert_string_array_path(&parsed, &["tags"], &["rust", "serde"]);
     }
 
     #[test]
     fn should_collect_values_when_uniform_numeric_pattern_used() {
-        // Arrange
         let query = "items[0]=apple&items[1]=banana";
 
-        // Act
         let parsed = parse_value(query);
 
-        // Assert
         assert_string_array_path(&parsed, &["items"], &["apple", "banana"]);
     }
 
     #[test]
     fn should_preserve_order_when_stringifying_numeric_indices() {
-        // Arrange
         let map = json!({ "items": ["alpha", "beta", "gamma"] });
 
-        // Act
         let reparsed = stringify_roundtrip(&map);
 
-        // Assert
         assert_string_array_path(&reparsed, &["items"], &["alpha", "beta", "gamma"]);
     }
 }
@@ -122,73 +107,55 @@ mod parse_conflict_tests {
 
     #[test]
     fn should_return_duplicate_key_when_array_and_scalar_conflict() {
-        // Arrange
         let query = "items[0]=apple&items[0][kind]=fruit";
 
-        // Act
         let key = duplicate_key_key(query);
 
-        // Assert
         assert_eq!(key, "items");
     }
 
     #[test]
     fn should_return_duplicate_key_when_array_and_object_conflict() {
-        // Arrange
         let query = "items[0][kind]=fruit&items[0]=apple";
 
-        // Act
         let key = duplicate_key_key(query);
 
-        // Assert
         assert!(matches!(key.as_str(), "items" | "0"));
     }
 
     #[test]
     fn should_return_duplicate_key_when_append_and_numeric_patterns_mix() {
-        // Arrange
         let query = "key[]=1&key[0]=1";
 
-        // Act
         let key = duplicate_key_key(query);
 
-        // Assert
         assert_eq!(key, "key");
     }
 
     #[test]
     fn should_return_duplicate_key_when_scalar_and_nested_patterns_mix() {
-        // Arrange
         let query = "foo=1&foo[bar]=2";
 
-        // Act
         let key = duplicate_key_key(query);
 
-        // Assert
         assert_eq!(key, "foo");
     }
 
     #[test]
     fn should_return_duplicate_key_when_scalar_duplicates_present() {
-        // Arrange
         let query = "foo=1&foo=2";
 
-        // Act
         let key = duplicate_key_key(query);
 
-        // Assert
         assert_eq!(key, "foo");
     }
 
     #[test]
     fn should_return_duplicate_key_when_numeric_indexes_are_sparse() {
-        // Arrange
         let query = "items[0]=apple&items[2]=cherry";
 
-        // Act
         let key = duplicate_key_key(query);
 
-        // Assert
         assert_eq!(key, "items");
     }
 }
@@ -198,14 +165,11 @@ mod parse_limits_tests {
 
     #[test]
     fn should_report_depth_error_when_limit_is_exceeded() {
-        // Arrange
         let query = "profile[contacts][phones][0][number]=+44%20123";
 
-        // Act
         parse_with_depth(query, 4).expect("depth of four should succeed");
         let error = depth_error(query, 2);
 
-        // Assert
         match error {
             ParseError::DepthExceeded { key, limit } => {
                 assert_eq!(key, "profile[contacts][phones][0][number]");

@@ -5,8 +5,8 @@ thread_local! {
     static BYTE_BUFFER: RefCell<Vec<u8>> = const { RefCell::new(Vec::new()) };
 }
 
-const MAX_STRING_BUFFER_CAPACITY: usize = 1 << 20; // 1 MiB
-const MAX_BYTE_BUFFER_CAPACITY: usize = 1 << 20; // 1 MiB
+const MAX_STRING_BUFFER_CAPACITY: usize = 1 << 20;
+const MAX_BYTE_BUFFER_CAPACITY: usize = 1 << 20;
 
 pub(crate) struct StringGuard {
     buffer: String,

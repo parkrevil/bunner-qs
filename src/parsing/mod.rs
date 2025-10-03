@@ -13,5 +13,3 @@ pub use self::errors::ParseError;
 
 pub mod api;
 pub use api::{ParseResult, parse, parse_with};
-
-// tests live alongside their APIs in api.rs (api_test.rs)

@@ -15,7 +15,6 @@ const QUERY_ROUNDTRIP_DATA: &str = include_str!(concat!(
     "/tests/data/query_roundtrip.json"
 ));
 
-/// Declarative entry-points for the shipped corpora that back our seed-based tests.
 pub fn allow_cases() -> Vec<SeedCase> {
     load_cases_from_str(QUERY_ALLOW_DATA)
 }
@@ -28,12 +27,10 @@ pub fn roundtrip_cases() -> Vec<RoundTripSeed> {
     load_roundtrip_cases_from_str(QUERY_ROUNDTRIP_DATA)
 }
 
-/// Load a custom allow/reject corpus from a UTF-8 JSON blob.
 pub fn load_cases_from_str(data: &str) -> Vec<SeedCase> {
     serde_json::from_str(data).expect("seed JSON should parse")
 }
 
-/// Load a custom roundtrip corpus from a UTF-8 JSON blob.
 pub fn load_roundtrip_cases_from_str(data: &str) -> Vec<RoundTripSeed> {
     serde_json::from_str(data).expect("roundtrip seed JSON should parse")
 }

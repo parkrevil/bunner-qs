@@ -9,11 +9,9 @@ mod with_arena_query_map {
 
     #[test]
     fn should_populate_map_with_unique_pairs_when_all_keys_are_unique_then_store_all_pairs() {
-        // Arrange
         let trimmed = "foo=bar&baz=qux";
         let options = ParseOptions::default();
 
-        // Act
         let result = with_arena_query_map(trimmed, 0, &options, |_, map| {
             let entries = map.entries_slice();
             assert_eq!(entries.len(), 2);
@@ -35,21 +33,17 @@ mod with_arena_query_map {
             Ok(())
         });
 
-        // Assert
         result.expect("unique pairs should parse");
     }
 
     #[test]
     fn should_return_error_when_duplicate_key_appears_then_include_conflicting_key() {
-        // Arrange
         let trimmed = "foo=one&foo=two";
         let options = ParseOptions::default();
 
-        // Act
         let error =
             with_arena_query_map(trimmed, 0, &options, |_, _| Ok(())).expect_err("duplicate key");
 
-        // Assert
         match error {
             ParseError::DuplicateKey { key } => assert_eq!(key, "foo"),
             other => panic!("expected duplicate key error, got {other:?}"),
@@ -58,14 +52,12 @@ mod with_arena_query_map {
 
     #[test]
     fn should_allow_duplicate_keys_when_first_wins_enabled_then_preserve_initial_value() {
-        // Arrange
         let trimmed = "foo=one&foo=two";
         let options = ParseOptions::builder()
             .duplicate_keys(DuplicateKeyBehavior::FirstWins)
             .build()
             .expect("builder should succeed");
 
-        // Act
         let result = with_arena_query_map(trimmed, 0, &options, |_, map| {
             let entries = map.entries_slice();
             assert_eq!(entries.len(), 1);
@@ -78,20 +70,17 @@ mod with_arena_query_map {
             Ok(())
         });
 
-        // Assert
         result.expect("first wins should allow duplicates");
     }
 
     #[test]
     fn should_overwrite_duplicate_keys_when_last_wins_enabled_then_store_latest_value() {
-        // Arrange
         let trimmed = "foo=one&foo=two";
         let options = ParseOptions::builder()
             .duplicate_keys(DuplicateKeyBehavior::LastWins)
             .build()
             .expect("builder should succeed");
 
-        // Act
         let result = with_arena_query_map(trimmed, 0, &options, |_, map| {
             let entries = map.entries_slice();
             assert_eq!(entries.len(), 1);
@@ -104,24 +93,20 @@ mod with_arena_query_map {
             Ok(())
         });
 
-        // Assert
         result.expect("last wins should replace duplicate values");
     }
 
     #[test]
     fn should_return_too_many_parameters_when_parameter_limit_exceeded_then_report_limit_and_actual()
      {
-        // Arrange
         let options = ParseOptions::builder()
             .max_params(1)
             .build()
             .expect("builder should succeed");
 
-        // Act
         let error =
             with_arena_query_map("a=1&b=2", 0, &options, |_, _| Ok(())).expect_err("param limit");
 
-        // Assert
         match error {
             ParseError::TooManyParameters { limit, actual } => {
                 assert_eq!(limit, 1);
@@ -169,10 +154,8 @@ mod with_arena_query_map {
 
     #[test]
     fn should_ignore_trailing_ampersand_when_query_ends_with_separator_then_parse_existing_pairs() {
-        // Arrange
         let options = ParseOptions::default();
 
-        // Act
         let result = with_arena_query_map("foo=bar&", 0, &options, |_, map| {
             let entries = map.entries_slice();
             assert_eq!(entries.len(), 1);
@@ -184,20 +167,16 @@ mod with_arena_query_map {
             Ok(())
         });
 
-        // Assert
         result.expect("trailing separator should be ignored");
     }
 
     #[test]
     fn should_return_invalid_percent_error_when_value_contains_non_hex_digits_then_report_index() {
-        // Arrange
         let options = ParseOptions::default();
 
-        // Act
         let error = with_arena_query_map("foo=%GG", 0, &options, |_, _| Ok(()))
             .expect_err("invalid percent encoding should error");
 
-        // Assert
         match error {
             ParseError::InvalidPercentEncoding { index } => assert_eq!(index, 4),
             other => panic!("expected InvalidPercentEncoding error, got {other:?}"),
@@ -206,11 +185,9 @@ mod with_arena_query_map {
 
     #[test]
     fn should_store_key_without_value_when_equals_missing_then_use_empty_value() {
-        // Arrange
         let options = ParseOptions::default();
         let trimmed = "flag";
 
-        // Act
         let result = with_arena_query_map(trimmed, 12, &options, |_, map| {
             let entries = map.entries_slice();
             assert_eq!(entries.len(), 1);
@@ -223,17 +200,14 @@ mod with_arena_query_map {
             Ok(())
         });
 
-        // Assert
         result.expect("missing equals should produce empty value");
     }
 
     #[test]
     fn should_skip_empty_segments_when_multiple_separators_appear_consecutively() {
-        // Arrange
         let options = ParseOptions::default();
         let trimmed = "&&foo=bar";
 
-        // Act
         let result = with_arena_query_map(trimmed, 0, &options, |_, map| {
             let entries = map.entries_slice();
             assert_eq!(entries.len(), 1);
@@ -245,17 +219,14 @@ mod with_arena_query_map {
             Ok(())
         });
 
-        // Assert
         result.expect("consecutive separators should be ignored");
     }
 
     #[test]
     fn should_include_additional_equals_in_value_when_present_then_keep_full_segment() {
-        // Arrange
         let options = ParseOptions::default();
         let trimmed = "token==value";
 
-        // Act
         let result = with_arena_query_map(trimmed, 3, &options, |_, map| {
             let entries = map.entries_slice();
             assert_eq!(entries.len(), 1);
@@ -268,7 +239,6 @@ mod with_arena_query_map {
             Ok(())
         });
 
-        // Assert
         result.expect("additional equals should remain in value");
     }
 }
@@ -278,7 +248,6 @@ mod parse_segments_into_map {
 
     #[test]
     fn should_parse_segments_into_map_when_query_contains_multiple_pairs_then_populate_map() {
-        // Arrange
         let arena = ParseArena::new();
         let mut map = map_with_capacity(&arena, 2);
         let mut pattern_state = acquire_pattern_state();
@@ -286,7 +255,6 @@ mod parse_segments_into_map {
         let trimmed = "foo=bar&baz=qux";
         let mut scratch = Vec::new();
 
-        // Act
         {
             let mut context = ParseContext {
                 arena: &arena,
@@ -303,7 +271,6 @@ mod parse_segments_into_map {
                 .expect("parse should succeed");
         }
 
-        // Assert
         let entries = map.entries_slice();
         assert_eq!(entries.len(), 2);
         assert_eq!(entries[0].0, "foo");
@@ -312,7 +279,6 @@ mod parse_segments_into_map {
 
     #[test]
     fn should_return_too_many_parameters_error_when_pairs_exceed_limit_then_report_counts() {
-        // Arrange
         let arena = ParseArena::new();
         let mut map = map_with_capacity(&arena, 4);
         let mut pattern_state = acquire_pattern_state();
@@ -323,7 +289,6 @@ mod parse_segments_into_map {
         let trimmed = "a=1&b=2";
         let mut scratch = Vec::new();
 
-        // Act
         let error = {
             let mut context = ParseContext {
                 arena: &arena,
@@ -340,7 +305,6 @@ mod parse_segments_into_map {
                 .expect_err("limit should trigger error")
         };
 
-        // Assert
         match error {
             ParseError::TooManyParameters { limit, actual } => {
                 assert_eq!(limit, 1);

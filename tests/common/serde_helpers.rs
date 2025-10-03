@@ -40,9 +40,6 @@ pub fn assert_stringify_roundtrip_with_options(
 ) -> Value {
     let encoded = stringify_with(value, stringify_options)
         .expect("stringify_with should succeed with provided options");
-    // Invoke the encoded fragment assertion helper even when no fragments are required, so
-    // integration tests that only depend on parse helpers still exercise this utility and the
-    // linted build sees it as used.
     assert_encoded_contains(&encoded, &[]);
     let reparsed: Value = parse_with(&encoded, parse_options)
         .expect("parse_with should succeed with provided options");

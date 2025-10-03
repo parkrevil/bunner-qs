@@ -139,7 +139,6 @@ fn arena_set_nested_value<'arena>(
         let is_last = depth == segments.len() - 1;
 
         match node {
-            // Handle insertion into map structures
             ArenaValue::Map { entries, index } => match visit_map_node(
                 ctx,
                 entries,
@@ -158,7 +157,6 @@ fn arena_set_nested_value<'arena>(
                     path.push(segment);
                 }
             },
-            // Handle insertion into sequence structures
             ArenaValue::Seq(items) => match visit_seq_node(
                 ctx,
                 items,

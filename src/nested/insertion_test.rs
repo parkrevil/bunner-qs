@@ -1,6 +1,3 @@
-//! Function-scoped unit tests for the nested insertion helpers.
-//! Each module mirrors a utility in `insertion.rs` so that regressions remain localized.
-
 use super::{
     ArenaSetContext, NodePreparation, TraversalStep, arena_build_nested_path, arena_is_placeholder,
     arena_set_nested_value, child_capacity_hint, get_root_value, handle_map_segment,

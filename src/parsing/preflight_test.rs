@@ -6,17 +6,14 @@ mod preflight {
 
     #[test]
     fn should_return_error_when_input_exceeds_max_length_then_report_limit() {
-        // Arrange
         let raw = "abcdef";
         let options = ParseOptions {
             max_length: Some(3),
             ..ParseOptions::default()
         };
 
-        // Act
         let result = preflight(raw, &options);
 
-        // Assert
         assert!(matches!(
             result,
             Err(ParseError::InputTooLong { limit }) if limit == 3
@@ -26,27 +23,21 @@ mod preflight {
     #[test]
     fn should_return_trimmed_slice_and_offset_when_leading_question_mark_present_then_strip_prefix()
     {
-        // Arrange
         let raw = "?foo=bar";
         let options = ParseOptions::default();
 
-        // Act
         let result = preflight(raw, &options).expect("preflight should succeed");
 
-        // Assert
         assert_eq!(result, ("foo=bar", 1));
     }
 
     #[test]
     fn should_return_error_with_index_when_internal_question_mark_found_then_report_position() {
-        // Arrange
         let raw = "a?=1";
         let options = ParseOptions::default();
 
-        // Act
         let result = preflight(raw, &options);
 
-        // Assert
         assert!(matches!(
             result,
             Err(ParseError::UnexpectedQuestionMark { index }) if index == 1
@@ -56,14 +47,11 @@ mod preflight {
     #[test]
     fn should_return_invalid_character_error_when_control_character_disallowed_then_report_character_and_index()
      {
-        // Arrange
         let raw = format!("foo{}bar", '\u{001F}');
         let options = ParseOptions::default();
 
-        // Act
         let result = preflight(&raw, &options);
 
-        // Assert
         assert!(matches!(
             result,
             Err(ParseError::InvalidCharacter { character, index })
@@ -73,14 +61,11 @@ mod preflight {
 
     #[test]
     fn should_report_offset_when_space_after_prefix_detected_then_return_invalid_character_error() {
-        // Arrange
         let raw = "?foo bar";
         let options = ParseOptions::default();
 
-        // Act
         let result = preflight(raw, &options);
 
-        // Assert
         assert!(matches!(
             result,
             Err(ParseError::InvalidCharacter { character, index })

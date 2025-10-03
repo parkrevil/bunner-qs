@@ -47,7 +47,6 @@ fn run_parse_bench(c: &mut Criterion, name: &str, scenario: Scenario) {
         max_depth,
     } = scenario;
 
-    // 유지한 stringify 옵션 필드는 현재 벤치에서 사용하지 않지만, 구조체 필드 생존을 위해 참조만 남겨둔다.
     let _stringify_options = stringify_options;
 
     let baseline: Value =

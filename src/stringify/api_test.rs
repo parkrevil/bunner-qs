@@ -29,26 +29,20 @@ mod stringify {
 
     #[test]
     fn should_use_default_options_when_stringifying_struct_then_return_default_encoding() {
-        // Arrange
         let profile = make_profile();
 
-        // Act
         let result = crate::stringify(&profile).expect("stringify should succeed");
 
-        // Assert
         assert_eq!(result, "name=Alice&city=Seattle");
     }
 
     #[test]
     fn should_return_error_when_value_contains_control_characters_then_return_invalid_value_error()
     {
-        // Arrange
         let message = make_message("line1\nline2");
 
-        // Act
         let error = crate::stringify(&message).expect_err("control characters should fail");
 
-        // Assert
         match error {
             SerdeStringifyError::Stringify(StringifyError::InvalidValue { key }) => {
                 assert_eq!(key, "body")
@@ -59,10 +53,8 @@ mod stringify {
 
     #[test]
     fn should_wrap_serialize_error_when_top_level_is_not_map_then_return_serde_error() {
-        // Act
         let error = crate::stringify(&"plain").expect_err("non-map top level should fail");
 
-        // Assert
         match error {
             SerdeStringifyError::Serialize(SerdeQueryError::Serialize(inner)) => match inner {
                 SerializeError::TopLevel(kind) => assert_eq!(kind, "string"),
@@ -74,13 +66,10 @@ mod stringify {
 
     #[test]
     fn should_wrap_unexpected_skip_error_when_option_is_none_then_return_serde_error() {
-        // Arrange
         let data: Option<Profile> = None;
 
-        // Act
         let error = crate::stringify(&data).expect_err("option none should be rejected");
 
-        // Assert
         match error {
             SerdeStringifyError::Serialize(SerdeQueryError::Serialize(inner)) => match inner {
                 SerializeError::UnexpectedSkip => {}
@@ -96,17 +85,14 @@ mod stringify_with {
 
     #[test]
     fn should_encode_spaces_as_plus_when_option_is_enabled_then_replace_spaces_with_plus() {
-        // Arrange
         let message = make_message("hello world");
         let options = StringifyOptions {
             space_as_plus: true,
         };
 
-        // Act
         let result =
             crate::stringify_with(&message, &options).expect("stringify_with should succeed");
 
-        // Assert
         assert_eq!(result, "body=hello+world");
     }
 }

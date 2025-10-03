@@ -12,7 +12,7 @@ pub struct ParseArena {
     capacity_hint: usize,
 }
 
-const ARENA_SHRINK_THRESHOLD: usize = 256 * 1024; // 256 KiB
+const ARENA_SHRINK_THRESHOLD: usize = 256 * 1024;
 const ARENA_SHRINK_RATIO: usize = 4;
 
 impl ParseArena {

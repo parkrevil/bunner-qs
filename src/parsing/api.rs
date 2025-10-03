@@ -39,7 +39,6 @@ where
                 let json_value = arena_map_to_json_value(arena_map);
                 let json_value = ManuallyDrop::new(json_value);
                 let ptr = (&*json_value) as *const JsonValue as *const T;
-                // SAFETY: TypeId equality guarantees T is exactly JsonValue.
                 let value = unsafe { ptr.read() };
                 return Ok(value);
             }

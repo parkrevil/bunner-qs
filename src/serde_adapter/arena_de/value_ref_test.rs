@@ -6,13 +6,10 @@ mod from_value {
 
     #[test]
     fn should_return_string_variant_when_wrapping_string_value_then_return_string_reference() {
-        // Arrange
         let value = ArenaValue::string("hello");
 
-        // Act
         let reference = ArenaValueRef::from_value(&value);
 
-        // Assert
         match reference {
             ArenaValueRef::String(actual) => assert_eq!(actual, "hello"),
             _ => panic!("expected string variant"),
@@ -21,17 +18,14 @@ mod from_value {
 
     #[test]
     fn should_borrow_sequence_slice_when_wrapping_sequence_value_then_expose_sequence_slice() {
-        // Arrange
         let arena = ParseArena::new();
         let mut items = arena.alloc_vec();
         items.push(ArenaValue::string(arena.alloc_str("zero")));
         items.push(ArenaValue::string(arena.alloc_str("one")));
         let value = ArenaValue::Seq(items);
 
-        // Act
         let reference = ArenaValueRef::from_value(&value);
 
-        // Assert
         match reference {
             ArenaValueRef::Seq(slice) => {
                 assert_eq!(slice.len(), 2);
@@ -44,7 +38,6 @@ mod from_value {
 
     #[test]
     fn should_borrow_entry_slice_when_wrapping_map_value_then_expose_map_slice() {
-        // Arrange
         let arena = ParseArena::new();
         let mut entries = arena.alloc_vec();
         entries.push((
@@ -60,10 +53,8 @@ mod from_value {
             index: Default::default(),
         };
 
-        // Act
         let reference = ArenaValueRef::from_value(&value);
 
-        // Assert
         match reference {
             ArenaValueRef::Map(slice) => {
                 assert_eq!(slice.len(), 2);

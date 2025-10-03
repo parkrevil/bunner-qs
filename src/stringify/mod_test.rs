@@ -28,25 +28,19 @@ mod stringify {
 
     #[test]
     fn should_use_default_options_when_stringifying_struct_then_return_default_encoding() {
-        // Arrange
         let profile = make_profile();
 
-        // Act
         let result = stringify(&profile).expect("stringify should succeed");
 
-        // Assert
         assert_eq!(result, "name=Alice&city=Seattle");
     }
 
     #[test]
     fn should_return_error_when_value_contains_control_characters_then_return_invalid_value_error() {
-        // Arrange
         let message = make_message("line1\nline2");
 
-        // Act
         let error = stringify(&message).expect_err("control characters should fail");
 
-        // Assert
         match error {
             SerdeStringifyError::Stringify(StringifyError::InvalidValue { key }) => {
                 assert_eq!(key, "body")
@@ -61,16 +55,13 @@ mod stringify_with {
 
     #[test]
     fn should_encode_spaces_as_plus_when_option_is_enabled_then_replace_spaces_with_plus() {
-        // Arrange
         let message = make_message("hello world");
         let options = StringifyOptions {
             space_as_plus: true,
         };
 
-        // Act
         let result = stringify_with(&message, &options).expect("stringify_with should succeed");
 
-        // Assert
         assert_eq!(result, "body=hello+world");
     }
 }

@@ -35,7 +35,7 @@ fn push_usize_decimal(buffer: &mut String, mut value: usize) {
         return;
     }
 
-    const MAX_DIGITS: usize = 39; // Enough for 128-bit usize values
+    const MAX_DIGITS: usize = 39;
     let mut digits = [0u8; MAX_DIGITS];
     let mut pos = MAX_DIGITS;
 
@@ -46,7 +46,6 @@ fn push_usize_decimal(buffer: &mut String, mut value: usize) {
     }
 
     let slice = &digits[pos..];
-    // SAFETY: slice contains only ASCII digit bytes written above.
     buffer.push_str(unsafe { std::str::from_utf8_unchecked(slice) });
 }
 

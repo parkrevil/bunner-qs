@@ -33,17 +33,14 @@ mod value_map_serializer {
 
     #[test]
     fn should_store_string_value_when_serializing_single_entry_then_return_object_with_value() {
-        // Arrange
         let mut serializer = ValueMapSerializer::new();
 
-        // Act
         SerializeMap::serialize_key(&mut serializer, &"city")
             .expect("serializing key should succeed");
         SerializeMap::serialize_value(&mut serializer, &"Seoul")
             .expect("serializing value should succeed");
         let result = SerializeMap::end(serializer).expect("ending serializer should succeed");
 
-        // Assert
         let map = match result.expect("map serializer should produce a value") {
             Value::Object(map) => map,
             other => panic!("unexpected value: {other:?}"),
@@ -54,17 +51,14 @@ mod value_map_serializer {
 
     #[test]
     fn should_skip_entry_when_value_serializes_to_none_then_produce_empty_map() {
-        // Arrange
         let mut serializer = ValueMapSerializer::new();
 
-        // Act
         SerializeMap::serialize_key(&mut serializer, &"optional")
             .expect("serializing key should succeed");
         SerializeMap::serialize_value(&mut serializer, &Option::<String>::None)
             .expect("serializing none should succeed");
         let result = SerializeMap::end(serializer).expect("ending serializer should succeed");
 
-        // Assert
         let map = match result.expect("map serializer should produce a value") {
             Value::Object(map) => map,
             other => panic!("unexpected value: {other:?}"),
@@ -74,14 +68,11 @@ mod value_map_serializer {
 
     #[test]
     fn should_error_when_serialize_value_called_without_key_then_return_missing_key_message() {
-        // Arrange
         let mut serializer = ValueMapSerializer::new();
 
-        // Act
         let error = SerializeMap::serialize_value(&mut serializer, &"orphan")
             .expect_err("missing key should be rejected");
 
-        // Assert
         match error {
             SerializeError::Message(message) => {
                 assert_eq!(message, "serialize_value called before serialize_key")
@@ -92,17 +83,14 @@ mod value_map_serializer {
 
     #[test]
     fn should_stringify_numeric_key_when_serializing_then_store_key_as_string() {
-        // Arrange
         let mut serializer = ValueMapSerializer::new();
 
-        // Act
         SerializeMap::serialize_key(&mut serializer, &42u8)
             .expect("serializing numeric key should succeed");
         SerializeMap::serialize_value(&mut serializer, &"answer")
             .expect("serializing value should succeed");
         let result = SerializeMap::end(serializer).expect("ending serializer should succeed");
 
-        // Assert
         let map = match result.expect("map serializer should produce a value") {
             Value::Object(map) => map,
             other => panic!("unexpected value: {other:?}"),
@@ -112,14 +100,11 @@ mod value_map_serializer {
 
     #[test]
     fn should_propagate_error_when_key_serialization_fails_then_return_message() {
-        // Arrange
         let mut serializer = ValueMapSerializer::new();
 
-        // Act
         let error = SerializeMap::serialize_key(&mut serializer, &FailingKey)
             .expect_err("failing key should error");
 
-        // Assert
         match error {
             SerializeError::Message(message) => {
                 assert_eq!(message, "key serialization failed")
@@ -130,16 +115,13 @@ mod value_map_serializer {
 
     #[test]
     fn should_propagate_error_when_value_serialization_fails_then_return_message() {
-        // Arrange
         let mut serializer = ValueMapSerializer::new();
         SerializeMap::serialize_key(&mut serializer, &"problem")
             .expect("serializing key should succeed");
 
-        // Act
         let error = SerializeMap::serialize_value(&mut serializer, &FailingValue)
             .expect_err("failing value should error");
 
-        // Assert
         match error {
             SerializeError::Message(message) => {
                 assert_eq!(message, "value serialization failed")

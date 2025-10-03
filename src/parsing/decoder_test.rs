@@ -10,14 +10,11 @@ mod decode_component {
 
     #[test]
     fn should_return_borrowed_slice_when_input_is_plain_ascii_then_avoid_allocation() {
-        // Arrange
         let raw = "simple";
         let mut scratch = super::scratch_vec();
 
-        // Act
         let result = decode_component(raw, false, 0, &mut scratch).expect("decode ascii");
 
-        // Assert
         assert!(matches!(result, Cow::Borrowed("simple")));
     }
 

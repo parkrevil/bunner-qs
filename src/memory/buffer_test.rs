@@ -57,31 +57,25 @@ mod acquire_string {
 
     #[test]
     fn should_reuse_string_buffer_when_capacity_is_preserved_then_retain_previous_capacity() {
-        // Arrange
         let recorded_capacity = record_string_capacity(|buf| buf.push_str("hello world"));
 
-        // Act
         let mut guard = acquire_string();
         let buf = guard.as_mut();
 
-        // Assert
         assert_string_reuse(buf, recorded_capacity);
     }
 
     #[test]
     fn should_drop_string_buffer_when_capacity_exceeds_limit_then_release_oversized_buffer() {
-        // Arrange
         let oversized = MAX_STRING_BUFFER_CAPACITY + 1024;
         record_string_capacity(|buf| {
             buf.reserve_exact(oversized);
             buf.push_str(&"x".repeat(oversized));
         });
 
-        // Act
         let mut guard = acquire_string();
         let buf = guard.as_mut();
 
-        // Assert
         assert_string_dropped(buf, MAX_STRING_BUFFER_CAPACITY);
     }
 }
@@ -91,31 +85,25 @@ mod acquire_bytes {
 
     #[test]
     fn should_reuse_byte_buffer_when_capacity_is_preserved_then_retain_previous_capacity() {
-        // Arrange
         let recorded_capacity = record_byte_capacity(|buf| buf.extend_from_slice(&[1, 2, 3, 4]));
 
-        // Act
         let mut guard = acquire_bytes();
         let buf = guard.as_mut();
 
-        // Assert
         assert_byte_reuse(buf, recorded_capacity);
     }
 
     #[test]
     fn should_drop_byte_buffer_when_capacity_exceeds_limit_then_release_oversized_buffer() {
-        // Arrange
         let oversized = MAX_BYTE_BUFFER_CAPACITY + 4096;
         record_byte_capacity(|buf| {
             buf.reserve_exact(oversized);
             buf.extend(std::iter::repeat_n(0xAB, oversized));
         });
 
-        // Act
         let mut guard = acquire_bytes();
         let buf = guard.as_mut();
 
-        // Assert
         assert_byte_dropped(buf, MAX_BYTE_BUFFER_CAPACITY);
     }
 }
