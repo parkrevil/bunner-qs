@@ -1,4 +1,4 @@
-use bunner_qs::{StringifyOptions, stringify_with};
+use bunner_qs_rs::{StringifyOptions, stringify_with};
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
 use serde::Serialize;
 

@@ -1,4 +1,4 @@
-use bunner_qs::{StringifyOptions, StringifyOptionsBuilder};
+use bunner_qs_rs::{StringifyOptions, StringifyOptionsBuilder};
 
 pub fn try_build_stringify_options<F>(configure: F) -> Result<StringifyOptions, String>
 where

@@ -1,5 +1,5 @@
-use bunner_qs::StringifyOptions;
-use bunner_qs::stringify_with;
+use bunner_qs_rs::StringifyOptions;
+use bunner_qs_rs::stringify_with;
 use proptest::prelude::*;
 use serde_json::{Map as JsonMap, Value};
 

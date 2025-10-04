@@ -24,7 +24,6 @@ mod map_deserializer {
         active: bool,
     }
 
-    #[allow(dead_code)]
     #[derive(Debug, Deserialize)]
     struct Flag {
         flag: bool,
@@ -232,7 +231,6 @@ mod arena_value_deserializer {
     use serde::de::{Deserializer, SeqAccess, Visitor};
     use std::fmt;
 
-    #[allow(dead_code)]
     #[derive(Debug, Deserialize)]
     struct Count {
         count: u8,
@@ -256,13 +254,11 @@ mod arena_value_deserializer {
     #[derive(Debug, Deserialize, PartialEq)]
     struct Trio(u8, u8, u8);
 
-    #[allow(dead_code)]
     #[derive(Debug, Deserialize)]
     struct Login {
         username: String,
     }
 
-    #[allow(dead_code)]
     struct UnitSeed;
 
     impl<'de> serde::de::DeserializeSeed<'de> for UnitSeed {

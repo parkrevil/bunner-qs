@@ -1,4 +1,4 @@
-use bunner_qs::{ParseOptions, StringifyOptions, stringify_with};
+use bunner_qs_rs::{ParseOptions, StringifyOptions, stringify_with};
 use serde_json::{Value, json};
 
 pub const SIMPLE_TARGET_BYTES: usize = 500;

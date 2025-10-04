@@ -1,5 +1,5 @@
 [package]
-name = "bunner_qs"
+name = "bunner_qs_rs"
 version = "0.1.0"
 edition = "2024"
 license = "MIT"

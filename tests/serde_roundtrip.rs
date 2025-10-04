@@ -17,7 +17,7 @@ mod stringify_options;
 
 use assert_matches::assert_matches;
 use asserts::{assert_str_path, assert_string_array_path, expect_path};
-use bunner_qs::{
+use bunner_qs_rs::{
     ParseError, ParseOptions, SerdeAdapterError, StringifyError, StringifyOptions, parse,
     parse_with, stringify, stringify_with,
 };
@@ -46,8 +46,8 @@ use serde_error_fixtures::{BoolField, NestedWrapper, UnitHolder};
 
 const STRINGIFY_BUILD_OK: &str = "stringify options builder should succeed";
 
-type ParseOptionsBuilder = bunner_qs::ParseOptionsBuilder;
-type StringifyOptionsBuilder = bunner_qs::StringifyOptionsBuilder;
+type ParseOptionsBuilder = bunner_qs_rs::ParseOptionsBuilder;
+type StringifyOptionsBuilder = bunner_qs_rs::StringifyOptionsBuilder;
 
 fn build_parse_options<F>(configure: F) -> ParseOptions
 where
@@ -649,13 +649,11 @@ mod error_reporting_tests {
 
     #[test]
     fn should_report_expected_string_when_flatten_structure_mismatches() {
-        #[allow(dead_code)]
         #[derive(Debug, Deserialize, Default)]
         struct FlattenInner {
             suffix: String,
         }
 
-        #[allow(dead_code)]
         #[derive(Debug, Deserialize, Default)]
         struct FlattenWrapper {
             prefix: String,
@@ -675,7 +673,6 @@ mod error_reporting_tests {
 mod adapter_behavior_tests {
     use super::*;
 
-    #[allow(dead_code)]
     #[derive(Debug, Deserialize, Default)]
     struct UppercaseAdapter {
         #[serde(deserialize_with = "uppercase_only")]

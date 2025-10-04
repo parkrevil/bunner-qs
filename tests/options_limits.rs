@@ -8,7 +8,7 @@ mod options;
 mod stringify_options;
 
 use asserts::assert_str_path;
-use bunner_qs::{ParseError, ParseOptions, StringifyOptions, parse, parse_with, stringify_with};
+use bunner_qs_rs::{ParseError, ParseOptions, StringifyOptions, parse, parse_with, stringify_with};
 use json::json_from_pairs;
 use options::try_build_parse_options;
 use serde_json::Value;
@@ -77,8 +77,8 @@ where
     stringify_with(map, &options).expect("stringify should succeed")
 }
 
-type ParseOptionsBuilder = bunner_qs::ParseOptionsBuilder;
-type StringifyOptionsBuilder = bunner_qs::StringifyOptionsBuilder;
+type ParseOptionsBuilder = bunner_qs_rs::ParseOptionsBuilder;
+type StringifyOptionsBuilder = bunner_qs_rs::StringifyOptionsBuilder;
 
 mod parse_limits_tests {
     use super::*;

@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use crate::parsing::arena::{ArenaQueryMap, ParseArena};
 
 pub fn map_with_capacity<'arena>(

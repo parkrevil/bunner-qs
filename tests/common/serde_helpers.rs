@@ -1,4 +1,4 @@
-use bunner_qs::{
+use bunner_qs_rs::{
     ParseError, ParseOptions, StringifyError, StringifyOptions, parse, parse_with, stringify,
     stringify_with,
 };

@@ -10,7 +10,7 @@ mod serde_helpers;
 mod stringify_options;
 
 use asserts::assert_str_path;
-use bunner_qs::{StringifyError, StringifyOptions, parse, stringify, stringify_with};
+use bunner_qs_rs::{StringifyError, StringifyOptions, parse, stringify, stringify_with};
 use json::json_from_pairs;
 use options::try_build_parse_options;
 use serde::Serialize;

@@ -3,7 +3,7 @@ mod fuzzish;
 #[path = "common/seed/mod.rs"]
 mod seed;
 
-use bunner_qs::{
+use bunner_qs_rs::{
     DuplicateKeyBehavior, ParseError, ParseOptions, StringifyOptions, parse, parse_with,
     stringify_with,
 };

@@ -7,7 +7,7 @@ mod serde_helpers;
 
 use assert_matches::assert_matches;
 use asserts::{assert_str_path, assert_string_array_path};
-use bunner_qs::{ParseError, parse, parse_with};
+use bunner_qs_rs::{ParseError, parse, parse_with};
 use options::try_build_parse_options;
 use serde_helpers::{assert_parse_roundtrip, assert_stringify_roundtrip};
 use serde_json::{Value, json};

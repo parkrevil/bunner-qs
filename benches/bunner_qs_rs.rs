@@ -1,6 +1,6 @@
 mod scenarios;
 
-use bunner_qs::{parse_with, stringify_with};
+use bunner_qs_rs::{parse_with, stringify_with};
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
 use serde_json::Value;
 

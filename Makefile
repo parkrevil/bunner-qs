@@ -1,5 +1,5 @@
 ## Variables
-PACKAGE := bunner_qs
+PACKAGE := bunner_qs_rs
 TARGET_DIR := target
 DOC_DIR := $(TARGET_DIR)/doc
 

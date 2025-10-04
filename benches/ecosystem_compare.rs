@@ -1,6 +1,6 @@
 mod scenarios;
 
-use bunner_qs::{parse_with, stringify_with};
+use bunner_qs_rs::{parse_with, stringify_with};
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
 use serde::Deserialize;
 use serde_json::{Map, Value};
@@ -113,7 +113,7 @@ fn register_parse_benches(c: &mut Criterion, label: &str, scenario: Scenario) {
 
     let bunner_query = query.clone();
     let bunner_opts = parse_options.clone();
-    c.bench_function(&format!("bunner_qs/parse/{}", label), move |b| {
+    c.bench_function(&format!("bunner_qs_rs/parse/{}", label), move |b| {
         b.iter(|| {
             let parsed: Value =
                 parse_with(black_box(bunner_query.as_str()), &bunner_opts).expect("parse");
@@ -167,7 +167,7 @@ fn register_stringify_benches(c: &mut Criterion, label: &str, scenario: Scenario
 
     let bunner_payload = payload.clone();
     let bunner_opts = stringify_options.clone();
-    c.bench_function(&format!("bunner_qs/stringify/{}", label), move |b| {
+    c.bench_function(&format!("bunner_qs_rs/stringify/{}", label), move |b| {
         b.iter(|| {
             let encoded =
                 stringify_with(black_box(&bunner_payload), &bunner_opts).expect("stringify");

@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use crate::ParseError;
 use crate::parsing::arena::{ArenaValue, ParseArena};
 

@@ -8,7 +8,7 @@ mod options;
 mod serde_helpers;
 
 use asserts::{assert_str_path, assert_string_array_path};
-use bunner_qs::{
+use bunner_qs_rs::{
     DuplicateKeyBehavior, ParseError, ParseOptions, SerdeAdapterError, parse, parse_with,
 };
 use json::json_from_pairs;
@@ -129,7 +129,7 @@ where
     }
 }
 
-type ParseOptionsBuilder = bunner_qs::ParseOptionsBuilder;
+type ParseOptionsBuilder = bunner_qs_rs::ParseOptionsBuilder;
 
 mod basic_parsing_tests {
     use super::*;

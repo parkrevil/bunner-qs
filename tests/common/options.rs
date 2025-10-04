@@ -1,4 +1,4 @@
-use bunner_qs::{ParseOptions, ParseOptionsBuilder};
+use bunner_qs_rs::{ParseOptions, ParseOptionsBuilder};
 
 pub fn try_build_parse_options<F>(configure: F) -> Result<ParseOptions, String>
 where

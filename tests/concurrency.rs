@@ -1,4 +1,4 @@
-use bunner_qs::{parse, stringify};
+use bunner_qs_rs::{parse, stringify};
 use serde_json::Value;
 use std::thread;
 

@@ -129,7 +129,6 @@ mod parse_api {
 
     #[test]
     fn should_wrap_deserialize_error_when_target_type_rejects_value_then_return_parse_error() {
-        #[allow(dead_code)]
         #[derive(Debug, Deserialize, Default)]
         struct StrictFlag {
             flag: bool,
@@ -206,7 +205,6 @@ mod parse_with_api {
 
     #[test]
     fn should_wrap_deserialize_failures_when_target_type_rejects_value_then_return_serde_error() {
-        #[allow(dead_code)]
         #[derive(Debug, Deserialize, Default)]
         struct StrictFlag {
             flag: bool,
