@@ -100,7 +100,7 @@ mod arena_is_placeholder {
     use super::*;
 
     #[test]
-    fn should_detect_placeholders_only_for_empty_strings() {
+    fn should_detect_placeholders_when_value_is_empty_then_return_true() {
         let arena = ParseArena::new();
         let empty = ArenaValue::string(arena.alloc_str(""));
         let filled = ArenaValue::string(arena.alloc_str("value"));
@@ -266,7 +266,7 @@ mod insert_nested_value_arena {
     }
 
     #[test]
-    fn should_return_duplicate_key_when_nested_map_rejects_duplicate_field() {
+    fn should_return_duplicate_key_when_nested_map_rejects_duplicate_field_then_propagate_error() {
         let arena = ParseArena::new();
         let mut map = map_with_capacity(&arena, 0);
         let mut state = acquire_pattern_state();
@@ -376,7 +376,7 @@ mod insert_nested_value_arena {
     }
 
     #[test]
-    fn should_overwrite_placeholder_sequence_entry_when_existing_value_is_empty() {
+    fn should_overwrite_placeholder_sequence_entry_when_existing_value_is_empty_then_store_latest_value() {
         let arena = ParseArena::new();
         let mut map = map_with_capacity(&arena, 0);
         let mut state = acquire_pattern_state();
@@ -462,7 +462,7 @@ mod insert_nested_value_arena {
     }
 
     #[test]
-    fn should_return_duplicate_key_when_sequence_index_skips_existing_length() {
+    fn should_return_duplicate_key_when_sequence_index_skips_existing_length_then_reject_sparse_insert() {
         let arena = ParseArena::new();
         let mut map = map_with_capacity(&arena, 0);
         let mut state = acquire_pattern_state();
@@ -559,7 +559,7 @@ mod arena_build_nested_path {
     use super::*;
 
     #[test]
-    fn should_create_root_container_when_missing() {
+    fn should_create_root_container_when_missing_then_allocate_map_container() {
         let arena = ParseArena::new();
         let mut map = map_with_capacity(&arena, 0);
         let mut state = acquire_pattern_state();
@@ -593,7 +593,7 @@ mod arena_build_nested_path {
     }
 
     #[test]
-    fn should_reuse_existing_container_without_duplicate_root() {
+    fn should_reuse_existing_container_when_root_already_exists_then_avoid_duplicate_entry() {
         let arena = ParseArena::new();
         let mut map = map_with_capacity(&arena, 1);
         map.try_insert_str(&arena, "profile", ArenaValue::map(&arena))
@@ -709,7 +709,7 @@ mod arena_set_nested_value {
     }
 
     #[test]
-    fn should_return_duplicate_key_when_string_node_cannot_promote_with_override() {
+    fn should_return_duplicate_key_when_string_node_cannot_promote_with_override_then_report_error() {
         let arena = ParseArena::new();
         let mut state = acquire_pattern_state();
         let resolved = resolve_segments(&mut state, &["root", "child"]).expect("resolve");
@@ -730,7 +730,7 @@ mod arena_set_nested_value {
     }
 
     #[test]
-    fn should_error_with_unexpected_string_when_promotion_disabled_without_hints() {
+    fn should_error_with_unexpected_string_when_promotion_disabled_without_hints_then_return_duplicate_key() {
         let arena = ParseArena::new();
         let state = acquire_pattern_state();
         let segments = [
@@ -758,7 +758,7 @@ mod prepare_current_node {
     use super::*;
 
     #[test]
-    fn should_promote_string_node_and_request_retry() {
+    fn should_promote_string_node_when_promotion_allowed_then_request_retry() {
         let arena = ParseArena::new();
         let state = acquire_pattern_state();
         let ctx = make_ctx(&arena, &state, "root", DuplicateKeyBehavior::LastWins);
@@ -772,7 +772,7 @@ mod prepare_current_node {
     }
 
     #[test]
-    fn should_respect_promotion_suppression_and_keep_string_node() {
+    fn should_keep_string_node_when_promotion_is_suppressed_then_mark_node_ready() {
         let arena = ParseArena::new();
         let state = acquire_pattern_state();
         let ctx = make_ctx(&arena, &state, "root", DuplicateKeyBehavior::LastWins);
@@ -788,7 +788,7 @@ mod prepare_current_node {
     }
 
     #[test]
-    fn should_convert_node_to_sequence_when_array_hint_present() {
+    fn should_convert_node_to_sequence_when_array_hint_present_then_transform_container() {
         let arena = ParseArena::new();
         let mut state = acquire_pattern_state();
         resolve_segments(&mut state, &["items", ""]).expect("resolve");
@@ -806,7 +806,7 @@ mod visit_map_node {
     use super::*;
 
     #[test]
-    fn should_descend_into_new_map_child() {
+    fn should_descend_into_new_map_child_when_entry_is_missing_then_create_child_container() {
         let arena = ParseArena::new();
         let state = acquire_pattern_state();
         let ctx = make_ctx(&arena, &state, "root", DuplicateKeyBehavior::LastWins);
@@ -842,7 +842,7 @@ mod visit_map_node {
     }
 
     #[test]
-    fn should_complete_when_leaf_value_inserted() {
+    fn should_complete_traversal_when_leaf_value_inserted_then_store_scalar_value() {
         let arena = ParseArena::new();
         let state = acquire_pattern_state();
         let ctx = make_ctx(&arena, &state, "root", DuplicateKeyBehavior::LastWins);
@@ -882,7 +882,7 @@ mod visit_seq_node {
     use super::*;
 
     #[test]
-    fn should_descend_into_sequence_slot() {
+    fn should_descend_into_sequence_slot_when_index_is_missing_then_allocate_container() {
         let arena = ParseArena::new();
         let state = acquire_pattern_state();
         let ctx = make_ctx(&arena, &state, "items", DuplicateKeyBehavior::LastWins);
@@ -915,7 +915,7 @@ mod visit_seq_node {
     }
 
     #[test]
-    fn should_complete_sequence_visit_when_leaf_inserted() {
+    fn should_complete_sequence_visit_when_leaf_inserted_then_store_value() {
         let arena = ParseArena::new();
         let state = acquire_pattern_state();
         let ctx = make_ctx(&arena, &state, "items", DuplicateKeyBehavior::LastWins);
@@ -951,7 +951,7 @@ mod child_capacity_hint {
     use super::*;
 
     #[test]
-    fn should_cap_child_capacity_hint_at_maximum() {
+    fn should_cap_child_capacity_hint_when_hint_exceeds_limit_then_return_maximum() {
         let mut state = acquire_pattern_state();
         for idx in 0..70 {
             let segment = format!("field{idx}");
@@ -968,7 +968,7 @@ mod handle_map_segment {
     use super::*;
 
     #[test]
-    fn should_error_when_map_segment_missing_value_in_vacant_branch() {
+    fn should_error_when_map_segment_missing_value_in_vacant_branch_then_return_duplicate_key_error() {
         let arena = ParseArena::new();
         let state = acquire_pattern_state();
         let ctx = make_ctx(&arena, &state, "root", DuplicateKeyBehavior::LastWins);
@@ -1043,7 +1043,7 @@ mod handle_map_segment {
     }
 
     #[test]
-    fn should_replace_map_entry_when_last_wins_allows_duplicate_key() {
+    fn should_replace_map_entry_when_last_wins_allows_duplicate_key_then_store_latest_value() {
         let arena = ParseArena::new();
         let state = acquire_pattern_state();
         let ctx = make_ctx(&arena, &state, "root", DuplicateKeyBehavior::LastWins);
@@ -1233,7 +1233,7 @@ mod try_insert_or_duplicate {
     use super::*;
 
     #[test]
-    fn should_convert_duplicate_error_when_helper_insert_fails() {
+    fn should_convert_duplicate_error_when_helper_insert_fails_then_return_parse_error() {
         let error = try_insert_or_duplicate("token", || Err(()))
             .expect_err("helper should convert duplicate into ParseError");
 
@@ -1241,7 +1241,7 @@ mod try_insert_or_duplicate {
     }
 
     #[test]
-    fn should_return_ok_when_helper_insert_succeeds() {
+    fn should_return_ok_when_helper_insert_succeeds_then_propagate_success() {
         try_insert_or_duplicate("token", || Ok(()))
             .expect("helper should propagate successful insertion");
     }
@@ -1251,7 +1251,7 @@ mod get_root_value {
     use super::*;
 
     #[test]
-    fn should_return_duplicate_key_when_root_value_missing() {
+    fn should_return_duplicate_key_when_root_value_missing_then_return_error() {
         let arena = ParseArena::new();
         let mut map = map_with_capacity(&arena, 0);
 
@@ -1266,7 +1266,7 @@ mod unexpected_nested_string {
     use super::*;
 
     #[test]
-    fn should_surface_duplicate_key_error() {
+    fn should_surface_duplicate_key_error_when_nested_string_encountered_then_return_parse_error() {
         let error = unexpected_nested_string("profile");
         expect_duplicate_key(error, "profile");
     }
@@ -1300,7 +1300,7 @@ mod resolve_segments {
     }
 
     #[test]
-    fn should_return_single_segment_when_path_contains_only_root_segment() {
+    fn should_return_single_segment_when_path_contains_only_root_segment_then_preserve_root_segment() {
         let mut state = acquire_pattern_state();
         let path = ["token"];
 

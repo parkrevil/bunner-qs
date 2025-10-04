@@ -74,7 +74,7 @@ mod append_segment {
 
 mod ascii_digits_to_str {
     #[test]
-    fn should_convert_digit_bytes_to_str() {
+    fn should_convert_digit_bytes_to_str_when_bytes_are_numeric_then_return_string() {
         let digits = b"12345";
 
         let result = super::super::ascii_digits_to_str(digits);
@@ -83,7 +83,7 @@ mod ascii_digits_to_str {
     }
 
     #[test]
-    fn should_detect_invalid_digit_bytes_based_on_build_mode() {
+    fn should_detect_invalid_digit_bytes_based_on_build_mode_when_invalid_digits_present_then_follow_build_guard() {
         let invalid = b"12a45";
 
         if cfg!(debug_assertions) {

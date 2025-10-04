@@ -68,7 +68,7 @@ mod fast_path_ascii {
     use super::*;
 
     #[test]
-    fn should_return_borrowed_result_when_all_bytes_visible() {
+    fn should_return_borrowed_result_when_all_bytes_visible_then_avoid_allocation() {
         let raw = "visible";
         let outcome =
             fast_path_ascii_for_test(raw, raw.as_bytes(), 0).expect("fast path should borrow");
@@ -76,7 +76,7 @@ mod fast_path_ascii {
     }
 
     #[test]
-    fn should_error_when_control_character_detected() {
+    fn should_error_when_control_character_detected_then_return_decode_error() {
         let raw = "bad\u{0007}";
         let err = fast_path_ascii_for_test(raw, raw.as_bytes(), 10)
             .expect_err("control characters should error");
@@ -95,7 +95,7 @@ mod decode_with_special_chars {
     use super::*;
 
     #[test]
-    fn should_decode_percent_sequences_and_plus_runs() {
+    fn should_decode_percent_sequences_and_plus_runs_when_mixed_input_present_then_normalize_bytes() {
         let raw = "%2B+matrix";
         let mut scratch = super::scratch_vec();
 
@@ -106,7 +106,7 @@ mod decode_with_special_chars {
     }
 
     #[test]
-    fn should_propagate_invalid_percent_error_from_sequence_helper() {
+    fn should_propagate_invalid_percent_error_from_sequence_helper_when_sequence_invalid_then_bubble_error() {
         let raw = "%2Z";
         let mut scratch = super::scratch_vec();
 
@@ -117,7 +117,7 @@ mod decode_with_special_chars {
     }
 
     #[test]
-    fn should_handle_utf8_cluster_when_non_ascii_byte_encountered() {
+    fn should_handle_utf8_cluster_when_non_ascii_byte_encountered_then_decode_cluster() {
         let raw = "café";
         let mut scratch = super::scratch_vec();
 
@@ -133,7 +133,7 @@ mod decode_percent_sequence {
     use super::*;
 
     #[test]
-    fn should_push_decoded_byte_and_return_next_cursor() {
+    fn should_push_decoded_byte_when_valid_percent_sequence_processed_then_return_next_cursor() {
         let bytes = b"%2A";
         let mut scratch = super::scratch_vec();
 
@@ -145,7 +145,7 @@ mod decode_percent_sequence {
     }
 
     #[test]
-    fn should_error_when_sequence_truncated() {
+    fn should_error_when_sequence_truncated_then_return_truncated_sequence_error() {
         let bytes = b"%2";
         let mut scratch = super::scratch_vec();
 
@@ -156,7 +156,7 @@ mod decode_percent_sequence {
     }
 
     #[test]
-    fn should_error_when_hex_digit_invalid() {
+    fn should_error_when_hex_digit_invalid_then_return_invalid_hex_error() {
         let bytes = b"%4Z";
         let mut scratch = super::scratch_vec();
 
@@ -171,7 +171,7 @@ mod decode_plus {
     use super::*;
 
     #[test]
-    fn should_write_space_to_scratch_and_increment_cursor() {
+    fn should_write_space_to_scratch_when_plus_flag_enabled_then_increment_cursor() {
         let mut scratch = super::scratch_vec();
 
         let next = decode_plus_for_test(3, &mut scratch);
@@ -185,7 +185,7 @@ mod decode_ascii_run {
     use super::*;
 
     #[test]
-    fn should_collect_ascii_until_percent_boundary() {
+    fn should_collect_ascii_until_percent_boundary_when_visible_run_present_then_accumulate_segment() {
         let bytes = b"abc%20";
         let mut scratch = super::scratch_vec();
 
@@ -197,7 +197,7 @@ mod decode_ascii_run {
     }
 
     #[test]
-    fn should_stop_when_plus_encountered_and_space_flag_enabled() {
+    fn should_stop_when_plus_encountered_and_space_flag_enabled_then_return_current_cursor() {
         let bytes = b"pre+more";
         let mut scratch = super::scratch_vec();
 
@@ -209,7 +209,7 @@ mod decode_ascii_run {
     }
 
     #[test]
-    fn should_error_when_control_character_present_in_run() {
+    fn should_error_when_control_character_present_in_run_then_return_decode_error() {
         let bytes = b"ok\x07";
         let mut scratch = super::scratch_vec();
 
@@ -230,7 +230,7 @@ mod decode_utf8_cluster {
     use super::*;
 
     #[test]
-    fn should_copy_utf8_sequence_and_return_next_cursor() {
+    fn should_copy_utf8_sequence_when_multibyte_chunk_detected_then_return_next_cursor() {
         let raw = "😊 rest";
         let mut scratch = super::scratch_vec();
 
@@ -242,7 +242,7 @@ mod decode_utf8_cluster {
     }
 
     #[test]
-    fn should_error_when_cursor_out_of_bounds() {
+    fn should_error_when_cursor_out_of_bounds_then_return_decode_error() {
         let raw = "data";
         let mut scratch = super::scratch_vec();
 
@@ -257,7 +257,7 @@ mod finalize_decoded {
     use super::*;
 
     #[test]
-    fn should_return_owned_string_when_bytes_are_valid_utf8() {
+    fn should_return_owned_string_when_bytes_are_valid_utf8_then_collect_string() {
         let mut scratch = b"hello".to_vec();
 
         let result = finalize_decoded_for_test(&mut scratch).expect("valid utf8");
@@ -267,7 +267,7 @@ mod finalize_decoded {
     }
 
     #[test]
-    fn should_return_invalid_utf8_error_and_restore_bytes() {
+    fn should_return_invalid_utf8_error_when_bytes_are_invalid_utf8_then_restore_cursor_state() {
         let mut scratch = vec![0xF0, 0x28, 0x8C, 0x28];
 
         let err = finalize_decoded_for_test(&mut scratch).expect_err("invalid utf8");
@@ -281,12 +281,12 @@ mod ensure_visible {
     use super::*;
 
     #[test]
-    fn should_allow_visible_ascii_character() {
+    fn should_allow_visible_ascii_character_when_byte_is_visible_then_return_true() {
         ensure_visible_for_test(b'A', 0).expect("visible char should succeed");
     }
 
     #[test]
-    fn should_error_for_control_character() {
+    fn should_error_for_control_character_when_control_byte_is_provided_then_return_false() {
         let err = ensure_visible_for_test(0x1F, 42).expect_err("control char should error");
 
         match err {
@@ -303,7 +303,7 @@ mod hex_value {
     use super::*;
 
     #[test]
-    fn should_decode_numeric_and_hex_letters() {
+    fn should_decode_numeric_and_hex_letters_when_character_is_hex_digit_then_return_value() {
         assert_eq!(hex_value_for_test(b'0'), Some(0));
         assert_eq!(hex_value_for_test(b'9'), Some(9));
         assert_eq!(hex_value_for_test(b'a'), Some(10));
@@ -311,7 +311,7 @@ mod hex_value {
     }
 
     #[test]
-    fn should_return_none_for_non_hex_character() {
+    fn should_return_none_for_non_hex_character_when_character_is_not_hex_digit_then_return_none() {
         assert_eq!(hex_value_for_test(b'G'), None);
     }
 }

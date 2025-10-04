@@ -36,30 +36,34 @@ mod with_capacity {
     }
 }
 
-#[test]
-fn should_reserve_capacity_when_cloning_large_array_then_clone_all_items() {
-    let arena = ParseArena::new();
-    let value = Value::Array(vec![
-        Value::from("one"),
-        Value::from("two"),
-        Value::from("three"),
-        Value::from("four"),
-        Value::from("five"),
-        Value::from("six"),
-    ]);
+mod clone_value_into_arena_reserve {
+    use super::*;
 
-    let cloned = clone_value_into_arena_for_test(&arena, &value);
+    #[test]
+    fn should_reserve_capacity_when_cloning_large_array_then_clone_all_items() {
+        let arena = ParseArena::new();
+        let value = Value::Array(vec![
+            Value::from("one"),
+            Value::from("two"),
+            Value::from("three"),
+            Value::from("four"),
+            Value::from("five"),
+            Value::from("six"),
+        ]);
 
-    assert_matches!(cloned, ArenaValue::Seq(items) => {
-        assert_eq!(items.len(), 6);
-        let mut collected = Vec::new();
-        for item in items {
-            assert_matches!(item, ArenaValue::String(text) => {
-                collected.push(text.to_string());
-            });
-        }
-        assert_eq!(collected, ["one", "two", "three", "four", "five", "six"]);
-    });
+        let cloned = clone_value_into_arena_for_test(&arena, &value);
+
+        assert_matches!(cloned, ArenaValue::Seq(items) => {
+            assert_eq!(items.len(), 6);
+            let mut collected = Vec::new();
+            for item in items {
+                assert_matches!(item, ArenaValue::String(text) => {
+                    collected.push(text.to_string());
+                });
+            }
+            assert_eq!(collected, ["one", "two", "three", "four", "five", "six"]);
+        });
+    }
 }
 
 mod from_iter {
@@ -264,7 +268,7 @@ mod query_map_from_struct {
     }
 
     #[test]
-    fn should_serialize_struct_into_query_map_when_using_from_struct() {
+    fn should_serialize_struct_into_query_map_when_using_from_struct_then_store_flattened_fields() {
         let payload = Credentials {
             username: String::from("neo"),
             token: String::from("abc123"),
@@ -288,7 +292,7 @@ mod query_map_from_struct {
     }
 
     #[test]
-    fn should_serialize_nested_structures_and_arrays_when_using_from_struct() {
+    fn should_serialize_nested_structures_and_arrays_when_using_from_struct_then_preserve_hierarchy() {
         let payload = Library {
             owner: Credentials {
                 username: String::from("trinity"),
@@ -346,7 +350,7 @@ mod query_map_to_struct {
     }
 
     #[test]
-    fn should_deserialize_nested_struct_from_query_map_when_using_to_struct() {
+    fn should_deserialize_nested_struct_from_query_map_when_using_to_struct_then_reconstruct_struct() {
         let mut cover = OrderedMap::default();
         cover.insert(String::from("width"), Value::from("800"));
         cover.insert(String::from("height"), Value::from("600"));
@@ -475,7 +479,7 @@ mod insert_value_into_arena_map {
     use crate::SerdeQueryError;
 
     #[test]
-    fn should_convert_duplicate_insertion_into_serde_query_error() {
+    fn should_convert_duplicate_insertion_into_serde_query_error_when_insert_fails_then_return_duplicate_key_error() {
         let arena = ParseArena::new();
         let mut map = ArenaQueryMap::with_capacity(&arena, 1);
         let value = Value::from("alpha");

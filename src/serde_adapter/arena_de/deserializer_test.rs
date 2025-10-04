@@ -318,7 +318,7 @@ mod arena_value_deserializer {
     }
 
     #[test]
-    fn should_dispatch_deserialize_any_to_sequence_branch_when_value_is_sequence() {
+    fn should_dispatch_deserialize_any_to_sequence_branch_when_value_is_sequence_then_delegate_to_sequence_deserializer() {
         struct CountingVisitor;
 
         impl<'de> Visitor<'de> for CountingVisitor {
@@ -487,7 +487,7 @@ mod arena_value_deserializer {
     }
 
     #[test]
-    fn should_dispatch_deserialize_any_to_sequence_branch() {
+    fn should_dispatch_deserialize_any_to_sequence_branch_when_sequence_variant_requested_then_forward_to_sequence() {
         use serde::de::{Deserializer, SeqAccess, Visitor};
         use std::fmt;
 
@@ -524,7 +524,7 @@ mod arena_value_deserializer {
     }
 
     #[test]
-    fn should_forward_identifier_to_string_when_identifier_requested() {
+    fn should_forward_identifier_to_string_when_identifier_requested_then_return_identifier_text() {
         struct IdentifierVisitor;
 
         impl<'de> Visitor<'de> for IdentifierVisitor {
@@ -554,7 +554,7 @@ mod arena_value_deserializer {
     }
 
     #[test]
-    fn should_ignore_any_value_when_deserialize_ignored_any_invoked() {
+    fn should_ignore_any_value_when_deserialize_ignored_any_invoked_then_return_unit() {
         struct IgnoreVisitor;
 
         impl<'de> Visitor<'de> for IgnoreVisitor {
@@ -582,7 +582,7 @@ mod arena_value_deserializer {
     }
 
     #[test]
-    fn should_report_expected_string_when_integer_requested_from_sequence() {
+    fn should_report_expected_string_when_integer_requested_from_sequence_then_return_expected_string_error() {
         let arena = ParseArena::new();
         let sequence = make_sequence(&arena, &["1"]);
         let deserializer = deserializer_for(&sequence);
@@ -597,7 +597,7 @@ mod arena_value_deserializer {
     }
 
     #[test]
-    fn should_report_expected_string_when_float_requested_from_map() {
+    fn should_report_expected_string_when_float_requested_from_map_then_return_expected_string_error() {
         let arena = ParseArena::new();
         let mut entries = arena.alloc_vec();
         entries.push((alloc_key(&arena, "value"), make_string(&arena, "100")));
@@ -616,7 +616,7 @@ mod arena_value_deserializer {
     }
 
     #[test]
-    fn should_dispatch_deserialize_any_to_string_branch() {
+    fn should_dispatch_deserialize_any_to_string_branch_when_scalar_is_string_then_delegate_to_string() {
         use serde::de::{Deserializer, Visitor};
         use std::fmt;
 
@@ -649,7 +649,7 @@ mod arena_value_deserializer {
     }
 
     #[test]
-    fn should_dispatch_deserialize_any_to_map_branch() {
+    fn should_dispatch_deserialize_any_to_map_branch_when_value_is_map_then_delegate_to_map_deserializer() {
         use serde::de::{Deserializer, MapAccess, Visitor};
         use std::fmt;
 
@@ -695,7 +695,7 @@ mod arena_value_deserializer {
     }
 
     #[test]
-    fn should_report_unexpected_type_when_tuple_expected_but_value_is_string() {
+    fn should_report_unexpected_type_when_tuple_expected_but_value_is_string_then_return_expected_sequence_error() {
         let arena = ParseArena::new();
         let value = make_string(&arena, "not-a-tuple");
         let deserializer = deserializer_for(&value);
@@ -712,7 +712,7 @@ mod arena_value_deserializer {
     }
 
     #[test]
-    fn should_deserialize_all_integer_types_successfully() {
+    fn should_deserialize_all_integer_types_when_values_are_valid_then_return_expected_values() {
         let arena = ParseArena::new();
         let positive = make_string(&arena, "42");
         let negative = make_string(&arena, "-17");
@@ -766,7 +766,7 @@ mod arena_value_deserializer {
     }
 
     #[test]
-    fn should_deserialize_float_variants_successfully() {
+    fn should_deserialize_float_variants_when_values_are_valid_then_return_expected_values() {
         let arena = ParseArena::new();
         let value = make_string(&arena, "3.50");
 
@@ -778,7 +778,7 @@ mod arena_value_deserializer {
     }
 
     #[test]
-    fn should_deserialize_borrowed_and_owned_strings_successfully() {
+    fn should_deserialize_borrowed_and_owned_strings_when_inputs_are_valid_then_return_expected_values() {
         let arena = ParseArena::new();
         let value = make_string(&arena, "text");
 
@@ -792,7 +792,7 @@ mod arena_value_deserializer {
     }
 
     #[test]
-    fn should_report_expected_string_when_requesting_string_from_array() {
+    fn should_report_expected_string_when_requesting_string_from_array_then_return_expected_string_error() {
         let arena = ParseArena::new();
         let value = make_sequence(&arena, &["one"]);
         let deserializer = deserializer_for(&value);
@@ -808,7 +808,7 @@ mod arena_value_deserializer {
     }
 
     #[test]
-    fn should_report_expected_string_when_requesting_string_from_object() {
+    fn should_report_expected_string_when_requesting_string_from_object_then_return_expected_string_error() {
         let arena = ParseArena::new();
         let mut entries = arena.alloc_vec();
         entries.push((alloc_key(&arena, "value"), make_string(&arena, "text")));
@@ -866,7 +866,7 @@ mod arena_value_deserializer {
     }
 
     #[test]
-    fn should_report_invalid_float_literal_when_parsing_float_fails() {
+    fn should_report_invalid_float_literal_when_parsing_float_fails_then_return_invalid_float_error() {
         let arena = ParseArena::new();
         let value = make_string(&arena, "not-a-number");
         let deserializer = deserializer_for(&value);
@@ -897,7 +897,7 @@ mod arena_value_deserializer {
     }
 
     #[test]
-    fn should_report_unexpected_type_when_sequence_expected_but_scalar_provided() {
+    fn should_report_unexpected_type_when_sequence_expected_but_scalar_provided_then_return_expected_sequence_error() {
         let arena = ParseArena::new();
         let value = make_string(&arena, "scalar");
         let deserializer = deserializer_for(&value);
@@ -914,7 +914,7 @@ mod arena_value_deserializer {
     }
 
     #[test]
-    fn should_report_unexpected_type_for_tuple_when_scalar_provided() {
+    fn should_report_unexpected_type_for_tuple_when_scalar_provided_then_return_expected_tuple_error() {
         let arena = ParseArena::new();
         let value = make_string(&arena, "scalar");
 
@@ -930,7 +930,7 @@ mod arena_value_deserializer {
     }
 
     #[test]
-    fn should_report_unexpected_type_for_tuple_struct_when_scalar_provided() {
+    fn should_report_unexpected_type_for_tuple_struct_when_scalar_provided_then_return_expected_tuple_struct_error() {
         let arena = ParseArena::new();
         let value = make_string(&arena, "scalar");
 
@@ -946,7 +946,7 @@ mod arena_value_deserializer {
     }
 
     #[test]
-    fn should_report_unexpected_type_when_sequence_requested_from_map() {
+    fn should_report_unexpected_type_when_sequence_requested_from_map_then_return_expected_sequence_error() {
         let arena = ParseArena::new();
         let mut entries = arena.alloc_vec();
         entries.push((alloc_key(&arena, "key"), make_string(&arena, "value")));
@@ -968,7 +968,7 @@ mod arena_value_deserializer {
     }
 
     #[test]
-    fn should_report_unexpected_type_when_map_requested_from_sequence() {
+    fn should_report_unexpected_type_when_map_requested_from_sequence_then_return_expected_map_error() {
         let arena = ParseArena::new();
         let sequence = make_sequence(&arena, &["value"]);
         let deserializer = deserializer_for(&sequence);
@@ -1123,7 +1123,7 @@ mod arena_value_deserializer {
     }
 
     #[test]
-    fn should_deserialize_identifier_from_string_when_identifier_requested() {
+    fn should_deserialize_identifier_from_string_when_identifier_requested_then_return_identifier() {
         let arena = ParseArena::new();
         let value = make_string(&arena, "identifier");
         let deserializer = deserializer_for(&value);
@@ -1227,7 +1227,7 @@ mod arena_value_deserializer {
     }
 
     #[test]
-    fn should_label_unknown_key_when_map_value_seed_runs_without_pending_key() {
+    fn should_label_unknown_key_when_map_value_seed_runs_without_pending_key_then_return_unknown_field_error() {
         let arena = ParseArena::new();
         let missing_value = make_string(&arena, "maybe");
         let empty_entries: [(&str, ArenaValue); 0] = [];
@@ -1255,7 +1255,7 @@ mod arena_value_deserializer {
     }
 
     #[test]
-    fn should_label_unknown_key_when_struct_value_seed_runs_without_pending_key() {
+    fn should_label_unknown_key_when_struct_value_seed_runs_without_pending_key_then_return_unknown_field_error() {
         use std::collections::HashSet;
 
         let arena = ParseArena::new();

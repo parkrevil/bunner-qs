@@ -24,7 +24,7 @@ mod parse_arena_new {
     }
 
     #[test]
-    fn should_delegate_zero_capacity_to_new_arena_when_with_capacity_called_with_zero() {
+    fn should_delegate_zero_capacity_to_new_arena_when_with_capacity_called_with_zero_then_return_default_instance() {
         let zero = std::hint::black_box(0usize);
 
         let arena = ParseArena::with_capacity(zero);
@@ -43,7 +43,7 @@ mod parse_arena_new {
     }
 
     #[test]
-    fn should_reset_arena_when_prepare_called_with_zero_capacity() {
+    fn should_reset_arena_when_prepare_called_with_zero_capacity_then_clear_entries() {
         let mut arena = ParseArena::with_capacity(1024);
         arena.alloc_str("buffered");
 
@@ -53,14 +53,14 @@ mod parse_arena_new {
     }
 
     #[test]
-    fn should_allocate_capacity_hint_when_constructed_with_non_zero_capacity() {
+    fn should_allocate_capacity_hint_when_constructed_with_non_zero_capacity_then_reserve_internal_buffer() {
         let arena = ParseArena::with_capacity(4096);
 
         assert_eq!(arena.capacity_hint(), 4096);
     }
 
     #[test]
-    fn should_reallocate_arena_when_prepare_requests_more_capacity_than_current() {
+    fn should_reallocate_arena_when_prepare_requests_more_capacity_than_current_then_expand_allocation() {
         let mut arena = ParseArena::with_capacity(1024);
 
         arena.prepare(4096);
@@ -69,7 +69,7 @@ mod parse_arena_new {
     }
 
     #[test]
-    fn should_reset_without_shrinking_when_capacity_below_threshold_and_minimum_is_smaller() {
+    fn should_reset_without_shrinking_when_capacity_below_threshold_and_minimum_is_smaller_then_preserve_existing_capacity() {
         let mut arena = ParseArena::with_capacity(64 * 1024);
         arena.alloc_str("primed");
 
@@ -85,7 +85,7 @@ mod parse_arena_pooling {
     use super::*;
 
     #[test]
-    fn should_reuse_pooled_arena_between_acquisitions() {
+    fn should_reuse_pooled_arena_when_acquired_multiple_times_then_return_same_instance() {
         {
             let lease = acquire_parse_arena(2048);
             lease.alloc_str("warmup");
@@ -135,7 +135,7 @@ mod arena_query_map_iter {
     use super::*;
 
     #[test]
-    fn should_iterate_in_insertion_order_when_entries_exist() {
+    fn should_iterate_in_insertion_order_when_entries_exist_then_preserve_sequence_order() {
         let lease = acquire_parse_arena(0);
         let arena: &ParseArena = &lease;
         let mut map = map_with_capacity(arena, 2);
@@ -161,7 +161,7 @@ mod arena_query_map_zero_capacity {
     use super::*;
 
     #[test]
-    fn should_initialize_query_map_without_preallocating_when_capacity_is_zero() {
+    fn should_initialize_query_map_without_preallocating_when_capacity_is_zero_then_allocate_empty_map() {
         let lease = acquire_parse_arena(0);
         let arena: &ParseArena = &lease;
 
@@ -224,7 +224,7 @@ mod arena_value_accessors {
     }
 
     #[test]
-    fn should_create_map_using_small_capacity_path_when_capacity_is_low() {
+    fn should_create_map_using_small_capacity_path_when_capacity_is_low_then_allocate_small_map() {
         let lease = acquire_parse_arena(0);
         let arena: &ParseArena = &lease;
 
@@ -235,7 +235,7 @@ mod arena_value_accessors {
     }
 
     #[test]
-    fn should_create_sequence_without_reserve_when_capacity_is_small() {
+    fn should_create_sequence_without_reserve_when_capacity_is_small_then_allocate_small_sequence() {
         let lease = acquire_parse_arena(0);
         let arena: &ParseArena = &lease;
 
@@ -246,7 +246,7 @@ mod arena_value_accessors {
     }
 
     #[test]
-    fn should_return_none_from_as_seq_slice_when_value_is_map() {
+    fn should_return_none_from_as_seq_slice_when_value_is_map_then_report_absence() {
         let lease = acquire_parse_arena(0);
         let arena: &ParseArena = &lease;
 
@@ -256,7 +256,7 @@ mod arena_value_accessors {
     }
 
     #[test]
-    fn should_return_none_from_as_map_slice_when_value_is_sequence() {
+    fn should_return_none_from_as_map_slice_when_value_is_sequence_then_report_absence() {
         let lease = acquire_parse_arena(0);
         let arena: &ParseArena = &lease;
 
@@ -266,7 +266,7 @@ mod arena_value_accessors {
     }
 
     #[test]
-    fn should_expose_entries_and_index_when_map_parts_mut_called_on_map() {
+    fn should_expose_entries_and_index_when_map_parts_mut_called_on_map_then_return_mutable_parts() {
         let lease = acquire_parse_arena(0);
         let arena: &ParseArena = &lease;
 
@@ -281,7 +281,7 @@ mod arena_value_accessors {
     }
 
     #[test]
-    fn should_return_none_from_map_parts_mut_when_value_is_not_map() {
+    fn should_return_none_from_map_parts_mut_when_value_is_not_map_then_report_absence() {
         let arena = ParseArena::new();
         let mut value = ArenaValue::string(arena.alloc_str("plain"));
 

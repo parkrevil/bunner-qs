@@ -249,7 +249,7 @@ mod value_serializer {
     }
 
     #[test]
-    fn should_preserve_none_as_empty_string_when_sequence_serializer_handles_none() {
+    fn should_preserve_none_as_empty_string_when_sequence_serializer_handles_none_then_emit_placeholder_string() {
         let serializer = ValueSerializer::sequence_element();
 
         let result = serializer
@@ -349,7 +349,7 @@ mod describe_value_fn {
     use super::*;
 
     #[test]
-    fn should_describe_object_value_when_value_is_object() {
+    fn should_describe_object_value_when_value_is_object_then_render_debug_description() {
         let mut map = OrderedMap::default();
         map.insert("id".into(), Value::String("42".into()));
 

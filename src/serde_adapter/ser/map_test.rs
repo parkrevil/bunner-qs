@@ -5,6 +5,7 @@ use serde::ser::SerializeMap;
 
 mod value_map_serializer {
     use super::*;
+    use crate::model::OrderedMap;
     use serde::Serialize;
     use serde::ser::Error as _;
     use serde_json::json;
@@ -33,6 +34,16 @@ mod value_map_serializer {
         }
     }
 
+    fn finalize(serializer: ValueMapSerializer) -> Value {
+        SerializeMap::end(serializer)
+            .expect("ending serializer should succeed")
+            .expect("map serializer should produce a value")
+    }
+
+    fn object(value: &Value) -> &OrderedMap<String, Value> {
+        value.as_object().expect("value should be object")
+    }
+
     #[test]
     fn should_store_string_value_when_serializing_single_entry_then_return_object_with_value() {
         let mut serializer = ValueMapSerializer::new();
@@ -41,10 +52,8 @@ mod value_map_serializer {
             .expect("serializing key should succeed");
         SerializeMap::serialize_value(&mut serializer, &"Seoul")
             .expect("serializing value should succeed");
-        let result = SerializeMap::end(serializer).expect("ending serializer should succeed");
-
-        let value = result.expect("map serializer should produce a value");
-        let map = value.as_object().expect("value should be object");
+    let value = finalize(serializer);
+    let map = object(&value);
         assert_eq!(map.len(), 1);
         assert_matches!(map.get("city"), Some(Value::String(text)) if text == "Seoul");
     }
@@ -57,10 +66,8 @@ mod value_map_serializer {
             .expect("serializing key should succeed");
         SerializeMap::serialize_value(&mut serializer, &Option::<String>::None)
             .expect("serializing none should succeed");
-        let result = SerializeMap::end(serializer).expect("ending serializer should succeed");
-
-        let value = result.expect("map serializer should produce a value");
-        let map = value.as_object().expect("value should be object");
+    let value = finalize(serializer);
+    let map = object(&value);
         assert!(map.is_empty());
     }
 
@@ -107,10 +114,8 @@ mod value_map_serializer {
             .expect("serializing numeric key should succeed");
         SerializeMap::serialize_value(&mut serializer, &"answer")
             .expect("serializing value should succeed");
-        let result = SerializeMap::end(serializer).expect("ending serializer should succeed");
-
-        let value = result.expect("map serializer should produce a value");
-        let map = value.as_object().expect("value should be object");
+    let value = finalize(serializer);
+    let map = object(&value);
         assert_matches!(map.get("42"), Some(Value::String(text)) if text == "answer");
     }
 
@@ -154,10 +159,8 @@ mod value_map_serializer {
             .expect("serializing replacement key should succeed");
         SerializeMap::serialize_value(&mut serializer, &"value")
             .expect("serializing value should succeed");
-        let result = SerializeMap::end(serializer).expect("ending serializer should succeed");
-
-        let value = result.expect("map serializer should produce a value");
-        let map = value.as_object().expect("value should be object");
+    let value = finalize(serializer);
+    let map = object(&value);
         assert_eq!(map.len(), 1);
         assert_matches!(map.get("fresh"), Some(Value::String(text)) if text == "value");
     }
@@ -178,10 +181,8 @@ mod value_map_serializer {
             .expect("serializer should continue after key failure");
         SerializeMap::serialize_value(&mut serializer, &"value")
             .expect("value should serialize with recovered key");
-        let result = SerializeMap::end(serializer).expect("ending serializer should succeed");
-
-        let value = result.expect("serializer should yield value");
-        let map = value.as_object().expect("value should be object");
+    let value = finalize(serializer);
+    let map = object(&value);
         assert_eq!(map.len(), 1);
         assert_matches!(map.get("recovered"), Some(Value::String(text)) if text == "value");
     }
@@ -190,10 +191,8 @@ mod value_map_serializer {
     fn should_produce_empty_object_when_end_called_without_entries_then_return_empty_map() {
         let serializer = ValueMapSerializer::new();
 
-        let result = SerializeMap::end(serializer).expect("ending serializer should succeed");
-
-        let value = result.expect("serializer should yield value");
-        let map = value.as_object().expect("value should be object");
+    let value = finalize(serializer);
+    let map = object(&value);
         assert!(map.is_empty());
     }
 
@@ -215,9 +214,8 @@ mod value_map_serializer {
         SerializeMap::serialize_value(&mut serializer, &"value")
             .expect("serializing replacement value should succeed");
 
-        let result = SerializeMap::end(serializer).expect("ending serializer should succeed");
-        let value = result.expect("serializer should yield value");
-        let map = value.as_object().expect("value should be object");
+    let value = finalize(serializer);
+    let map = object(&value);
         assert_eq!(map.len(), 1);
         assert_matches!(map.get("fixed"), Some(Value::String(text)) if text == "value");
     }
@@ -231,9 +229,8 @@ mod value_map_serializer {
         SerializeMap::serialize_value(&mut serializer, &json!({"inner": 1, "flag": true}))
             .expect("serializing object should succeed");
 
-        let result = SerializeMap::end(serializer).expect("ending serializer should succeed");
-        let value = result.expect("serializer should yield value");
-        let map = value.as_object().expect("value should be object");
+    let value = finalize(serializer);
+    let map = object(&value);
         let payload = map.get("payload").expect("payload entry should exist");
         let payload_obj = payload.as_object().expect("payload should be object");
         assert_eq!(payload_obj.get("inner"), Some(&Value::String("1".into())));

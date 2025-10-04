@@ -70,7 +70,7 @@ mod serialize_error {
     }
 
     #[test]
-    fn should_render_unsupported_variant_message_when_serializer_reports_unsupported_form() {
+    fn should_render_unsupported_variant_message_when_serializer_reports_unsupported_form_then_return_expected_message() {
         let error = SerializeError::Unsupported("enum variant");
 
         let rendered = error.to_string();
@@ -138,7 +138,7 @@ mod deserialize_error {
     }
 
     #[test]
-    fn should_extend_existing_path_when_more_segments_added() {
+    fn should_extend_existing_path_when_more_segments_added_then_merge_segments() {
         let error = DeserializeError::from_kind(DeserializeErrorKind::Message("boom".into()))
             .with_path(vec![PathSegment::Key("user".into())])
             .push_segment(PathSegment::Index(2))
@@ -204,7 +204,7 @@ mod path_display {
     use super::*;
 
     #[test]
-    fn should_format_mixed_path_segments_with_indices() {
+    fn should_format_mixed_path_segments_with_indices_then_render_formatted_path() {
         let segments = vec![
             PathSegment::Key("config".into()),
             PathSegment::Index(0),
