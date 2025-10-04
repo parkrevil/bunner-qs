@@ -151,7 +151,7 @@ impl de::Error for DeserializeError {
 }
 
 #[derive(Debug, Error)]
-pub enum SerdeQueryError {
+pub enum SerdeAdapterError {
     #[error("failed to serialize values into query map: {0}")]
     Serialize(#[from] SerializeError),
     #[error("failed to deserialize query map: {0}")]

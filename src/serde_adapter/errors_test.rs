@@ -225,7 +225,7 @@ mod serde_query_error {
     fn should_prefix_message_when_wrapping_serialize_error_then_include_original_detail() {
         let inner = SerializeError::Unsupported("tuple variant");
 
-        let error = SerdeQueryError::from(inner);
+        let error = SerdeAdapterError::from(inner);
 
         assert_eq!(
             error.to_string(),
@@ -239,7 +239,7 @@ mod serde_query_error {
             value: "YES".into(),
         });
 
-        let error = SerdeQueryError::from(inner);
+        let error = SerdeAdapterError::from(inner);
 
         assert_eq!(
             error.to_string(),

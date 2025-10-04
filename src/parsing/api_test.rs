@@ -1,7 +1,7 @@
 use super::{assume_json_value, parse, parse_with};
 use crate::ParseOptions;
 use crate::parsing::ParseError;
-use crate::serde_adapter::SerdeQueryError;
+use crate::serde_adapter::SerdeAdapterError;
 use assert_matches::assert_matches;
 use serde::Deserialize;
 use serde_json::{Value, json};
@@ -141,7 +141,7 @@ mod parse_api {
 
         assert_matches!(
             result,
-            Err(ParseError::Serde(SerdeQueryError::Deserialize(inner))) => {
+            Err(ParseError::Serde(SerdeAdapterError::Deserialize(inner))) => {
                 assert!(inner.to_string().contains("invalid boolean"));
             }
         );
@@ -219,7 +219,7 @@ mod parse_with_api {
         let err = result.expect_err("strict flag should fail to deserialize");
         assert_matches!(
             err,
-            ParseError::Serde(SerdeQueryError::Deserialize(inner)) => {
+            ParseError::Serde(SerdeAdapterError::Deserialize(inner)) => {
                 assert!(inner.to_string().contains("invalid boolean literal"));
             }
         );

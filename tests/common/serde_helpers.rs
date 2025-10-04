@@ -1,5 +1,5 @@
 use bunner_qs::{
-    ParseError, ParseOptions, SerdeStringifyError, StringifyOptions, parse, parse_with, stringify,
+    ParseError, ParseOptions, StringifyError, StringifyOptions, parse, parse_with, stringify,
     stringify_with,
 };
 use serde::Serialize;
@@ -79,7 +79,7 @@ where
 
 #[derive(Debug)]
 pub enum RoundtripError {
-    Stringify(SerdeStringifyError),
+    Stringify(StringifyError),
     Parse(ParseError),
 }
 
@@ -88,7 +88,7 @@ impl RoundtripError {
         Self::Parse(err)
     }
 
-    fn from_stringify(err: SerdeStringifyError) -> Self {
+    fn from_stringify(err: StringifyError) -> Self {
         Self::Stringify(err)
     }
 }

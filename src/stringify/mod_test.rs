@@ -1,4 +1,4 @@
-use super::{SerdeStringifyError, StringifyError, StringifyOptions, stringify, stringify_with};
+use super::{StringifyError, StringifyOptions, stringify, stringify_with};
 use serde::Serialize;
 
 #[derive(Serialize)]
@@ -42,9 +42,7 @@ mod stringify {
         let error = stringify(&message).expect_err("control characters should fail");
 
         match error {
-            SerdeStringifyError::Stringify(StringifyError::InvalidValue { key }) => {
-                assert_eq!(key, "body")
-            }
+            StringifyError::InvalidValue { key } => assert_eq!(key, "body"),
             other => panic!("expected stringify error, got {other:?}"),
         }
     }

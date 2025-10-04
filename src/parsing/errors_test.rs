@@ -1,6 +1,6 @@
 use super::*;
 use crate::serde_adapter::{
-    DeserializeError, DeserializeErrorKind, SerdeQueryError, SerializeError,
+    DeserializeError, DeserializeErrorKind, SerdeAdapterError, SerializeError,
 };
 
 mod parse_error_display {
@@ -37,7 +37,7 @@ mod from {
 
     #[test]
     fn should_prefix_message_when_wrapping_deserialize_error_then_include_error_context() {
-        let serde_error = SerdeQueryError::from(DeserializeError::from_kind(
+        let serde_error = SerdeAdapterError::from(DeserializeError::from_kind(
             DeserializeErrorKind::InvalidBool { value: "NO".into() },
         ));
 
@@ -51,7 +51,7 @@ mod from {
 
     #[test]
     fn should_prefix_message_when_wrapping_serialize_error_then_include_error_context() {
-        let serde_error = SerdeQueryError::from(SerializeError::Unsupported("tuple variant"));
+        let serde_error = SerdeAdapterError::from(SerializeError::Unsupported("tuple variant"));
 
         let error = ParseError::from(serde_error);
 

@@ -9,7 +9,7 @@ mod serde_helpers;
 
 use asserts::{assert_str_path, assert_string_array_path};
 use bunner_qs::{
-    DuplicateKeyBehavior, ParseError, ParseOptions, SerdeQueryError, parse, parse_with,
+    DuplicateKeyBehavior, ParseError, ParseOptions, SerdeAdapterError, parse, parse_with,
 };
 use json::json_from_pairs;
 use options::try_build_parse_options;
@@ -117,7 +117,7 @@ fn expect_invalid_utf8(query: &str) -> String {
     }
 }
 
-fn expect_serde_error<T>(query: &str) -> (String, SerdeQueryError)
+fn expect_serde_error<T>(query: &str) -> (String, SerdeAdapterError)
 where
     T: DeserializeOwned + Default + Debug + 'static,
 {
@@ -555,7 +555,7 @@ mod serde_integration_tests {
             "failed to deserialize parsed query into target type: failed to deserialize query map: invalid number literal `abc` at count"
         );
         match source {
-            SerdeQueryError::Deserialize(inner) => {
+            SerdeAdapterError::Deserialize(inner) => {
                 assert_eq!(inner.to_string(), "invalid number literal `abc` at count");
             }
             other => panic!("unexpected inner serde error: {other:?}"),

@@ -14,9 +14,9 @@ pub use config::{
     StringifyOptionsBuilder,
 };
 pub use parsing::{ParseError, ParseResult, parse, parse_with};
-pub use serde_adapter::SerdeQueryError;
+pub use serde_adapter::SerdeAdapterError;
 pub use stringify::{
-    SerdeStringifyError, SerdeStringifyResult, StringifyError, StringifyResult, stringify,
+    StringifyError, StringifyResult, stringify,
     stringify_with,
 };
 

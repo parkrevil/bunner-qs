@@ -4,7 +4,7 @@ mod errors;
 mod ser;
 
 pub(crate) use arena::arena_map_to_json_value;
-pub use errors::SerdeQueryError;
+pub use errors::SerdeAdapterError;
 #[cfg(test)]
 pub(crate) use errors::SerializeError;
 pub(crate) use errors::{DeserializeError, DeserializeErrorKind};

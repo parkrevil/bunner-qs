@@ -334,7 +334,7 @@ mod query_map_from_struct {
 
 mod query_map_to_struct {
     use super::*;
-    use crate::SerdeQueryError;
+    use crate::SerdeAdapterError;
     use serde::{Deserialize, Serialize};
 
     #[derive(Debug, Serialize, Deserialize, PartialEq)]
@@ -389,7 +389,7 @@ mod query_map_to_struct {
         let err = result.expect_err("invalid number should fail");
         assert_matches!(
             err,
-            SerdeQueryError::Deserialize(source) => {
+            SerdeAdapterError::Deserialize(source) => {
                 assert!(source.to_string().contains("invalid number"));
             }
         );
@@ -478,7 +478,7 @@ mod clone_value_into_arena {
 
 mod insert_value_into_arena_map {
     use super::*;
-    use crate::SerdeQueryError;
+    use crate::SerdeAdapterError;
 
     #[test]
     fn should_convert_duplicate_insertion_into_serde_query_error_when_insert_fails_then_return_duplicate_key_error()
@@ -494,7 +494,7 @@ mod insert_value_into_arena_map {
             .expect_err("duplicate insert should return error");
 
         match error {
-            SerdeQueryError::Deserialize(inner) => {
+            SerdeAdapterError::Deserialize(inner) => {
                 let message = inner.to_string();
                 assert!(message.contains("duplicate field"));
                 assert!(message.contains("token"));

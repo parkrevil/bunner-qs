@@ -1,4 +1,4 @@
-use crate::serde_adapter::SerdeQueryError;
+use crate::serde_adapter::SerdeAdapterError;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -22,7 +22,7 @@ pub enum ParseError {
     #[error("decoded component is not valid UTF-8")]
     InvalidUtf8,
     #[error("failed to deserialize parsed query into target type: {0}")]
-    Serde(#[from] SerdeQueryError),
+    Serde(#[from] SerdeAdapterError),
 }
 
 #[cfg(test)]

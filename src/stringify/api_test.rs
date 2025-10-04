@@ -1,5 +1,5 @@
 use crate::serde_adapter::SerializeError;
-use crate::{SerdeQueryError, SerdeStringifyError, StringifyError, StringifyOptions};
+use crate::{SerdeAdapterError, StringifyError, StringifyOptions};
 use assert_matches::assert_matches;
 use serde::Serialize;
 use serde::ser::Error as _;
@@ -61,10 +61,7 @@ mod stringify {
 
         let error = crate::stringify(&message).expect_err("control characters should fail");
 
-        assert_matches!(
-            error,
-            SerdeStringifyError::Stringify(StringifyError::InvalidValue { key }) if key == "body"
-        );
+        assert_matches!(error, StringifyError::InvalidValue { key } if key == "body");
     }
 
     #[test]
@@ -73,7 +70,7 @@ mod stringify {
 
         assert_matches!(
             error,
-            SerdeStringifyError::Serialize(SerdeQueryError::Serialize(
+            StringifyError::Serialize(SerdeAdapterError::Serialize(
                 SerializeError::TopLevel(kind)
             )) if kind == "string"
         );
@@ -87,7 +84,7 @@ mod stringify {
 
         assert_matches!(
             error,
-            SerdeStringifyError::Serialize(SerdeQueryError::Serialize(
+            StringifyError::Serialize(SerdeAdapterError::Serialize(
                 SerializeError::UnexpectedSkip
             ))
         );
@@ -101,7 +98,7 @@ mod stringify {
 
         assert_matches!(
             error,
-            SerdeStringifyError::Serialize(SerdeQueryError::Serialize(
+            StringifyError::Serialize(SerdeAdapterError::Serialize(
                 SerializeError::Unsupported(kind)
             )) if kind == "tuple variant"
         );
@@ -115,7 +112,7 @@ mod stringify {
 
         assert_matches!(
             error,
-            SerdeStringifyError::Serialize(SerdeQueryError::Serialize(
+            StringifyError::Serialize(SerdeAdapterError::Serialize(
                 SerializeError::Message(message)
             )) if message == "broken payload"
         );
@@ -161,7 +158,7 @@ mod stringify_with {
 
         assert_matches!(
             error,
-            SerdeStringifyError::Serialize(SerdeQueryError::Serialize(
+            StringifyError::Serialize(SerdeAdapterError::Serialize(
                 SerializeError::Unsupported(kind)
             )) if kind == "tuple variant"
         );
@@ -178,9 +175,6 @@ mod stringify_with {
         let error = crate::stringify_with(&message, &options)
             .expect_err("control characters should fail even with custom options");
 
-        assert_matches!(
-            error,
-            SerdeStringifyError::Stringify(StringifyError::InvalidValue { key }) if key == "body"
-        );
+        assert_matches!(error, StringifyError::InvalidValue { key } if key == "body");
     }
 }

@@ -68,10 +68,7 @@ mod stringify_query_map_with {
 
         let error = stringify_map(map, options).expect_err("control characters should fail");
 
-        assert_matches!(
-            error,
-            StringifyError::InvalidValue { key } if key == "note"
-        );
+        assert_matches!(error, StringifyError::InvalidValue { key } if key == "note");
     }
 
     #[test]

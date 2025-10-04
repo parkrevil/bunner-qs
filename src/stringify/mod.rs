@@ -6,9 +6,7 @@ mod validate;
 mod walker;
 mod writer;
 
-pub use self::errors::{SerdeStringifyError, StringifyError};
+pub use self::errors::StringifyError;
 pub use api::{stringify, stringify_with};
 
 pub type StringifyResult<T> = Result<T, StringifyError>;
-
-pub type SerdeStringifyResult<T> = Result<T, SerdeStringifyError>;

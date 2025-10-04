@@ -18,7 +18,7 @@ mod stringify_options;
 use assert_matches::assert_matches;
 use asserts::{assert_str_path, assert_string_array_path, expect_path};
 use bunner_qs::{
-    ParseError, ParseOptions, SerdeQueryError, SerdeStringifyError, StringifyOptions, parse,
+    ParseError, ParseOptions, SerdeAdapterError, StringifyError, StringifyOptions, parse,
     parse_with, stringify, stringify_with,
 };
 use json::json_from_pairs;
@@ -407,7 +407,7 @@ mod struct_roundtrip_tests {
 
     #[test]
     fn should_preserve_contact_fields_when_to_json_style_roundtrip_runs()
-    -> Result<(), SerdeQueryError> {
+    -> Result<(), SerdeAdapterError> {
         let profile = profile_form();
 
         let encoded = stringify(&profile).expect("stringify should succeed");
@@ -505,7 +505,7 @@ mod enum_roundtrip_tests {
 
         asserts::assert_err_matches!(
             parse::<InternalEnvelope>(&encoded),
-            ParseError::Serde(SerdeQueryError::Deserialize(_)) => |message| {
+            ParseError::Serde(SerdeAdapterError::Deserialize(_)) => |message| {
                 assert!(message.contains("enum"), "expected enum error: {message}");
             }
         );
@@ -528,7 +528,7 @@ mod enum_roundtrip_tests {
 
         asserts::assert_err_matches!(
             parse::<UntaggedEnvelope>(&encoded),
-            ParseError::Serde(SerdeQueryError::Deserialize(_)) => |message| {
+            ParseError::Serde(SerdeAdapterError::Deserialize(_)) => |message| {
                 assert!(
                     message.contains("did not match any variant"),
                     "unexpected untagged enum error: {message}"
@@ -786,7 +786,7 @@ mod stringify_error_tests {
 
         asserts::assert_err_matches!(
             stringify(&value),
-            SerdeStringifyError::Serialize(SerdeQueryError::Serialize(_)) => |message| {
+            StringifyError::Serialize(SerdeAdapterError::Serialize(_)) => |message| {
                 assert!(message.contains("tuple variant"), "unexpected serialize error: {message}");
             }
         );
@@ -799,7 +799,7 @@ mod stringify_error_tests {
 
         asserts::assert_err_matches!(
             stringify(&map),
-            SerdeStringifyError::Serialize(SerdeQueryError::Serialize(_)) => |message| {
+            StringifyError::Serialize(SerdeAdapterError::Serialize(_)) => |message| {
                 assert!(message.contains("map key must be a string"), "unexpected serialize error: {message}");
             }
         );

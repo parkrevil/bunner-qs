@@ -10,9 +10,7 @@ mod serde_helpers;
 mod stringify_options;
 
 use asserts::assert_str_path;
-use bunner_qs::{
-    SerdeStringifyError, StringifyError, StringifyOptions, parse, stringify, stringify_with,
-};
+use bunner_qs::{StringifyError, StringifyOptions, parse, stringify, stringify_with};
 use json::json_from_pairs;
 use options::try_build_parse_options;
 use serde::Serialize;
@@ -218,7 +216,7 @@ fn should_reject_control_characters_when_key_contains_them() {
     });
     asserts::assert_err_matches!(
         stringify(&map),
-        SerdeStringifyError::Stringify(StringifyError::InvalidKey { key }) => |_message| {
+        StringifyError::InvalidKey { key } => |_message| {
             assert_eq!(key, "bad\u{0007}key");
         }
     );
@@ -231,7 +229,7 @@ fn should_reject_control_characters_when_value_contains_line_break() {
     });
     asserts::assert_err_matches!(
         stringify(&map),
-        SerdeStringifyError::Stringify(StringifyError::InvalidValue { key }) => |_message| {
+        StringifyError::InvalidValue { key } => |_message| {
             assert_eq!(key, "normal");
         }
     );
@@ -245,7 +243,7 @@ fn should_reject_delete_character_when_value_contains_delete_control() {
 
     asserts::assert_err_matches!(
         stringify(&map),
-        SerdeStringifyError::Stringify(StringifyError::InvalidValue { key }) => |_message| {
+        StringifyError::InvalidValue { key } => |_message| {
             assert_eq!(key, "note");
         }
     );
@@ -263,7 +261,7 @@ fn should_reject_control_characters_when_nested_value_contains_them() {
 
     asserts::assert_err_matches!(
         stringify(&map),
-        SerdeStringifyError::Stringify(StringifyError::InvalidValue { key }) => |_message| {
+        StringifyError::InvalidValue { key } => |_message| {
             assert_eq!(key, "profile[address][line1]");
         }
     );

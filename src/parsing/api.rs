@@ -5,7 +5,7 @@ use serde::de::DeserializeOwned;
 use serde_json::Value as JsonValue;
 
 use crate::config::ParseOptions;
-use crate::serde_adapter::{SerdeQueryError, arena_map_to_json_value, deserialize_from_arena_map};
+use crate::serde_adapter::{SerdeAdapterError, arena_map_to_json_value, deserialize_from_arena_map};
 
 use super::builder::with_arena_query_map;
 use super::errors::ParseError;
@@ -41,7 +41,7 @@ where
                 return Ok(value);
             }
             deserialize_from_arena_map::<T>(arena_map)
-                .map_err(SerdeQueryError::Deserialize)
+                .map_err(SerdeAdapterError::Deserialize)
                 .map_err(ParseError::from)
         }
     })
