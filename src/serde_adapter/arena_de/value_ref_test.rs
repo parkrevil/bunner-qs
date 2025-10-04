@@ -1,5 +1,27 @@
 use super::*;
 use crate::parsing::arena::{ArenaValue, ParseArena};
+use assert_matches::assert_matches;
+
+fn string_ref(reference: ArenaValueRef<'_>) -> Option<&str> {
+    match reference {
+        ArenaValueRef::String(value) => Some(value),
+        _ => None,
+    }
+}
+
+fn seq_slice(reference: ArenaValueRef<'_>) -> Option<&[ArenaValue<'_>]> {
+    match reference {
+        ArenaValueRef::Seq(slice) => Some(slice),
+        _ => None,
+    }
+}
+
+fn map_slice(reference: ArenaValueRef<'_>) -> Option<&[(&str, ArenaValue<'_>)]> {
+    match reference {
+        ArenaValueRef::Map(entries) => Some(entries),
+        _ => None,
+    }
+}
 
 mod from_value {
     use super::*;
@@ -10,10 +32,7 @@ mod from_value {
 
         let reference = ArenaValueRef::from_value(&value);
 
-        match reference {
-            ArenaValueRef::String(actual) => assert_eq!(actual, "hello"),
-            _ => panic!("expected string variant"),
-        }
+        assert_eq!(string_ref(reference), Some("hello"));
     }
 
     #[test]
@@ -26,14 +45,10 @@ mod from_value {
 
         let reference = ArenaValueRef::from_value(&value);
 
-        match reference {
-            ArenaValueRef::Seq(slice) => {
-                assert_eq!(slice.len(), 2);
-                assert!(matches!(slice[0], ArenaValue::String("zero")));
-                assert!(matches!(slice[1], ArenaValue::String("one")));
-            }
-            _ => panic!("expected sequence variant"),
-        }
+        let slice = seq_slice(reference).expect("expected sequence variant");
+        assert_eq!(slice.len(), 2);
+        assert_matches!(slice[0], ArenaValue::String("zero"));
+        assert_matches!(slice[1], ArenaValue::String("one"));
     }
 
     #[test]
@@ -55,15 +70,11 @@ mod from_value {
 
         let reference = ArenaValueRef::from_value(&value);
 
-        match reference {
-            ArenaValueRef::Map(slice) => {
-                assert_eq!(slice.len(), 2);
-                assert_eq!(slice[0].0, "name");
-                assert!(matches!(slice[0].1, ArenaValue::String("Jane")));
-                assert_eq!(slice[1].0, "city");
-                assert!(matches!(slice[1].1, ArenaValue::String("Seoul")));
-            }
-            _ => panic!("expected map variant"),
-        }
+        let slice = map_slice(reference).expect("expected map variant");
+        assert_eq!(slice.len(), 2);
+        assert_eq!(slice[0].0, "name");
+        assert_matches!(slice[0].1, ArenaValue::String("Jane"));
+        assert_eq!(slice[1].0, "city");
+        assert_matches!(slice[1].1, ArenaValue::String("Seoul"));
     }
 }

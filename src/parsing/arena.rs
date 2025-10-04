@@ -140,6 +140,10 @@ pub type ArenaVec<'arena, T> = BumpVec<'arena, T>;
 
 type FastMap<K, V> = HashMap<K, V, RandomState>;
 
+pub type ArenaMapEntries<'arena> = ArenaVec<'arena, (&'arena str, ArenaValue<'arena>)>;
+
+pub type ArenaMapIndex<'arena> = FastMap<&'arena str, usize>;
+
 #[inline]
 fn shared_random_state() -> RandomState {
     static STATE: OnceLock<RandomState> = OnceLock::new();
@@ -224,6 +228,19 @@ pub enum ArenaValue<'arena> {
     },
 }
 
+impl<'arena> std::fmt::Debug for ArenaValue<'arena> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ArenaValue::String(text) => f.debug_tuple("String").field(text).finish(),
+            ArenaValue::Seq(items) => f.debug_tuple("Seq").field(&items.as_slice()).finish(),
+            ArenaValue::Map { entries, .. } => f
+                .debug_struct("Map")
+                .field("entries", &entries.as_slice())
+                .finish(),
+        }
+    }
+}
+
 impl<'arena> ArenaValue<'arena> {
     pub fn string(value: &'arena str) -> Self {
         ArenaValue::String(value)
@@ -266,6 +283,16 @@ impl<'arena> ArenaValue<'arena> {
     pub fn as_map_slice(&self) -> Option<&[(&'arena str, ArenaValue<'arena>)]> {
         match self {
             ArenaValue::Map { entries, .. } => Some(entries.as_slice()),
+            _ => None,
+        }
+    }
+
+    #[inline]
+    pub(crate) fn map_parts_mut(
+        &mut self,
+    ) -> Option<(&mut ArenaMapEntries<'arena>, &mut ArenaMapIndex<'arena>)> {
+        match self {
+            ArenaValue::Map { entries, index } => Some((entries, index)),
             _ => None,
         }
     }

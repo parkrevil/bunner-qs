@@ -2,27 +2,21 @@ use super::{arena_ensure_container, arena_initial_container};
 use crate::nested::segment::ContainerType;
 use crate::parsing::arena::{ArenaValue, ParseArena};
 use crate::parsing_helpers::{expect_duplicate_key, make_sequence, make_string};
+use assert_matches::assert_matches;
 
-fn assert_sequence_items(value: &ArenaValue<'_>, expected: &[&str]) {
-    match value {
-        ArenaValue::Seq(items) => {
-            assert_eq!(items.len(), expected.len());
-            for (item, expected_text) in items.iter().zip(expected.iter()) {
-                match item {
-                    ArenaValue::String(text) => assert_eq!(*text, *expected_text),
-                    _ => panic!("expected string item"),
-                }
-            }
+fn assert_sequence_matches(value: &ArenaValue<'_>, expected: &[&str]) {
+    assert_matches!(value, ArenaValue::Seq(items) => {
+        assert_eq!(items.len(), expected.len(), "sequence length should match");
+        for (item, expected_text) in items.iter().zip(expected.iter()) {
+            assert_matches!(item, ArenaValue::String(text) if *text == *expected_text);
         }
-        _ => panic!("expected sequence"),
-    }
+    });
 }
 
 fn assert_empty_map(value: &ArenaValue<'_>) {
-    match value {
-        ArenaValue::Map { entries, .. } => assert!(entries.is_empty()),
-        _ => panic!("expected map"),
-    }
+    assert_matches!(value, ArenaValue::Map { entries, .. } => {
+        assert!(entries.is_empty(), "map should be empty");
+    });
 }
 
 mod arena_initial_container {
@@ -35,7 +29,7 @@ mod arena_initial_container {
 
         let container = arena_initial_container(&arena, ContainerType::Array, 8);
 
-        assert_sequence_items(&container, &[]);
+        assert_sequence_matches(&container, &[]);
     }
 
     #[test]
@@ -59,7 +53,7 @@ mod arena_ensure_container {
         arena_ensure_container(&arena, &mut value, ContainerType::Array, "profile")
             .expect("sequence should satisfy expectation");
 
-        assert_sequence_items(&value, &["existing"]);
+        assert_sequence_matches(&value, &["existing"]);
     }
 
     #[test]
@@ -70,7 +64,7 @@ mod arena_ensure_container {
         arena_ensure_container(&arena, &mut value, ContainerType::Array, "profile")
             .expect("map should convert to sequence");
 
-        assert_sequence_items(&value, &[]);
+        assert_sequence_matches(&value, &[]);
     }
 
     #[test]
@@ -80,7 +74,6 @@ mod arena_ensure_container {
 
         arena_ensure_container(&arena, &mut value, ContainerType::Object, "profile")
             .expect("sequence should convert to map");
-
         assert_empty_map(&value);
     }
 

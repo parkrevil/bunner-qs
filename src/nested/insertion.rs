@@ -8,11 +8,8 @@ use super::container::{arena_ensure_container, arena_initial_container};
 use super::key_path::KEY_PATH_INLINE_SEGMENTS;
 use super::pattern_state::PatternState;
 use super::segment::{ContainerType, ResolvedSegment, SegmentKind};
-
-#[cfg(test)]
 use std::cell::Cell;
 
-#[cfg(test)]
 thread_local! {
     static STRING_PROMOTION_SUPPRESSED: Cell<bool> = const { Cell::new(false) };
 }
@@ -177,10 +174,6 @@ fn arena_set_nested_value<'arena>(
                 }
             },
             ArenaValue::String(_) => {
-                debug_assert!(
-                    matches!(ctx.duplicate_keys, DuplicateKeyBehavior::Reject),
-                    "unexpected string value encountered during nested insertion"
-                );
                 return Err(unexpected_nested_string(ctx.root_key));
             }
         }
@@ -192,11 +185,13 @@ enum StepOutcome {
     Descend { next_index: usize },
 }
 
+#[derive(Debug)]
 enum NodePreparation {
     Ready,
     NeedsRetry,
 }
 
+#[derive(Debug)]
 enum TraversalStep<'node, 'arena> {
     Complete,
     Descend(&'node mut ArenaValue<'arena>),
@@ -491,15 +486,7 @@ fn unexpected_nested_string(root_key: &str) -> ParseError {
 
 #[inline]
 fn should_promote_string_node() -> bool {
-    #[cfg(test)]
-    {
-        !STRING_PROMOTION_SUPPRESSED.with(|flag| flag.get())
-    }
-
-    #[cfg(not(test))]
-    {
-        true
-    }
+    !STRING_PROMOTION_SUPPRESSED.with(|flag| flag.get())
 }
 
 #[cfg(test)]

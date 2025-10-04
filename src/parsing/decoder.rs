@@ -49,15 +49,27 @@ pub(crate) fn decode_with_special_chars<'a>(
 ) -> Result<Cow<'a, str>, ParseError> {
     scratch.clear();
     scratch.reserve(bytes.len());
+    let mut modified = false;
 
     let mut cursor = 0usize;
     while cursor < bytes.len() {
         cursor = match bytes[cursor] {
-            b'%' => decode_percent_sequence(bytes, cursor, offset, scratch)?,
-            b'+' if space_as_plus => decode_plus(cursor, scratch),
+            b'%' => {
+                modified = true;
+                decode_percent_sequence(bytes, cursor, offset, scratch)?
+            }
+            b'+' if space_as_plus => {
+                modified = true;
+                decode_plus(cursor, scratch)
+            }
             byte if byte < 0x80 => decode_ascii_run(bytes, cursor, offset, space_as_plus, scratch)?,
             _ => decode_utf8_cluster(raw, bytes, cursor, scratch)?,
         };
+    }
+
+    if !modified {
+        scratch.clear();
+        return Ok(Cow::Borrowed(raw));
     }
 
     finalize_decoded(scratch)

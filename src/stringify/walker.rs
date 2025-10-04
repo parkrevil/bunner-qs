@@ -54,7 +54,10 @@ fn push_usize_decimal(buffer: &mut String, mut value: usize) {
 /// allocation. Debug assertions ensure the invariant before falling back to the
 /// unchecked UTF-8 conversion.
 fn ascii_digits_to_str(slice: &[u8]) -> &str {
-    debug_assert!(slice.iter().all(u8::is_ascii_digit));
+    debug_assert!(
+        slice.iter().all(|byte| byte.is_ascii_digit()),
+        "non-digit byte encountered in decimal conversion"
+    );
     unsafe { std::str::from_utf8_unchecked(slice) }
 }
 

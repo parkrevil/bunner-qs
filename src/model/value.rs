@@ -96,14 +96,7 @@ impl QueryMap {
         let mut arena_map = ArenaQueryMap::with_capacity(&arena, self.len());
 
         for (key, value) in self.iter() {
-            let arena_value = clone_value_into_arena(&arena, value);
-            if let Err(()) = arena_map.try_insert_str(&arena, key, arena_value) {
-                debug_assert!(false, "QueryMap must not contain duplicate keys");
-                let error = DeserializeError::from_kind(DeserializeErrorKind::DuplicateField {
-                    field: key.clone(),
-                });
-                return Err(SerdeQueryError::from(error));
-            }
+            insert_value_into_arena_map(&arena, &mut arena_map, key, value)?;
         }
 
         deserialize_from_arena_map(&arena_map).map_err(SerdeQueryError::from)
@@ -141,18 +134,38 @@ pub(crate) fn clone_value_into_arena<'arena>(
                 ArenaValue::map_with_capacity(arena, map.len())
             };
 
-            if let ArenaValue::Map { entries, index } = &mut object {
-                for (key, child) in map.iter() {
-                    let key_ref = arena.alloc_str(key);
-                    let idx = entries.len();
-                    entries.push((key_ref, clone_value_into_arena(arena, child)));
-                    index.insert(key_ref, idx);
-                }
+            let (entries, index) = object
+                .map_parts_mut()
+                .expect("ArenaValue::map should produce map variant");
+
+            for (key, child) in map.iter() {
+                let key_ref = arena.alloc_str(key);
+                let idx = entries.len();
+                entries.push((key_ref, clone_value_into_arena(arena, child)));
+                index.insert(key_ref, idx);
             }
 
             object
         }
     }
+}
+
+fn insert_value_into_arena_map<'arena>(
+    arena: &'arena ParseArena,
+    map: &mut ArenaQueryMap<'arena>,
+    key: &str,
+    value: &Value,
+) -> Result<(), SerdeQueryError> {
+    let arena_value = clone_value_into_arena(arena, value);
+    map.try_insert_str(arena, key, arena_value)
+        .map_err(|()| duplicate_field_error(key))
+}
+
+fn duplicate_field_error(key: &str) -> SerdeQueryError {
+    let error = DeserializeError::from_kind(DeserializeErrorKind::DuplicateField {
+        field: key.to_string(),
+    });
+    SerdeQueryError::from(error)
 }
 
 impl std::ops::Deref for QueryMap {

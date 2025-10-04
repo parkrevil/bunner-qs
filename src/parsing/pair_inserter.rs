@@ -53,15 +53,11 @@ fn insert_root_value<'arena>(
             }),
             DuplicateKeyBehavior::FirstWins => Ok(()),
             DuplicateKeyBehavior::LastWins => {
-                if let Some(existing) = map.get_mut(key) {
-                    *existing = ArenaValue::string(value);
-                    Ok(())
-                } else {
-                    debug_assert!(false, "existing key must be present on duplicate insert");
-                    Err(ParseError::DuplicateKey {
-                        key: duplicate_key_label(key),
-                    })
-                }
+                let existing = map
+                    .get_mut(key)
+                    .expect("duplicate key should exist for last-wins behavior");
+                *existing = ArenaValue::string(value);
+                Ok(())
             }
         },
     }

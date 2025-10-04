@@ -1,5 +1,6 @@
 use super::{duplicate_key_label, estimate_param_capacity, validate_brackets};
 use crate::parsing::ParseError;
+use assert_matches::assert_matches;
 
 mod validate_brackets {
     use super::*;
@@ -19,10 +20,10 @@ mod validate_brackets {
 
         let result = validate_brackets(key, None);
 
-        assert!(matches!(
+        assert_matches!(
             result,
             Err(ParseError::UnmatchedBracket { key: ref error_key }) if error_key == key
-        ));
+        );
     }
 
     #[test]
@@ -31,10 +32,10 @@ mod validate_brackets {
 
         let result = validate_brackets(key, None);
 
-        assert!(matches!(
+        assert_matches!(
             result,
             Err(ParseError::UnmatchedBracket { key: ref error_key }) if error_key == key
-        ));
+        );
     }
 
     #[test]
@@ -43,13 +44,13 @@ mod validate_brackets {
 
         let result = validate_brackets(key, Some(2));
 
-        assert!(matches!(
+        assert_matches!(
             result,
             Err(ParseError::DepthExceeded {
                 key: ref error_key,
                 limit
             }) if error_key == key && limit == 2
-        ));
+        );
     }
 }
 

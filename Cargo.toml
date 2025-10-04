@@ -21,6 +21,7 @@ smallvec = "1.13"
 proptest = "1.4"
 criterion = { version = "0.5", features = ["html_reports"] }
 serde_qs = "0.12"
+assert_matches = "1.5"
 
 [dev-dependencies.cargo-husky]
 version = "1"

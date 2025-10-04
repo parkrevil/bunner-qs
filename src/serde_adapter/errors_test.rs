@@ -68,6 +68,15 @@ mod serialize_error {
             "unexpected placeholder value encountered during serialization"
         );
     }
+
+    #[test]
+    fn should_render_unsupported_variant_message_when_serializer_reports_unsupported_form() {
+        let error = SerializeError::Unsupported("enum variant");
+
+        let rendered = error.to_string();
+
+        assert_eq!(rendered, "unsupported serialization form: enum variant");
+    }
 }
 
 mod deserialize_error {
@@ -129,6 +138,26 @@ mod deserialize_error {
     }
 
     #[test]
+    fn should_extend_existing_path_when_more_segments_added() {
+        let error = DeserializeError::from_kind(DeserializeErrorKind::Message("boom".into()))
+            .with_path(vec![PathSegment::Key("user".into())])
+            .push_segment(PathSegment::Index(2))
+            .push_segment(PathSegment::Key("name".into()));
+
+        assert_eq!(error.to_string(), "boom at user[2].name");
+        assert_eq!(
+            error.path(),
+            &[
+                PathSegment::Key("user".into()),
+                PathSegment::Index(2),
+                PathSegment::Key("name".into())
+            ]
+        );
+        let source = error.source().expect("inner source should exist");
+        assert_eq!(source.to_string(), "boom");
+    }
+
+    #[test]
     fn should_preserve_existing_path_when_with_path_called_twice_then_ignore_second_assignment() {
         let error = DeserializeError::from_kind(DeserializeErrorKind::InvalidNumber {
             value: "nope".into(),
@@ -168,6 +197,23 @@ mod deserialize_error {
             rendered,
             "expected an object for struct `Account`, found string"
         );
+    }
+}
+
+mod path_display {
+    use super::*;
+
+    #[test]
+    fn should_format_mixed_path_segments_with_indices() {
+        let segments = vec![
+            PathSegment::Key("config".into()),
+            PathSegment::Index(0),
+            PathSegment::Key("enabled".into()),
+        ];
+        let error = DeserializeError::from_kind(DeserializeErrorKind::Message("invalid".into()))
+            .with_path(segments);
+
+        assert_eq!(error.to_string(), "invalid at config[0].enabled");
     }
 }
 

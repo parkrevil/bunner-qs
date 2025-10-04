@@ -7,14 +7,16 @@ use crate::arena_helpers::{alloc_key, map_with_capacity};
 use crate::parsing::arena::{ArenaValue, ParseArena};
 use crate::parsing_helpers::{make_sequence, make_string};
 use crate::serde_adapter::errors::{DeserializeErrorKind, PathSegment};
+use assert_matches::assert_matches;
 use serde::Deserialize;
 
 fn deserializer_for<'arena>(value: &'arena ArenaValue<'arena>) -> ArenaValueDeserializer<'arena> {
     ArenaValueDeserializer::new(ArenaValueRef::from_value(value), Vec::new())
 }
 
-mod deserialize_from_arena_map {
+mod map_deserializer {
     use super::*;
+    use serde::de::{DeserializeSeed, MapAccess};
 
     #[derive(Debug, Deserialize, PartialEq)]
     struct Profile {
@@ -26,6 +28,11 @@ mod deserialize_from_arena_map {
     #[derive(Debug, Deserialize)]
     struct Flag {
         flag: bool,
+    }
+
+    #[derive(Debug, Deserialize, PartialEq)]
+    struct MaybeFlag {
+        flag: Option<bool>,
     }
 
     #[test]
@@ -61,12 +68,10 @@ mod deserialize_from_arena_map {
         let error = deserialize_from_arena_map::<Flag>(&map)
             .expect_err("invalid boolean literal should fail");
 
-        match error.kind() {
-            DeserializeErrorKind::InvalidBool { value } => {
-                assert_eq!(value, "not-bool");
-            }
-            other => panic!("unexpected kind: {other:?}"),
-        }
+        assert_matches!(
+            error.kind(),
+            DeserializeErrorKind::InvalidBool { value } if value == "not-bool"
+        );
         assert_eq!(error.path(), &[PathSegment::Key("flag".to_string())]);
     }
 
@@ -83,14 +88,142 @@ mod deserialize_from_arena_map {
         let error =
             deserialize_from_arena_map::<Profile>(&map).expect_err("unknown field should fail");
 
-        match error.kind() {
-            DeserializeErrorKind::UnknownField { field, expected } => {
-                assert_eq!(field, "extra");
-                assert_eq!(expected, "name, active");
-            }
-            other => panic!("unexpected kind: {other:?}"),
-        }
+        assert_matches!(
+            error.kind(),
+            DeserializeErrorKind::UnknownField { field, expected }
+                if field == "extra" && expected == "name, active"
+        );
         assert_eq!(error.path(), &[PathSegment::Key("extra".to_string())]);
+    }
+
+    #[test]
+    fn should_default_optional_field_to_none_when_map_omits_entry_then_return_struct_with_none() {
+        let arena = ParseArena::new();
+        let map = map_with_capacity(&arena, 0);
+
+        let result =
+            deserialize_from_arena_map::<MaybeFlag>(&map).expect("optional field should default");
+
+        assert_eq!(result, MaybeFlag { flag: None });
+    }
+
+    #[test]
+    fn should_error_when_map_value_missing_then_return_contextual_message() {
+        let arena = ParseArena::new();
+        let map = map_with_capacity(&arena, 0);
+        let entries = map.entries_slice();
+        let mut deserializer = ArenaMapDeserializer {
+            iter: entries.iter(),
+            value: None,
+            path: vec![PathSegment::Key("root".into())],
+            pending_key: None,
+        };
+
+        struct UnitSeed;
+
+        impl<'de> serde::de::DeserializeSeed<'de> for UnitSeed {
+            type Value = ();
+
+            fn deserialize<D>(self, _deserializer: D) -> Result<Self::Value, D::Error>
+            where
+                D: serde::de::Deserializer<'de>,
+            {
+                Ok(())
+            }
+        }
+
+        let error = deserializer
+            .next_value_seed(UnitSeed)
+            .expect_err("missing value should error");
+
+        assert_eq!(error.to_string(), "value missing for map entry at root");
+    }
+
+    #[test]
+    fn should_return_none_when_map_entries_consumed_then_stop_iteration() {
+        let arena = ParseArena::new();
+        let mut map = map_with_capacity(&arena, 1);
+        map.try_insert_str(&arena, "name", make_string(&arena, "Neo"))
+            .expect("unique key should insert");
+        let entries = map.entries_slice();
+        let mut deserializer = ArenaMapDeserializer {
+            iter: entries.iter(),
+            value: None,
+            path: Vec::new(),
+            pending_key: None,
+        };
+
+        struct KeySeed;
+
+        impl<'de> DeserializeSeed<'de> for KeySeed {
+            type Value = String;
+
+            fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+            where
+                D: serde::de::Deserializer<'de>,
+            {
+                String::deserialize(deserializer)
+            }
+        }
+
+        struct IgnoreValue;
+
+        impl<'de> DeserializeSeed<'de> for IgnoreValue {
+            type Value = ();
+
+            fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+            where
+                D: serde::de::Deserializer<'de>,
+            {
+                serde::de::IgnoredAny::deserialize(deserializer).map(|_| ())
+            }
+        }
+
+        let first = serde::de::MapAccess::next_key_seed(&mut deserializer, KeySeed)
+            .expect("first key should deserialize")
+            .expect("key should be present");
+        assert_eq!(first, "name");
+
+        let _: () = serde::de::MapAccess::next_value_seed(&mut deserializer, IgnoreValue)
+            .expect("value should deserialize");
+
+        let next = serde::de::MapAccess::next_key_seed(&mut deserializer, KeySeed)
+            .expect("iteration should succeed");
+        assert!(next.is_none(), "no additional keys should remain");
+    }
+
+    #[test]
+    fn should_error_when_struct_field_value_missing_then_return_contextual_message() {
+        let arena = ParseArena::new();
+        let map = map_with_capacity(&arena, 0);
+        let entries = map.entries_slice();
+        let mut deserializer = ArenaStructDeserializer {
+            iter: entries.iter(),
+            value: None,
+            allowed: &[],
+            seen: std::collections::HashSet::with_capacity(0),
+            path: vec![PathSegment::Key("root".into())],
+            pending_key: None,
+        };
+
+        struct UnitSeed;
+
+        impl<'de> serde::de::DeserializeSeed<'de> for UnitSeed {
+            type Value = ();
+
+            fn deserialize<D>(self, _deserializer: D) -> Result<Self::Value, D::Error>
+            where
+                D: serde::de::Deserializer<'de>,
+            {
+                Ok(())
+            }
+        }
+
+        let error = deserializer
+            .next_value_seed(UnitSeed)
+            .expect_err("missing struct value should error");
+
+        assert_eq!(error.to_string(), "value missing for struct field at root");
     }
 }
 
@@ -254,12 +387,10 @@ mod arena_value_deserializer {
         let error =
             Count::deserialize(deserializer).expect_err("duplicate field should be rejected");
 
-        match error.kind() {
-            DeserializeErrorKind::DuplicateField { field } => {
-                assert_eq!(field, "count");
-            }
-            other => panic!("unexpected kind: {other:?}"),
-        }
+        assert_matches!(
+            error.kind(),
+            DeserializeErrorKind::DuplicateField { field } if field == "count"
+        );
         assert_eq!(error.path(), &[PathSegment::Key("count".to_string())]);
     }
 
@@ -272,13 +403,11 @@ mod arena_value_deserializer {
 
         let error = <()>::deserialize(deserializer).expect_err("non-empty unit should fail");
 
-        match error.kind() {
-            DeserializeErrorKind::UnexpectedType { expected, found } => {
-                assert_eq!(*expected, "empty string for unit");
-                assert_eq!(*found, "non-empty string");
-            }
-            other => panic!("unexpected kind: {other:?}"),
-        }
+        assert_matches!(
+            error.kind(),
+            DeserializeErrorKind::UnexpectedType { expected, found }
+                if *expected == "empty string for unit" && *found == "non-empty string"
+        );
         assert_eq!(error.path(), &[]);
     }
 
@@ -303,12 +432,10 @@ mod arena_value_deserializer {
 
         let error = char::deserialize(deserializer).expect_err("multi-character should fail");
 
-        match error.kind() {
-            DeserializeErrorKind::InvalidNumber { value } => {
-                assert_eq!(value, "no");
-            }
-            other => panic!("unexpected kind: {other:?}"),
-        }
+        assert_matches!(
+            error.kind(),
+            DeserializeErrorKind::InvalidNumber { value } if value == "no"
+        );
         assert_eq!(error.path(), &[]);
     }
 
@@ -394,6 +521,98 @@ mod arena_value_deserializer {
             .expect("deserialize_any should visit sequence");
 
         assert_eq!(count, 3);
+    }
+
+    #[test]
+    fn should_forward_identifier_to_string_when_identifier_requested() {
+        struct IdentifierVisitor;
+
+        impl<'de> Visitor<'de> for IdentifierVisitor {
+            type Value = &'de str;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+                formatter.write_str("an identifier")
+            }
+
+            fn visit_borrowed_str<E>(self, value: &'de str) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                Ok(value)
+            }
+        }
+
+        let arena = ParseArena::new();
+        let value = make_string(&arena, "field");
+        let deserializer = deserializer_for(&value);
+
+        let result = deserializer
+            .deserialize_identifier(IdentifierVisitor)
+            .expect("identifier should deserialize");
+
+        assert_eq!(result, "field");
+    }
+
+    #[test]
+    fn should_ignore_any_value_when_deserialize_ignored_any_invoked() {
+        struct IgnoreVisitor;
+
+        impl<'de> Visitor<'de> for IgnoreVisitor {
+            type Value = ();
+
+            fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+                formatter.write_str("any value to ignore")
+            }
+
+            fn visit_unit<E>(self) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                Ok(())
+            }
+        }
+
+        let arena = ParseArena::new();
+        let value = make_sequence(&arena, &["ignored"]);
+        let deserializer = deserializer_for(&value);
+
+        deserializer
+            .deserialize_ignored_any(IgnoreVisitor)
+            .expect("ignored_any should succeed");
+    }
+
+    #[test]
+    fn should_report_expected_string_when_integer_requested_from_sequence() {
+        let arena = ParseArena::new();
+        let sequence = make_sequence(&arena, &["1"]);
+        let deserializer = deserializer_for(&sequence);
+
+        let error =
+            i32::deserialize(deserializer).expect_err("sequence cannot deserialize into integer");
+
+        assert_matches!(
+            error.kind(),
+            DeserializeErrorKind::ExpectedString { found } if *found == "array"
+        );
+    }
+
+    #[test]
+    fn should_report_expected_string_when_float_requested_from_map() {
+        let arena = ParseArena::new();
+        let mut entries = arena.alloc_vec();
+        entries.push((alloc_key(&arena, "value"), make_string(&arena, "100")));
+        let map_value = ArenaValue::Map {
+            entries,
+            index: Default::default(),
+        };
+        let deserializer = deserializer_for(&map_value);
+
+        let error = f32::deserialize(deserializer).expect_err("map cannot deserialize into float");
+
+        assert_matches!(
+            error.kind(),
+            DeserializeErrorKind::ExpectedString { found } if *found == "object"
+        );
     }
 
     #[test]
@@ -484,13 +703,11 @@ mod arena_value_deserializer {
         let error = <(u8, u8)>::deserialize(deserializer)
             .expect_err("string should not deserialize as tuple");
 
-        match error.kind() {
-            DeserializeErrorKind::UnexpectedType { expected, found } => {
-                assert_eq!(*expected, "tuple");
-                assert_eq!(*found, "string");
-            }
-            other => panic!("unexpected error kind: {other:?}"),
-        }
+        assert_matches!(
+            error.kind(),
+            DeserializeErrorKind::UnexpectedType { expected, found }
+                if *expected == "tuple" && *found == "string"
+        );
         assert_eq!(error.path(), &[]);
     }
 
@@ -541,10 +758,10 @@ mod arena_value_deserializer {
 
         let error = u16::deserialize(deserializer).expect_err("invalid digits should fail");
 
-        match error.kind() {
-            DeserializeErrorKind::InvalidNumber { value } => assert_eq!(value, "12nope"),
-            other => panic!("unexpected error kind: {other:?}"),
-        }
+        assert_matches!(
+            error.kind(),
+            DeserializeErrorKind::InvalidNumber { value } if value == "12nope"
+        );
         assert!(error.path().is_empty());
     }
 
@@ -583,10 +800,10 @@ mod arena_value_deserializer {
         let error =
             String::deserialize(deserializer).expect_err("array should not deserialize to string");
 
-        match error.kind() {
-            DeserializeErrorKind::ExpectedString { found } => assert_eq!(*found, "array"),
-            other => panic!("unexpected error kind: {other:?}"),
-        }
+        assert_matches!(
+            error.kind(),
+            DeserializeErrorKind::ExpectedString { found } if *found == "array"
+        );
         assert!(error.path().is_empty());
     }
 
@@ -604,10 +821,10 @@ mod arena_value_deserializer {
         let error =
             String::deserialize(deserializer).expect_err("map should not deserialize to string");
 
-        match error.kind() {
-            DeserializeErrorKind::ExpectedString { found } => assert_eq!(*found, "object"),
-            other => panic!("unexpected error kind: {other:?}"),
-        }
+        assert_matches!(
+            error.kind(),
+            DeserializeErrorKind::ExpectedString { found } if *found == "object"
+        );
         assert!(error.path().is_empty());
     }
 
@@ -621,10 +838,10 @@ mod arena_value_deserializer {
         let error =
             u8::deserialize(deserializer).expect_err("array should not deserialize to number");
 
-        match error.kind() {
-            DeserializeErrorKind::ExpectedString { found } => assert_eq!(*found, "array"),
-            other => panic!("unexpected error kind: {other:?}"),
-        }
+        assert_matches!(
+            error.kind(),
+            DeserializeErrorKind::ExpectedString { found } if *found == "array"
+        );
         assert!(error.path().is_empty());
     }
 
@@ -641,10 +858,10 @@ mod arena_value_deserializer {
         let error =
             bool::deserialize(deserializer).expect_err("map should not deserialize to bool");
 
-        match error.kind() {
-            DeserializeErrorKind::ExpectedString { found } => assert_eq!(*found, "object"),
-            other => panic!("unexpected error kind: {other:?}"),
-        }
+        assert_matches!(
+            error.kind(),
+            DeserializeErrorKind::ExpectedString { found } if *found == "object"
+        );
         assert!(error.path().is_empty());
     }
 
@@ -656,10 +873,10 @@ mod arena_value_deserializer {
 
         let error = f64::deserialize(deserializer).expect_err("invalid float should fail");
 
-        match error.kind() {
-            DeserializeErrorKind::InvalidNumber { value } => assert_eq!(value, "not-a-number"),
-            other => panic!("unexpected error kind: {other:?}"),
-        }
+        assert_matches!(
+            error.kind(),
+            DeserializeErrorKind::InvalidNumber { value } if value == "not-a-number"
+        );
         assert!(error.path().is_empty());
     }
 
@@ -672,10 +889,10 @@ mod arena_value_deserializer {
         let error = <Vec<bool>>::deserialize(deserializer)
             .expect_err("invalid boolean element should fail");
 
-        match error.kind() {
-            DeserializeErrorKind::InvalidBool { value } => assert_eq!(value, "no"),
-            other => panic!("unexpected error kind: {other:?}"),
-        }
+        assert_matches!(
+            error.kind(),
+            DeserializeErrorKind::InvalidBool { value } if value == "no"
+        );
         assert_eq!(error.path(), &[PathSegment::Index(1)]);
     }
 
@@ -688,13 +905,11 @@ mod arena_value_deserializer {
         let error = <Vec<String>>::deserialize(deserializer)
             .expect_err("scalar cannot deserialize into sequence");
 
-        match error.kind() {
-            DeserializeErrorKind::UnexpectedType { expected, found } => {
-                assert_eq!(*expected, "array");
-                assert_eq!(*found, "string");
-            }
-            other => panic!("unexpected error kind: {other:?}"),
-        }
+        assert_matches!(
+            error.kind(),
+            DeserializeErrorKind::UnexpectedType { expected, found }
+                if *expected == "array" && *found == "string"
+        );
         assert!(error.path().is_empty());
     }
 
@@ -706,13 +921,11 @@ mod arena_value_deserializer {
         let error = <(u8, u8)>::deserialize(deserializer_for(&value))
             .expect_err("scalar cannot deserialize into tuple");
 
-        match error.kind() {
-            DeserializeErrorKind::UnexpectedType { expected, found } => {
-                assert_eq!(*expected, "tuple");
-                assert_eq!(*found, "string");
-            }
-            other => panic!("unexpected kind: {other:?}"),
-        }
+        assert_matches!(
+            error.kind(),
+            DeserializeErrorKind::UnexpectedType { expected, found }
+                if *expected == "tuple" && *found == "string"
+        );
         assert!(error.path().is_empty());
     }
 
@@ -724,13 +937,11 @@ mod arena_value_deserializer {
         let error = Pair::deserialize(deserializer_for(&value))
             .expect_err("scalar cannot deserialize into tuple struct");
 
-        match error.kind() {
-            DeserializeErrorKind::UnexpectedType { expected, found } => {
-                assert_eq!(*expected, "Pair");
-                assert_eq!(*found, "string");
-            }
-            other => panic!("unexpected kind: {other:?}"),
-        }
+        assert_matches!(
+            error.kind(),
+            DeserializeErrorKind::UnexpectedType { expected, found }
+                if *expected == "Pair" && *found == "string"
+        );
         assert!(error.path().is_empty());
     }
 
@@ -748,13 +959,11 @@ mod arena_value_deserializer {
         let error = <Vec<String>>::deserialize(deserializer)
             .expect_err("map cannot deserialize into sequence");
 
-        match error.kind() {
-            DeserializeErrorKind::UnexpectedType { expected, found } => {
-                assert_eq!(*expected, "array");
-                assert_eq!(*found, "object");
-            }
-            other => panic!("unexpected kind: {other:?}"),
-        }
+        assert_matches!(
+            error.kind(),
+            DeserializeErrorKind::UnexpectedType { expected, found }
+                if *expected == "array" && *found == "object"
+        );
         assert!(error.path().is_empty());
     }
 
@@ -767,13 +976,11 @@ mod arena_value_deserializer {
         let error = <std::collections::HashMap<String, String>>::deserialize(deserializer)
             .expect_err("sequence cannot deserialize into map");
 
-        match error.kind() {
-            DeserializeErrorKind::UnexpectedType { expected, found } => {
-                assert_eq!(*expected, "object");
-                assert_eq!(*found, "array");
-            }
-            other => panic!("unexpected kind: {other:?}"),
-        }
+        assert_matches!(
+            error.kind(),
+            DeserializeErrorKind::UnexpectedType { expected, found }
+                if *expected == "object" && *found == "array"
+        );
         assert!(error.path().is_empty());
     }
 
@@ -872,13 +1079,11 @@ mod arena_value_deserializer {
         let error = Marker::deserialize(deserializer)
             .expect_err("non-empty string cannot deserialize unit struct");
 
-        match error.kind() {
-            DeserializeErrorKind::UnexpectedType { expected, found } => {
-                assert_eq!(*expected, "Marker");
-                assert_eq!(*found, "string");
-            }
-            other => panic!("unexpected error kind: {other:?}"),
-        }
+        assert_matches!(
+            error.kind(),
+            DeserializeErrorKind::UnexpectedType { expected, found }
+                if *expected == "Marker" && *found == "string"
+        );
         assert!(error.path().is_empty());
     }
 
@@ -891,13 +1096,11 @@ mod arena_value_deserializer {
         let error = <std::collections::HashMap<String, String>>::deserialize(deserializer)
             .expect_err("string cannot deserialize into map");
 
-        match error.kind() {
-            DeserializeErrorKind::UnexpectedType { expected, found } => {
-                assert_eq!(*expected, "object");
-                assert_eq!(*found, "string");
-            }
-            other => panic!("unexpected kind: {other:?}"),
-        }
+        assert_matches!(
+            error.kind(),
+            DeserializeErrorKind::UnexpectedType { expected, found }
+                if *expected == "object" && *found == "string"
+        );
         assert_eq!(error.path(), &[]);
     }
 
@@ -911,13 +1114,11 @@ mod arena_value_deserializer {
         let error = Login::deserialize(deserializer)
             .expect_err("scalar cannot satisfy struct requirements");
 
-        match error.kind() {
-            DeserializeErrorKind::ExpectedObject { struct_name, found } => {
-                assert_eq!(*struct_name, "Login");
-                assert_eq!(*found, "string");
-            }
-            other => panic!("unexpected kind: {other:?}"),
-        }
+        assert_matches!(
+            error.kind(),
+            DeserializeErrorKind::ExpectedObject { struct_name, found }
+                if *struct_name == "Login" && *found == "string"
+        );
         assert!(error.path().is_empty());
     }
 
@@ -994,12 +1195,10 @@ mod arena_value_deserializer {
         let error = serde::de::MapAccess::next_value_seed(&mut map_deserializer, UnitSeed)
             .expect_err("missing map value should error");
 
-        match error.kind() {
-            DeserializeErrorKind::Message(message) => {
-                assert_eq!(message, "value missing for map entry");
-            }
-            other => panic!("unexpected error kind: {other:?}"),
-        }
+        assert_matches!(
+            error.kind(),
+            DeserializeErrorKind::Message(message) if message == "value missing for map entry"
+        );
         assert!(error.path().is_empty());
     }
 
@@ -1020,12 +1219,10 @@ mod arena_value_deserializer {
         let error = serde::de::MapAccess::next_value_seed(&mut struct_deserializer, UnitSeed)
             .expect_err("missing struct field should error");
 
-        match error.kind() {
-            DeserializeErrorKind::Message(message) => {
-                assert_eq!(message, "value missing for struct field");
-            }
-            other => panic!("unexpected error kind: {other:?}"),
-        }
+        assert_matches!(
+            error.kind(),
+            DeserializeErrorKind::Message(message) if message == "value missing for struct field"
+        );
         assert!(error.path().is_empty());
     }
 
@@ -1044,10 +1241,10 @@ mod arena_value_deserializer {
         let error = serde::de::MapAccess::next_value_seed(&mut map_deserializer, InvalidBoolSeed)
             .expect_err("invalid bool literal should error");
 
-        match error.kind() {
-            DeserializeErrorKind::InvalidBool { value } => assert_eq!(value, "maybe"),
-            other => panic!("unexpected error kind: {other:?}"),
-        }
+        assert_matches!(
+            error.kind(),
+            DeserializeErrorKind::InvalidBool { value } if value == "maybe"
+        );
         assert_eq!(
             error.path(),
             &[
@@ -1077,10 +1274,10 @@ mod arena_value_deserializer {
             serde::de::MapAccess::next_value_seed(&mut struct_deserializer, InvalidBoolSeed)
                 .expect_err("invalid bool literal should error");
 
-        match error.kind() {
-            DeserializeErrorKind::InvalidBool { value } => assert_eq!(value, "maybe"),
-            other => panic!("unexpected error kind: {other:?}"),
-        }
+        assert_matches!(
+            error.kind(),
+            DeserializeErrorKind::InvalidBool { value } if value == "maybe"
+        );
         assert_eq!(
             error.path(),
             &[

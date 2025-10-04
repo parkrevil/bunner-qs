@@ -1,5 +1,6 @@
 use super::{ParseError, preflight};
 use crate::config::ParseOptions;
+use assert_matches::assert_matches;
 
 mod preflight {
     use super::*;
@@ -14,10 +15,10 @@ mod preflight {
 
         let result = preflight(raw, &options);
 
-        assert!(matches!(
+        assert_matches!(
             result,
             Err(ParseError::InputTooLong { limit }) if limit == 3
-        ));
+        );
     }
 
     #[test]
@@ -38,10 +39,10 @@ mod preflight {
 
         let result = preflight(raw, &options);
 
-        assert!(matches!(
+        assert_matches!(
             result,
             Err(ParseError::UnexpectedQuestionMark { index }) if index == 1
-        ));
+        );
     }
 
     #[test]
@@ -52,11 +53,11 @@ mod preflight {
 
         let result = preflight(&raw, &options);
 
-        assert!(matches!(
+        assert_matches!(
             result,
             Err(ParseError::InvalidCharacter { character, index })
                 if character == '\u{001F}' && index == 3
-        ));
+        );
     }
 
     #[test]
@@ -66,10 +67,34 @@ mod preflight {
 
         let result = preflight(raw, &options);
 
-        assert!(matches!(
+        assert_matches!(
             result,
             Err(ParseError::InvalidCharacter { character, index })
                 if character == ' ' && index == 4
-        ));
+        );
+    }
+
+    #[test]
+    fn should_return_empty_trimmed_slice_when_only_prefix_present_then_preserve_offset() {
+        let raw = "?";
+        let options = ParseOptions::default();
+
+        let result = preflight(raw, &options).expect("preflight should succeed");
+
+        assert_eq!(result, ("", 1));
+    }
+
+    #[test]
+    fn should_report_invalid_character_when_space_present_without_prefix_then_report_position() {
+        let raw = "foo bar";
+        let options = ParseOptions::default();
+
+        let result = preflight(raw, &options);
+
+        assert_matches!(
+            result,
+            Err(ParseError::InvalidCharacter { character, index })
+                if character == ' ' && index == 3
+        );
     }
 }

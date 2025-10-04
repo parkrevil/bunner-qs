@@ -1,5 +1,6 @@
 use super::*;
 use crate::model::Value;
+use assert_matches::assert_matches;
 use serde::Serialize;
 use serde::ser::{SerializeMap, SerializeSeq, SerializeTuple, SerializeTupleStruct, Serializer};
 
@@ -10,6 +11,11 @@ mod serialize_to_query_map {
     struct Profile<'a> {
         name: &'a str,
         age: u32,
+    }
+
+    #[derive(Serialize)]
+    enum Command<'a> {
+        Invoke(&'a str, &'a str),
     }
 
     #[test]
@@ -33,10 +39,11 @@ mod serialize_to_query_map {
 
         let error = serialize_to_query_map(&value).expect_err("non-object top level should fail");
 
-        match error {
-            SerializeError::TopLevel(found) => assert_eq!(found, "string"),
-            other => panic!("unexpected error: {other:?}"),
-        }
+        assert_matches!(
+            &error,
+            SerializeError::TopLevel(found) if found == "string",
+            "unexpected error: {error:?}"
+        );
     }
 
     #[test]
@@ -46,10 +53,11 @@ mod serialize_to_query_map {
 
         let error = serialize_to_query_map(&value).expect_err("none should yield unexpected skip");
 
-        match error {
-            SerializeError::UnexpectedSkip => {}
-            other => panic!("unexpected error: {other:?}"),
-        }
+        assert_matches!(
+            error,
+            SerializeError::UnexpectedSkip,
+            "unexpected error: {error:?}"
+        );
     }
 
     #[test]
@@ -58,10 +66,26 @@ mod serialize_to_query_map {
 
         let error = serialize_to_query_map(&values).expect_err("array should fail");
 
-        match error {
-            SerializeError::TopLevel(found) => assert_eq!(found, "array"),
-            other => panic!("unexpected error: {other:?}"),
-        }
+        assert_matches!(
+            &error,
+            SerializeError::TopLevel(found) if found == "array",
+            "unexpected error: {error:?}"
+        );
+    }
+
+    #[test]
+    fn should_propagate_unsupported_error_when_enum_contains_tuple_variant_then_return_unsupported_message()
+     {
+        let command = Command::Invoke("ping", "now");
+
+        let error =
+            serialize_to_query_map(&command).expect_err("tuple variant should be unsupported");
+
+        assert_matches!(
+            &error,
+            SerializeError::Unsupported(kind) if *kind == "tuple variant",
+            "unexpected error: {error:?}"
+        );
     }
 }
 
@@ -111,10 +135,11 @@ mod value_serializer {
             .serialize_newtype_variant("Mode", 0, "Special", &42u8)
             .expect_err("newtype variant should be unsupported");
 
-        match error {
-            SerializeError::Unsupported(kind) => assert_eq!(kind, "newtype variant"),
-            other => panic!("unexpected error: {other:?}"),
-        }
+        assert_matches!(
+            &error,
+            SerializeError::Unsupported(kind) if *kind == "newtype variant",
+            "unexpected error: {error:?}"
+        );
     }
 
     #[test]
@@ -127,13 +152,11 @@ mod value_serializer {
             .expect("none element should serialize");
         let result = SerializeSeq::end(seq).expect("sequence should finish");
 
-        let array = match result.expect("sequence should produce value") {
-            Value::Array(items) => items,
-            other => panic!("unexpected value: {other:?}"),
-        };
+        let value = result.expect("sequence should produce value");
+        let array = value.as_array().expect("value should be array");
         assert_eq!(array.len(), 2);
-        assert_eq!(array[0], Value::String("alpha".into()));
-        assert_eq!(array[1], Value::String(String::new()));
+        assert_matches!(array.first(), Some(Value::String(text)) if text == "alpha");
+        assert_matches!(array.get(1), Some(Value::String(text)) if text.is_empty());
     }
 
     #[test]
@@ -226,6 +249,17 @@ mod value_serializer {
     }
 
     #[test]
+    fn should_preserve_none_as_empty_string_when_sequence_serializer_handles_none() {
+        let serializer = ValueSerializer::sequence_element();
+
+        let result = serializer
+            .serialize_none()
+            .expect("sequence serializer should allow none");
+
+        assert_eq!(result, Some(Value::String(String::new())));
+    }
+
+    #[test]
     fn should_collect_tuple_elements_when_tuple_has_two_entries_then_return_array_value() {
         let mut tuple = Serializer::serialize_tuple(ValueSerializer::root(), 2)
             .expect("tuple serializer should be created");
@@ -236,13 +270,11 @@ mod value_serializer {
             .expect("second element should serialize");
         let result = SerializeTuple::end(tuple).expect("tuple should finish");
 
-        let array = match result.expect("tuple should produce value") {
-            Value::Array(items) => items,
-            other => panic!("unexpected value: {other:?}"),
-        };
+        let value = result.expect("tuple should produce value");
+        let array = value.as_array().expect("value should be array");
         assert_eq!(array.len(), 2);
-        assert_eq!(array[0], Value::String("left".into()));
-        assert_eq!(array[1], Value::String("right".into()));
+        assert_matches!(array.first(), Some(Value::String(text)) if text == "left");
+        assert_matches!(array.get(1), Some(Value::String(text)) if text == "right");
     }
 
     #[test]
@@ -256,13 +288,11 @@ mod value_serializer {
             .expect("second field should serialize");
         let result = SerializeTupleStruct::end(serializer).expect("tuple struct should finish");
 
-        let array = match result.expect("tuple struct should produce value") {
-            Value::Array(items) => items,
-            other => panic!("unexpected value: {other:?}"),
-        };
+        let value = result.expect("tuple struct should produce value");
+        let array = value.as_array().expect("value should be array");
         assert_eq!(array.len(), 2);
-        assert_eq!(array[0], Value::String("first".into()));
-        assert_eq!(array[1], Value::String("second".into()));
+        assert_matches!(array.first(), Some(Value::String(text)) if text == "first");
+        assert_matches!(array.get(1), Some(Value::String(text)) if text == "second");
     }
 
     #[test]
@@ -274,12 +304,10 @@ mod value_serializer {
         SerializeMap::serialize_value(&mut map, &"admin").expect("value should serialize");
         let result = SerializeMap::end(map).expect("map should finish");
 
-        let entries = match result.expect("map should produce value") {
-            Value::Object(entries) => entries,
-            other => panic!("unexpected value: {other:?}"),
-        };
+        let value = result.expect("map should produce value");
+        let entries = value.as_object().expect("value should be object");
         assert_eq!(entries.len(), 1);
-        assert_eq!(entries.get("role"), Some(&Value::String("admin".into())));
+        assert_matches!(entries.get("role"), Some(Value::String(text)) if text == "admin");
     }
 
     #[test]
@@ -287,15 +315,16 @@ mod value_serializer {
      {
         let serializer = ValueSerializer::root();
 
-        let error = match serializer.serialize_tuple_variant("Mode", 1, "Burst", 2) {
-            Err(err) => err,
-            Ok(_) => panic!("tuple variant should be unsupported"),
-        };
+        let error = serializer
+            .serialize_tuple_variant("Mode", 1, "Burst", 2)
+            .err()
+            .expect("tuple variant should be unsupported");
 
-        match error {
-            SerializeError::Unsupported(kind) => assert_eq!(kind, "tuple variant"),
-            other => panic!("unexpected error: {other:?}"),
-        }
+        assert_matches!(
+            &error,
+            SerializeError::Unsupported(kind) if *kind == "tuple variant",
+            "unexpected error: {error:?}"
+        );
     }
 
     #[test]
@@ -303,15 +332,16 @@ mod value_serializer {
      {
         let serializer = ValueSerializer::root();
 
-        let error = match serializer.serialize_struct_variant("Mode", 3, "Drift", 1) {
-            Err(err) => err,
-            Ok(_) => panic!("struct variant should be unsupported"),
-        };
+        let error = serializer
+            .serialize_struct_variant("Mode", 3, "Drift", 1)
+            .err()
+            .expect("struct variant should be unsupported");
 
-        match error {
-            SerializeError::Unsupported(kind) => assert_eq!(kind, "struct variant"),
-            other => panic!("unexpected error: {other:?}"),
-        }
+        assert_matches!(
+            &error,
+            SerializeError::Unsupported(kind) if *kind == "struct variant",
+            "unexpected error: {error:?}"
+        );
     }
 }
 

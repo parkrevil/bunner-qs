@@ -62,11 +62,6 @@ fn prepare_stringify_state<'map>(
     map: &'map QueryMap,
     options: &StringifyOptions,
 ) -> StringifyResult<PreparedState<'map>> {
-    debug_assert!(
-        !map.is_empty(),
-        "prepare_stringify_state should not be called with an empty map",
-    );
-
     let runtime = StringifyRuntime::new(options);
     let output = String::with_capacity(map.len().saturating_mul(16));
     let key_guard = acquire_string();

@@ -1,6 +1,7 @@
 use super::{StringifyError, StringifyRuntime};
 use crate::config::StringifyOptions;
 use crate::model::{OrderedMap, QueryMap, Value};
+use assert_matches::assert_matches;
 
 fn stringify_map(map: QueryMap, options: StringifyOptions) -> Result<String, StringifyError> {
     super::stringify_query_map_with(&map, &options)
@@ -67,10 +68,10 @@ mod stringify_query_map_with {
 
         let error = stringify_map(map, options).expect_err("control characters should fail");
 
-        match error {
-            StringifyError::InvalidValue { key } => assert_eq!(key, "note"),
-            other => panic!("expected InvalidValue error, got {other:?}"),
-        }
+        assert_matches!(
+            error,
+            StringifyError::InvalidValue { key } if key == "note"
+        );
     }
 
     #[test]
@@ -99,10 +100,26 @@ mod stringify_query_map_with {
 
         let error = stringify_map(map, options).expect_err("invalid subkey should fail");
 
-        match error {
-            StringifyError::InvalidKey { key } => assert_eq!(key, "profile[bad\nkey]"),
-            other => panic!("expected InvalidKey error, got {other:?}"),
-        }
+        assert_matches!(
+            error,
+            StringifyError::InvalidKey { key } if key == "profile[bad\nkey]"
+        );
+    }
+
+    #[test]
+    fn should_report_full_nested_path_when_nested_value_contains_control_character_then_return_invalid_value_error()
+     {
+        let profile: OrderedMap<String, Value> =
+            OrderedMap::from_iter([("bio".into(), Value::from("line1\nline2"))]);
+        let map = QueryMap::from_iter([("profile", Value::Object(profile))]);
+        let options = StringifyOptions::default();
+
+        let error = stringify_map(map, options).expect_err("nested control character should fail");
+
+        assert_matches!(
+            error,
+            StringifyError::InvalidValue { key } if key == "profile[bio]"
+        );
     }
 
     #[test]
@@ -113,10 +130,10 @@ mod stringify_query_map_with {
 
         let error = stringify_map(map, options).expect_err("invalid root key should fail");
 
-        match error {
-            StringifyError::InvalidKey { key } => assert_eq!(key, "bad\u{0007}key"),
-            other => panic!("expected InvalidKey error, got {other:?}"),
-        }
+        assert_matches!(
+            error,
+            StringifyError::InvalidKey { key } if key == "bad\u{0007}key"
+        );
     }
 }
 
@@ -132,13 +149,15 @@ mod stringify_runtime {
         assert!(runtime.space_as_plus);
     }
 
-    #[cfg(debug_assertions)]
     #[test]
-    #[should_panic(expected = "prepare_stringify_state should not be called with an empty map")]
-    fn should_debug_assert_when_prepare_state_receives_empty_map() {
+    fn should_allow_empty_map_when_prepare_state_receives_empty_map_then_initialize_empty_stack() {
         let map = QueryMap::new();
         let options = StringifyOptions::default();
 
-        let _ = super::super::prepare_stringify_state(&map, &options);
+        let state = super::super::prepare_stringify_state(&map, &options)
+            .expect("expected empty map to succeed");
+
+        assert!(state.output.is_empty());
+        assert!(state.stack.is_empty());
     }
 }

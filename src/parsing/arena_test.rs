@@ -1,5 +1,6 @@
 use super::*;
 use crate::arena_helpers::{map, map_with_capacity};
+use assert_matches::assert_matches;
 
 mod parse_arena_new {
     use super::*;
@@ -146,10 +147,11 @@ mod arena_query_map_iter {
         let collected: Vec<(&str, &str)> = map
             .iter()
             .map(|(key, value)| match value {
-                ArenaValue::String(text) => (key, *text),
-                _ => panic!("expected string value"),
+                ArenaValue::String(text) => Ok((key, *text)),
+                other => Err(other),
             })
-            .collect();
+            .collect::<Result<_, _>>()
+            .expect("entries should store string values");
 
         assert_eq!(collected, vec![("first", "1"), ("second", "2")]);
     }
@@ -183,18 +185,16 @@ mod arena_query_map_get_mut {
             .expect("insert sequence");
 
         let entry = map.get_mut("items").expect("sequence entry");
-        if let ArenaValue::Seq(values) = entry {
+        assert_matches!(entry, ArenaValue::Seq(values) => {
             values.push(ArenaValue::string(arena.alloc_str("one")));
-        } else {
-            panic!("expected sequence value");
-        }
+        });
 
         let stored = map.entries_slice()[0]
             .1
             .as_seq_slice()
             .expect("sequence slice");
         assert_eq!(stored.len(), 1);
-        assert!(matches!(stored[0], ArenaValue::String("one")));
+        assert_matches!(stored[0], ArenaValue::String("one"));
     }
 }
 
@@ -263,5 +263,77 @@ mod arena_value_accessors {
         let value = ArenaValue::seq_with_capacity(arena, 1);
 
         assert!(value.as_map_slice().is_none());
+    }
+
+    #[test]
+    fn should_expose_entries_and_index_when_map_parts_mut_called_on_map() {
+        let lease = acquire_parse_arena(0);
+        let arena: &ParseArena = &lease;
+
+        let mut value = ArenaValue::map_with_capacity(arena, 0);
+
+        let (entries, index) = value
+            .map_parts_mut()
+            .expect("map_parts_mut should return map internals");
+
+        assert!(entries.is_empty());
+        assert!(index.is_empty());
+    }
+
+    #[test]
+    fn should_return_none_from_map_parts_mut_when_value_is_not_map() {
+        let arena = ParseArena::new();
+        let mut value = ArenaValue::string(arena.alloc_str("plain"));
+
+        assert!(value.map_parts_mut().is_none());
+    }
+}
+
+mod arena_value_debug {
+    use super::*;
+
+    #[test]
+    fn should_format_string_variant_then_display_contents() {
+        let arena = ParseArena::new();
+        let value = ArenaValue::string(arena.alloc_str("debug"));
+
+        assert_eq!(format!("{:?}", value), "String(\"debug\")");
+    }
+
+    #[test]
+    fn should_format_sequence_variant_then_render_children() {
+        let arena = ParseArena::new();
+        let mut sequence = ArenaValue::seq_with_capacity(&arena, 0);
+        if let ArenaValue::Seq(items) = &mut sequence {
+            items.push(ArenaValue::string(arena.alloc_str("alpha")));
+            items.push(ArenaValue::string(arena.alloc_str("beta")));
+        } else {
+            panic!("expected sequence variant");
+        }
+
+        let formatted = format!("{:?}", sequence);
+        assert!(formatted.starts_with("Seq(["));
+        assert!(formatted.contains("String(\"alpha\")"));
+        assert!(formatted.contains("String(\"beta\")"));
+    }
+
+    #[test]
+    fn should_format_map_variant_then_render_entries_field() {
+        let arena = ParseArena::new();
+        let mut map_value = ArenaValue::map(&arena);
+        if let ArenaValue::Map { entries, index } = &mut map_value {
+            let key = arena.alloc_str("name");
+            let value = ArenaValue::string(arena.alloc_str("neo"));
+            entries.push((key, value));
+            index.insert(key, 0);
+        } else {
+            panic!("expected map variant");
+        }
+
+        let formatted = format!("{:?}", map_value);
+        assert!(formatted.starts_with("Map {"));
+        assert!(formatted.contains("entries"));
+        assert!(formatted.contains("name"));
+        assert!(formatted.contains("neo"));
     }
 }

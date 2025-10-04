@@ -1,5 +1,6 @@
 use super::{ContainerType, ResolvedSegment, SegmentKey, SegmentKind};
 use crate::ParseError;
+use assert_matches::assert_matches;
 use std::borrow::{Borrow, Cow};
 
 mod classify {
@@ -85,7 +86,7 @@ mod segment_key_new {
         let key = SegmentKey::new(&source);
 
         drop(source);
-        assert!(matches!(key.as_str(), Ok("status")));
+        assert_matches!(key.as_str(), Ok("status"));
         assert_eq!(<SegmentKey as Borrow<[u8]>>::borrow(&key), b"status");
     }
 }
@@ -100,7 +101,7 @@ mod segment_key_debug {
 
         let result = key.as_str();
 
-        assert!(matches!(result, Err(ParseError::InvalidUtf8)));
+        assert_matches!(result, Err(ParseError::InvalidUtf8));
     }
 
     #[test]

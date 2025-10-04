@@ -71,3 +71,30 @@ mod append_segment {
         assert_eq!(result, "order[items][7][sku]");
     }
 }
+
+mod ascii_digits_to_str {
+    #[test]
+    fn should_convert_digit_bytes_to_str() {
+        let digits = b"12345";
+
+        let result = super::super::ascii_digits_to_str(digits);
+
+        assert_eq!(result, "12345");
+    }
+
+    #[test]
+    fn should_detect_invalid_digit_bytes_based_on_build_mode() {
+        let invalid = b"12a45";
+
+        if cfg!(debug_assertions) {
+            let panic_result = std::panic::catch_unwind(|| {
+                let _ = super::super::ascii_digits_to_str(invalid);
+            });
+            assert!(panic_result.is_err(), "expected panic for invalid digits");
+            return;
+        }
+
+        let result = super::super::ascii_digits_to_str(invalid);
+        assert_eq!(result, "12a45");
+    }
+}

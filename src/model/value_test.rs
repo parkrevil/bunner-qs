@@ -1,4 +1,5 @@
 use super::*;
+use assert_matches::assert_matches;
 
 mod new {
     use super::*;
@@ -33,6 +34,32 @@ mod with_capacity {
 
         assert_eq!(map.len(), 2);
     }
+}
+
+#[test]
+fn should_reserve_capacity_when_cloning_large_array_then_clone_all_items() {
+    let arena = ParseArena::new();
+    let value = Value::Array(vec![
+        Value::from("one"),
+        Value::from("two"),
+        Value::from("three"),
+        Value::from("four"),
+        Value::from("five"),
+        Value::from("six"),
+    ]);
+
+    let cloned = clone_value_into_arena_for_test(&arena, &value);
+
+    assert_matches!(cloned, ArenaValue::Seq(items) => {
+        assert_eq!(items.len(), 6);
+        let mut collected = Vec::new();
+        for item in items {
+            assert_matches!(item, ArenaValue::String(text) => {
+                collected.push(text.to_string());
+            });
+        }
+        assert_eq!(collected, ["one", "two", "three", "four", "five", "six"]);
+    });
 }
 
 mod from_iter {
@@ -179,6 +206,14 @@ mod value_accessors {
     }
 
     #[test]
+    fn should_return_none_when_calling_as_array_on_non_array_then_reject_conversion() {
+        let value = Value::from("not-an-array");
+
+        assert!(value.as_array().is_none());
+        assert!(!value.is_array());
+    }
+
+    #[test]
     fn should_return_map_reference_when_value_is_object_then_expose_entries() {
         let mut map = OrderedMap::default();
         map.insert(String::from("name"), Value::from("Neo"));
@@ -192,6 +227,14 @@ mod value_accessors {
         assert!(value.is_object());
         assert!(!value.is_string());
         assert!(!value.is_array());
+    }
+
+    #[test]
+    fn should_return_none_when_calling_as_object_on_non_object_then_reject_conversion() {
+        let value = Value::from("plain");
+
+        assert!(value.as_object().is_none());
+        assert!(!value.is_object());
     }
 }
 
@@ -338,12 +381,12 @@ mod query_map_to_struct {
         let result = map.to_struct::<Profile>();
 
         let err = result.expect_err("invalid number should fail");
-        match err {
+        assert_matches!(
+            err,
             SerdeQueryError::Deserialize(source) => {
                 assert!(source.to_string().contains("invalid number"));
             }
-            other => panic!("unexpected error: {other:?}"),
-        }
+        );
     }
 }
 
@@ -358,11 +401,9 @@ mod clone_value_into_arena {
 
         let cloned = clone_value_into_arena_for_test(&arena, &value);
 
-        if let ArenaValue::String(text) = cloned {
+        assert_matches!(cloned, ArenaValue::String(text) => {
             assert_eq!(text, "matrix");
-        } else {
-            panic!("expected ArenaValue::String");
-        }
+        });
     }
 
     #[test]
@@ -379,27 +420,15 @@ mod clone_value_into_arena {
 
         let cloned = clone_value_into_arena_for_test(&arena, &value);
 
-        match cloned {
-            ArenaValue::Seq(items) => {
-                assert_eq!(items.len(), 2);
-                match &items[0] {
-                    ArenaValue::String(text) => assert_eq!(*text, "alpha"),
-                    _ => panic!("expected first element to be ArenaValue::String"),
-                }
-                match &items[1] {
-                    ArenaValue::Map { entries, .. } => {
-                        assert_eq!(entries.len(), 1);
-                        assert_eq!(entries[0].0, "beta");
-                        match &entries[0].1 {
-                            ArenaValue::String(text) => assert_eq!(*text, "bravo"),
-                            _ => panic!("expected nested value to be ArenaValue::String"),
-                        }
-                    }
-                    _ => panic!("expected second element to be ArenaValue::Map"),
-                }
-            }
-            _ => panic!("expected cloned value to be ArenaValue::Seq"),
-        }
+        assert_matches!(cloned, ArenaValue::Seq(items) => {
+            assert_eq!(items.len(), 2);
+            assert_matches!(&items[0], ArenaValue::String(text) if *text == "alpha");
+            assert_matches!(&items[1], ArenaValue::Map { entries, .. } => {
+                assert_eq!(entries.len(), 1);
+                assert_eq!(entries[0].0, "beta");
+                assert_matches!(&entries[0].1, ArenaValue::String(text) if *text == "bravo");
+            });
+        });
     }
 
     #[test]
@@ -412,30 +441,59 @@ mod clone_value_into_arena {
 
         let cloned = clone_value_into_arena_for_test(&arena, &value);
 
-        match cloned {
-            ArenaValue::Map { entries, index } => {
-                assert_eq!(entries.len(), 2);
-                assert_eq!(index.len(), 2);
+        assert_matches!(cloned, ArenaValue::Map { entries, index } => {
+            assert_eq!(entries.len(), 2);
+            assert_eq!(index.len(), 2);
 
-                let &gamma_index = index.get("gamma").expect("gamma key should exist");
-                match &entries[gamma_index].1 {
-                    ArenaValue::String(text) => assert_eq!(*text, "3"),
-                    _ => panic!("expected gamma entry to be ArenaValue::String"),
-                }
+            let &gamma_index = index.get("gamma").expect("gamma key should exist");
+            assert_matches!(&entries[gamma_index].1, ArenaValue::String(text) if *text == "3");
 
-                let &delta_index = index.get("delta").expect("delta key should exist");
-                match &entries[delta_index].1 {
-                    ArenaValue::Seq(items) => {
-                        assert_eq!(items.len(), 1);
-                        match &items[0] {
-                            ArenaValue::String(text) => assert_eq!(*text, "1"),
-                            _ => panic!("expected nested array element to be ArenaValue::String"),
-                        }
-                    }
-                    _ => panic!("expected delta entry to be ArenaValue::Seq"),
-                }
+            let &delta_index = index.get("delta").expect("delta key should exist");
+            assert_matches!(&entries[delta_index].1, ArenaValue::Seq(items) => {
+                assert_eq!(items.len(), 1);
+                assert_matches!(&items[0], ArenaValue::String(text) if *text == "1");
+            });
+        });
+    }
+
+    #[test]
+    fn should_clone_empty_object_into_arena_then_allocate_map_without_entries() {
+        let arena = ParseArena::new();
+        let value = Value::Object(OrderedMap::default());
+
+        let cloned = clone_value_into_arena_for_test(&arena, &value);
+
+        assert_matches!(cloned, ArenaValue::Map { entries, index } => {
+            assert!(entries.is_empty());
+            assert!(index.is_empty());
+        });
+    }
+}
+
+mod insert_value_into_arena_map {
+    use super::*;
+    use crate::SerdeQueryError;
+
+    #[test]
+    fn should_convert_duplicate_insertion_into_serde_query_error() {
+        let arena = ParseArena::new();
+        let mut map = ArenaQueryMap::with_capacity(&arena, 1);
+        let value = Value::from("alpha");
+
+        super::insert_value_into_arena_map(&arena, &mut map, "token", &value)
+            .expect("first insert should succeed");
+
+        let error = super::insert_value_into_arena_map(&arena, &mut map, "token", &value)
+            .expect_err("duplicate insert should return error");
+
+        match error {
+            SerdeQueryError::Deserialize(inner) => {
+                let message = inner.to_string();
+                assert!(message.contains("duplicate field"));
+                assert!(message.contains("token"));
             }
-            _ => panic!("expected cloned value to be ArenaValue::Map"),
+            other => panic!("expected deserialize error, got {other:?}"),
         }
+        assert_eq!(map.len(), 1, "duplicate insert should not grow map");
     }
 }

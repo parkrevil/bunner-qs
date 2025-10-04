@@ -13,6 +13,7 @@ use crate::nested::segment::{ContainerType, ResolvedSegment};
 use crate::parsing::arena::{ArenaQueryMap, ArenaValue, ParseArena};
 use crate::parsing_helpers::expect_duplicate_key;
 use ahash::RandomState;
+use assert_matches::assert_matches;
 use hashbrown::HashMap;
 use smallvec::SmallVec;
 use std::borrow::Cow;
@@ -51,12 +52,10 @@ fn insert_sequence_values<'arena>(
 
 fn assert_single_string_entry<'arena>(map: &ArenaQueryMap<'arena>, key: &str, expected: &str) {
     let entries = map.entries_slice();
-    assert_eq!(entries.len(), 1);
-    assert_eq!(entries[0].0, key);
-    match &entries[0].1 {
-        ArenaValue::String(value) => assert_eq!(*value, expected),
-        _ => panic!("expected string value"),
-    }
+    assert_eq!(entries.len(), 1, "map should contain exactly one entry");
+    let (entry_key, value) = &entries[0];
+    assert_eq!(entry_key, &key, "entry key should match");
+    assert_matches!(value, ArenaValue::String(text) if *text == expected);
 }
 
 fn assert_sequence_of_maps<'arena>(
@@ -66,27 +65,21 @@ fn assert_sequence_of_maps<'arena>(
     expected_values: &[&str],
 ) {
     let entries = map.entries_slice();
-    assert_eq!(entries.len(), 1);
-    assert_eq!(entries[0].0, key);
-    let sequence = match &entries[0].1 {
-        ArenaValue::Seq(items) => items,
-        _ => panic!("expected sequence container"),
-    };
-    assert_eq!(sequence.len(), expected_values.len());
-    for (item, expected) in sequence.iter().zip(expected_values.iter()) {
-        match item {
-            ArenaValue::Map { entries, .. } => {
-                assert_eq!(entries.len(), 1);
+    assert_eq!(entries.len(), 1, "map should contain exactly one entry");
+    let (entry_key, value) = &entries[0];
+    assert_eq!(entry_key, &key, "sequence entry key should match");
+
+    assert_matches!(value, ArenaValue::Seq(items) => {
+        assert_eq!(items.len(), expected_values.len(), "sequence length should match");
+        for (item, expected) in items.iter().zip(expected_values.iter()) {
+            assert_matches!(item, ArenaValue::Map { entries, .. } => {
+                assert_eq!(entries.len(), 1, "nested map should contain single entry");
                 let (entry_key, value) = &entries[0];
-                assert_eq!(*entry_key, field);
-                match value {
-                    ArenaValue::String(text) => assert_eq!(*text, *expected),
-                    _ => panic!("expected string leaf"),
-                }
-            }
-            _ => panic!("expected map entry in sequence"),
+                assert_eq!(entry_key, &field, "nested entry key should match");
+                assert_matches!(value, ArenaValue::String(text) if *text == *expected);
+            });
         }
-    }
+    });
 }
 
 fn make_ctx<'arena, 'pattern>(
@@ -328,16 +321,17 @@ mod insert_nested_value_arena {
         let entries = map.entries_slice();
         assert_eq!(entries.len(), 1);
         assert_eq!(entries[0].0, "user");
-        let nested = match &entries[0].1 {
-            ArenaValue::Map { entries, .. } => entries,
-            _ => panic!("expected nested map"),
-        };
+        let nested = entries[0]
+            .1
+            .as_map_slice()
+            .expect("expected nested map when overwriting value");
         assert_eq!(nested.len(), 1);
-        assert_eq!(nested[0].0, "name");
-        match &nested[0].1 {
-            ArenaValue::String(text) => assert_eq!(*text, "bob"),
-            _ => panic!("expected string value"),
-        }
+        let (entry_key, entry_value) = &nested[0];
+        assert_eq!(*entry_key, "name");
+        assert!(
+            matches!(entry_value, ArenaValue::String(text) if *text == "bob"),
+            "expected overwritten string value"
+        );
     }
 
     #[test]
@@ -368,16 +362,17 @@ mod insert_nested_value_arena {
         let entries = map.entries_slice();
         assert_eq!(entries.len(), 1);
         assert_eq!(entries[0].0, "user");
-        let nested = match &entries[0].1 {
-            ArenaValue::Map { entries, .. } => entries,
-            _ => panic!("expected nested map"),
-        };
+        let nested = entries[0]
+            .1
+            .as_map_slice()
+            .expect("expected nested map when preserving first value");
         assert_eq!(nested.len(), 1);
-        assert_eq!(nested[0].0, "email");
-        match &nested[0].1 {
-            ArenaValue::String(text) => assert_eq!(*text, "primary@example.com"),
-            _ => panic!("expected string value"),
-        }
+        let (entry_key, entry_value) = &nested[0];
+        assert_eq!(*entry_key, "email");
+        assert!(
+            matches!(entry_value, ArenaValue::String(text) if *text == "primary@example.com"),
+            "expected original email value"
+        );
     }
 
     #[test]
@@ -408,15 +403,15 @@ mod insert_nested_value_arena {
         let entries = map.entries_slice();
         assert_eq!(entries.len(), 1);
         assert_eq!(entries[0].0, "items");
-        let sequence = match &entries[0].1 {
-            ArenaValue::Seq(items) => items,
-            _ => panic!("expected sequence"),
-        };
+        let sequence = entries[0]
+            .1
+            .as_seq_slice()
+            .expect("expected sequence container for placeholder replacement");
         assert_eq!(sequence.len(), 1);
-        match &sequence[0] {
-            ArenaValue::String(text) => assert_eq!(*text, "actual"),
-            _ => panic!("expected string entry"),
-        }
+        assert!(
+            matches!(sequence[0], ArenaValue::String(text) if text == "actual"),
+            "sequence entry should contain updated string"
+        );
     }
 
     #[test]
@@ -512,14 +507,14 @@ mod insert_nested_value_arena {
 
         let entries = map.entries_slice();
         assert_eq!(entries.len(), 1);
-        let sequence = match &entries[0].1 {
-            ArenaValue::Seq(items) => items,
-            _ => panic!("expected sequence"),
-        };
-        match &sequence[0] {
-            ArenaValue::String(text) => assert_eq!(*text, "second"),
-            _ => panic!("expected string entry"),
-        }
+        let sequence = entries[0]
+            .1
+            .as_seq_slice()
+            .expect("expected sequence container when overwriting entry");
+        assert!(
+            matches!(sequence.first(), Some(ArenaValue::String(text)) if *text == "second"),
+            "sequence element should update to latest value"
+        );
     }
 
     #[test]
@@ -549,14 +544,14 @@ mod insert_nested_value_arena {
 
         let entries = map.entries_slice();
         assert_eq!(entries.len(), 1);
-        let sequence = match &entries[0].1 {
-            ArenaValue::Seq(items) => items,
-            _ => panic!("expected sequence"),
-        };
-        match &sequence[0] {
-            ArenaValue::String(text) => assert_eq!(*text, "initial"),
-            _ => panic!("expected string entry"),
-        }
+        let sequence = entries[0]
+            .1
+            .as_seq_slice()
+            .expect("expected sequence container when preserving first entry");
+        assert!(
+            matches!(sequence.first(), Some(ArenaValue::String(text)) if *text == "initial"),
+            "sequence element should remain the initial value"
+        );
     }
 }
 
@@ -584,17 +579,17 @@ mod arena_build_nested_path {
         let entries = map.entries_slice();
         assert_eq!(entries.len(), 1);
         assert_eq!(entries[0].0, "profile");
-        match &entries[0].1 {
-            ArenaValue::Map { entries, .. } => {
-                assert_eq!(entries.len(), 1);
-                assert_eq!(entries[0].0, "name");
-                match &entries[0].1 {
-                    ArenaValue::String(value) => assert_eq!(*value, "neo"),
-                    _ => panic!("expected name leaf"),
-                }
-            }
-            _ => panic!("expected root container to be map"),
-        }
+        let nested = entries[0]
+            .1
+            .as_map_slice()
+            .expect("root container should be a map after build");
+        assert_eq!(nested.len(), 1);
+        let (child_key, child_value) = &nested[0];
+        assert_eq!(*child_key, "name");
+        assert!(
+            matches!(child_value, ArenaValue::String(value) if *value == "neo"),
+            "nested value should match expected leaf"
+        );
     }
 
     #[test]
@@ -619,13 +614,12 @@ mod arena_build_nested_path {
 
         let entries = map.entries_slice();
         assert_eq!(entries.len(), 1, "root should not be duplicated");
-        match &entries[0].1 {
-            ArenaValue::Map { entries, .. } => {
-                assert_eq!(entries.len(), 1);
-                assert_eq!(entries[0].0, "email");
-            }
-            _ => panic!("expected map container at root"),
-        }
+        let nested = entries[0]
+            .1
+            .as_map_slice()
+            .expect("root container should remain a map");
+        assert_eq!(nested.len(), 1);
+        assert_eq!(nested[0].0, "email");
     }
 }
 
@@ -654,10 +648,10 @@ mod arena_set_nested_value {
         )
         .expect("depth exhaustion should succeed");
 
-        match current {
-            ArenaValue::Map { entries, .. } => assert!(entries.is_empty()),
-            _ => panic!("expected map container"),
-        }
+        let entries = current
+            .as_map_slice()
+            .expect("expected map container after exhausting depth");
+        assert!(entries.is_empty());
     }
 
     #[test]
@@ -680,13 +674,11 @@ mod arena_set_nested_value {
         arena_set_nested_value(&ctx, &mut current, &segments, 1, arena.alloc_str("leaf"))
             .expect("string node should promote to map");
 
-        match current {
-            ArenaValue::Map { entries, .. } => {
-                assert_eq!(entries.len(), 1);
-                assert_eq!(entries[0].0, "child");
-            }
-            _ => panic!("expected promoted map"),
-        }
+        let entries = current
+            .as_map_slice()
+            .expect("string node should promote to map");
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].0, "child");
     }
 
     #[test]
@@ -709,13 +701,11 @@ mod arena_set_nested_value {
         arena_set_nested_value(&ctx, &mut current, &resolved, 1, arena.alloc_str("value"))
             .expect("state hint should convert to map container");
 
-        match current {
-            ArenaValue::Map { entries, .. } => {
-                assert_eq!(entries.len(), 1);
-                assert_eq!(entries[0].0, "name");
-            }
-            _ => panic!("expected map container after hint"),
-        }
+        let entries = current
+            .as_map_slice()
+            .expect("state hint should convert sequence into map");
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].0, "name");
     }
 
     #[test]
@@ -777,8 +767,8 @@ mod prepare_current_node {
 
         let outcome = prepare_current_node(&ctx, &mut node, &path).expect("prepare");
 
-        assert!(matches!(outcome, NodePreparation::NeedsRetry));
-        assert!(matches!(node, ArenaValue::Map { .. }));
+        assert_matches!(outcome, NodePreparation::NeedsRetry);
+        assert_matches!(node, ArenaValue::Map { .. });
     }
 
     #[test]
@@ -793,8 +783,8 @@ mod prepare_current_node {
             with_string_promotion_suppressed(|| prepare_current_node(&ctx, &mut node, &path))
                 .expect("prepare");
 
-        assert!(matches!(outcome, NodePreparation::Ready));
-        assert!(matches!(node, ArenaValue::String(value) if value.is_empty()));
+        assert_matches!(outcome, NodePreparation::Ready);
+        assert_matches!(node, ArenaValue::String(value) if value.is_empty());
     }
 
     #[test]
@@ -808,7 +798,7 @@ mod prepare_current_node {
         let path = ["items"];
 
         prepare_current_node(&ctx, &mut node, &path).expect("prepare");
-        assert!(matches!(node, ArenaValue::Seq(_)));
+        assert_matches!(node, ArenaValue::Seq(_));
     }
 }
 
@@ -845,7 +835,7 @@ mod visit_map_node {
         )
         .expect("visit_map_node should succeed");
 
-        assert!(matches!(step, TraversalStep::Descend(_)));
+        assert_matches!(step, TraversalStep::Descend(_));
         assert_eq!(entries.len(), 1);
         assert_eq!(entries[0].0, "child");
         assert!(value_to_set.is_some());
@@ -878,13 +868,13 @@ mod visit_map_node {
         )
         .expect("visit_map_node should succeed");
 
-        assert!(matches!(step, TraversalStep::Complete));
+        assert_matches!(step, TraversalStep::Complete);
         assert!(value_to_set.is_none());
         assert_eq!(entries.len(), 1);
-        match &entries[0].1 {
-            ArenaValue::String(text) => assert_eq!(*text, "value"),
-            _ => panic!("expected string leaf"),
-        }
+        assert!(
+            matches!(&entries[0].1, ArenaValue::String(text) if *text == "value"),
+            "leaf entry should contain provided value"
+        );
     }
 }
 
@@ -918,9 +908,9 @@ mod visit_seq_node {
         )
         .expect("visit_seq_node should succeed");
 
-        assert!(matches!(step, TraversalStep::Descend(_)));
+        assert_matches!(step, TraversalStep::Descend(_));
         assert_eq!(items.len(), 1);
-        assert!(matches!(&items[0], ArenaValue::Map { .. }));
+        assert_matches!(&items[0], ArenaValue::Map { .. });
         assert!(value_to_set.is_some());
     }
 
@@ -950,9 +940,9 @@ mod visit_seq_node {
         )
         .expect("visit_seq_node should succeed");
 
-        assert!(matches!(step, TraversalStep::Complete));
+        assert_matches!(step, TraversalStep::Complete);
         assert_eq!(items.len(), 1);
-        assert!(matches!(&items[0], ArenaValue::String(value) if *value == "leaf"));
+        assert_matches!(&items[0], ArenaValue::String(value) if *value == "leaf");
         assert!(value_to_set.is_none());
     }
 }
@@ -1003,10 +993,9 @@ mod handle_map_segment {
             &mut missing,
         );
 
-        match result {
-            Ok(_) => panic!("expected duplicate key error"),
-            Err(err) => expect_duplicate_key(err, "child"),
-        }
+        assert!(result.is_err(), "expected duplicate key error");
+        let err = result.err().unwrap();
+        expect_duplicate_key(err, "child");
     }
 
     #[test]
@@ -1048,10 +1037,9 @@ mod handle_map_segment {
             &mut missing,
         );
 
-        match result {
-            Ok(_) => panic!("expected duplicate key error"),
-            Err(err) => expect_duplicate_key(err, "child"),
-        }
+        assert!(result.is_err(), "expected duplicate key error");
+        let err = result.err().unwrap();
+        expect_duplicate_key(err, "child");
     }
 
     #[test]
@@ -1097,10 +1085,10 @@ mod handle_map_segment {
         assert_eq!(entries.len(), 1);
         let (key, value) = &entries[0];
         assert_eq!(*key, "child");
-        match value {
-            ArenaValue::String(text) => assert_eq!(*text, "second"),
-            _ => panic!("expected string value"),
-        }
+        assert!(
+            matches!(value, ArenaValue::String(text) if *text == "second"),
+            "replacement should store latest value"
+        );
     }
 }
 
@@ -1129,10 +1117,9 @@ mod handle_seq_segment {
             &mut value_to_set,
         );
 
-        match result {
-            Ok(_) => panic!("expected duplicate key error"),
-            Err(err) => expect_duplicate_key(err, "items"),
-        }
+        assert!(result.is_err(), "expected duplicate key error");
+        let err = result.err().unwrap();
+        expect_duplicate_key(err, "items");
     }
 
     #[test]
@@ -1157,10 +1144,9 @@ mod handle_seq_segment {
             &mut missing,
         );
 
-        match result {
-            Ok(_) => panic!("expected duplicate key error"),
-            Err(err) => expect_duplicate_key(err, "0"),
-        }
+        assert!(result.is_err(), "expected duplicate key error");
+        let err = result.err().unwrap();
+        expect_duplicate_key(err, "0");
     }
 
     #[test]
@@ -1173,7 +1159,7 @@ mod handle_seq_segment {
         let mut path = SmallVec::<[&str; 16]>::new();
         let mut value_to_set = Some(arena.alloc_str("value"));
 
-        let error = match handle_seq_segment(
+        let result = handle_seq_segment(
             &ctx,
             &mut items,
             &segments,
@@ -1182,12 +1168,11 @@ mod handle_seq_segment {
             "alpha",
             true,
             &mut value_to_set,
-        ) {
-            Ok(_) => panic!("expected duplicate key error"),
-            Err(err) => err,
-        };
+        );
 
-        expect_duplicate_key(error, "items");
+        assert!(result.is_err(), "expected duplicate key error");
+        let err = result.err().unwrap();
+        expect_duplicate_key(err, "items");
     }
 
     #[test]
@@ -1200,7 +1185,7 @@ mod handle_seq_segment {
         let mut path = SmallVec::<[&str; 16]>::new();
         let mut value_to_set: Option<&str> = None;
 
-        let error = match handle_seq_segment(
+        let result = handle_seq_segment(
             &ctx,
             &mut items,
             &segments,
@@ -1209,12 +1194,11 @@ mod handle_seq_segment {
             "0",
             true,
             &mut value_to_set,
-        ) {
-            Ok(_) => panic!("expected duplicate key error"),
-            Err(err) => err,
-        };
+        );
 
-        expect_duplicate_key(error, "0");
+        assert!(result.is_err(), "expected duplicate key error");
+        let err = result.err().unwrap();
+        expect_duplicate_key(err, "0");
     }
 
     #[test]
@@ -1228,7 +1212,7 @@ mod handle_seq_segment {
         let mut path = SmallVec::<[&str; 16]>::new();
         let mut value_to_set: Option<&str> = None;
 
-        let error = match handle_seq_segment(
+        let result = handle_seq_segment(
             &ctx,
             &mut items,
             &segments,
@@ -1237,12 +1221,11 @@ mod handle_seq_segment {
             "0",
             true,
             &mut value_to_set,
-        ) {
-            Ok(_) => panic!("expected duplicate key error"),
-            Err(err) => err,
-        };
+        );
 
-        expect_duplicate_key(error, "0");
+        assert!(result.is_err(), "expected duplicate key error");
+        let err = result.err().unwrap();
+        expect_duplicate_key(err, "0");
     }
 }
 
@@ -1272,12 +1255,10 @@ mod get_root_value {
         let arena = ParseArena::new();
         let mut map = map_with_capacity(&arena, 0);
 
-        let error = match get_root_value(&mut map, "profile", "profile") {
-            Ok(_) => panic!("expected duplicate error"),
-            Err(err) => err,
-        };
-
-        expect_duplicate_key(error, "profile");
+        let result = get_root_value(&mut map, "profile", "profile");
+        assert!(result.is_err(), "expected duplicate key error");
+        let err = result.err().unwrap();
+        expect_duplicate_key(err, "profile");
     }
 }
 

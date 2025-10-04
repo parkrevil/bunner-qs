@@ -15,6 +15,7 @@ mod serde_helpers;
 #[path = "common/stringify_options.rs"]
 mod stringify_options;
 
+use assert_matches::assert_matches;
 use asserts::{assert_str_path, assert_string_array_path, expect_path};
 use bunner_qs::{
     ParseError, ParseOptions, SerdeQueryError, SerdeStringifyError, StringifyOptions, parse,
@@ -548,7 +549,7 @@ mod options_behavior_tests {
         let err =
             parse_with::<SimpleUser>("username=ada&age=36&active=true", &options).unwrap_err();
 
-        assert!(matches!(err, ParseError::TooManyParameters { .. }));
+        assert_matches!(err, ParseError::TooManyParameters { .. });
     }
 
     #[test]
@@ -573,7 +574,7 @@ mod error_reporting_tests {
 
         let err = parse::<NetworkPeer>(query).unwrap_err();
 
-        assert!(matches!(err, ParseError::Serde(_)));
+        assert_matches!(err, ParseError::Serde(_));
     }
 
     #[test]
@@ -586,7 +587,7 @@ mod error_reporting_tests {
         let encoded = stringify(&object).expect("stringify should succeed");
         let result = parse::<SimpleUser>(&encoded);
 
-        assert!(matches!(result, Err(ParseError::Serde(_))));
+        assert_matches!(result, Err(ParseError::Serde(_)));
     }
 
     #[test]
@@ -616,7 +617,7 @@ mod error_reporting_tests {
 
         let result = parse::<DesiredProfile>(encoded);
 
-        assert!(matches!(result, Err(ParseError::Serde(_))));
+        assert_matches!(result, Err(ParseError::Serde(_)));
     }
 
     #[test]

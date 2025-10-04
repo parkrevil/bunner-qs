@@ -3,6 +3,7 @@ use crate::arena_helpers::map_with_capacity;
 use crate::config::{DuplicateKeyBehavior, ParseOptions};
 use crate::parsing::ParseError;
 use crate::parsing::arena::ArenaValue;
+use assert_matches::assert_matches;
 
 mod with_arena_query_map {
     use super::*;
@@ -18,17 +19,11 @@ mod with_arena_query_map {
 
             let (first_key, first_value) = &entries[0];
             assert_eq!(*first_key, "foo");
-            match first_value {
-                ArenaValue::String(value) => assert_eq!(*value, "bar"),
-                _ => panic!("expected string value"),
-            }
+            assert_matches!(first_value, ArenaValue::String(text) if *text == "bar");
 
             let (second_key, second_value) = &entries[1];
             assert_eq!(*second_key, "baz");
-            match second_value {
-                ArenaValue::String(value) => assert_eq!(*value, "qux"),
-                _ => panic!("expected string value"),
-            }
+            assert_matches!(second_value, ArenaValue::String(text) if *text == "qux");
 
             Ok(())
         });
@@ -41,12 +36,11 @@ mod with_arena_query_map {
         let trimmed = "foo=one&foo=two";
         let options = ParseOptions::default();
 
-        let error =
-            with_arena_query_map(trimmed, 0, &options, |_, _| Ok(())).expect_err("duplicate key");
+        let error = with_arena_query_map(trimmed, 0, &options, |_, _| Ok(())).unwrap_err();
 
-        match error {
-            ParseError::DuplicateKey { key } => assert_eq!(key, "foo"),
-            other => panic!("expected duplicate key error, got {other:?}"),
+        assert_matches!(error, ParseError::DuplicateKey { .. });
+        if let ParseError::DuplicateKey { key } = error {
+            assert_eq!(key, "foo");
         }
     }
 
@@ -63,10 +57,7 @@ mod with_arena_query_map {
             assert_eq!(entries.len(), 1);
             let (key, value) = &entries[0];
             assert_eq!(*key, "foo");
-            match value {
-                ArenaValue::String(text) => assert_eq!(*text, "one"),
-                _ => panic!("expected string value"),
-            }
+            assert_matches!(value, ArenaValue::String(text) if *text == "one");
             Ok(())
         });
 
@@ -86,10 +77,7 @@ mod with_arena_query_map {
             assert_eq!(entries.len(), 1);
             let (key, value) = &entries[0];
             assert_eq!(*key, "foo");
-            match value {
-                ArenaValue::String(text) => assert_eq!(*text, "two"),
-                _ => panic!("expected string value"),
-            }
+            assert_matches!(value, ArenaValue::String(text) if *text == "two");
             Ok(())
         });
 
@@ -104,16 +92,15 @@ mod with_arena_query_map {
             .build()
             .expect("builder should succeed");
 
-        let error =
-            with_arena_query_map("a=1&b=2", 0, &options, |_, _| Ok(())).expect_err("param limit");
+        let error = with_arena_query_map("a=1&b=2", 0, &options, |_, _| Ok(())).unwrap_err();
 
-        match error {
-            ParseError::TooManyParameters { limit, actual } => {
-                assert_eq!(limit, 1);
-                assert_eq!(actual, 2);
+        assert_matches!(
+            error,
+            ParseError::TooManyParameters {
+                limit: 1,
+                actual: 2
             }
-            other => panic!("expected TooManyParameters error, got {other:?}"),
-        }
+        );
     }
 
     #[test]
@@ -128,10 +115,7 @@ mod with_arena_query_map {
             assert_eq!(entries.len(), 1);
             let (key, value) = &entries[0];
             assert_eq!(*key, "hello world");
-            match value {
-                ArenaValue::String(text) => assert_eq!(*text, "value here"),
-                _ => panic!("expected string value"),
-            }
+            assert_matches!(value, ArenaValue::String(text) if *text == "value here");
             Ok(())
         });
 
@@ -146,10 +130,10 @@ mod with_arena_query_map {
         let error = with_arena_query_map("foo[=bar", 0, &options, |_, _| Ok(()))
             .expect_err("unmatched bracket should error");
 
-        assert!(matches!(
+        assert_matches!(
             error,
             ParseError::UnmatchedBracket { ref key } if key == "foo["
-        ));
+        );
     }
 
     #[test]
@@ -160,10 +144,7 @@ mod with_arena_query_map {
             let entries = map.entries_slice();
             assert_eq!(entries.len(), 1);
             assert_eq!(entries[0].0, "foo");
-            match &entries[0].1 {
-                ArenaValue::String(value) => assert_eq!(*value, "bar"),
-                _ => panic!("expected string value"),
-            }
+            assert_matches!(&entries[0].1, ArenaValue::String(text) if *text == "bar");
             Ok(())
         });
 
@@ -174,13 +155,9 @@ mod with_arena_query_map {
     fn should_return_invalid_percent_error_when_value_contains_non_hex_digits_then_report_index() {
         let options = ParseOptions::default();
 
-        let error = with_arena_query_map("foo=%GG", 0, &options, |_, _| Ok(()))
-            .expect_err("invalid percent encoding should error");
+        let error = with_arena_query_map("foo=%GG", 0, &options, |_, _| Ok(())).unwrap_err();
 
-        match error {
-            ParseError::InvalidPercentEncoding { index } => assert_eq!(index, 4),
-            other => panic!("expected InvalidPercentEncoding error, got {other:?}"),
-        }
+        assert_matches!(error, ParseError::InvalidPercentEncoding { index: 4 });
     }
 
     #[test]
@@ -193,10 +170,7 @@ mod with_arena_query_map {
             assert_eq!(entries.len(), 1);
             let (key, value) = &entries[0];
             assert_eq!(*key, "flag");
-            match value {
-                ArenaValue::String(text) => assert!(text.is_empty()),
-                _ => panic!("expected string value"),
-            }
+            assert_matches!(value, ArenaValue::String(text) if text.is_empty());
             Ok(())
         });
 
@@ -212,10 +186,7 @@ mod with_arena_query_map {
             let entries = map.entries_slice();
             assert_eq!(entries.len(), 1);
             assert_eq!(entries[0].0, "foo");
-            match &entries[0].1 {
-                ArenaValue::String(value) => assert_eq!(*value, "bar"),
-                _ => panic!("expected string"),
-            }
+            assert_matches!(&entries[0].1, ArenaValue::String(text) if *text == "bar");
             Ok(())
         });
 
@@ -232,14 +203,47 @@ mod with_arena_query_map {
             assert_eq!(entries.len(), 1);
             let (key, value) = &entries[0];
             assert_eq!(*key, "token");
-            match value {
-                ArenaValue::String(text) => assert_eq!(*text, "=value"),
-                _ => panic!("expected string value"),
-            }
+            assert_matches!(value, ArenaValue::String(text) if *text == "=value");
             Ok(())
         });
 
         result.expect("additional equals should remain in value");
+    }
+
+    #[test]
+    fn should_handle_large_query_without_panicking_then_store_all_pairs() {
+        let options = ParseOptions::default();
+        let pairs = 2048;
+        let trimmed = (0..pairs)
+            .map(|idx| format!("key{idx}={idx}"))
+            .collect::<Vec<_>>()
+            .join("&");
+
+        let result = with_arena_query_map(&trimmed, 0, &options, |_, map| {
+            let entries = map.entries_slice();
+            assert_eq!(entries.len(), pairs);
+            assert_eq!(entries[0].0, "key0");
+            assert_matches!(&entries[0].1, ArenaValue::String(text) if *text == "0");
+            assert_eq!(entries.last().unwrap().0, format!("key{}", pairs - 1));
+            Ok(())
+        });
+
+        result.expect("large query should parse successfully");
+    }
+
+    #[test]
+    fn should_report_invalid_percent_error_with_offset_when_value_contains_invalid_encoding() {
+        let options = ParseOptions::default();
+        let trimmed = "flag=%GG";
+        let offset = 10;
+
+        let error = with_arena_query_map(trimmed, offset, &options, |_, _| Ok(()))
+            .expect_err("invalid percent encoding should propagate");
+
+        assert_matches!(
+            error,
+            ParseError::InvalidPercentEncoding { index } if index == offset + 5
+        );
     }
 }
 
@@ -305,12 +309,12 @@ mod parse_segments_into_map {
                 .expect_err("limit should trigger error")
         };
 
-        match error {
-            ParseError::TooManyParameters { limit, actual } => {
-                assert_eq!(limit, 1);
-                assert_eq!(actual, 2);
+        assert_matches!(
+            error,
+            ParseError::TooManyParameters {
+                limit: 1,
+                actual: 2
             }
-            other => panic!("expected TooManyParameters error, got {other:?}"),
-        }
+        );
     }
 }

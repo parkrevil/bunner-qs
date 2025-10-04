@@ -1,4 +1,5 @@
 use super::*;
+use assert_matches::assert_matches;
 use std::borrow::Cow;
 
 fn scratch_vec() -> Vec<u8> {
@@ -15,7 +16,7 @@ mod decode_component {
 
         let result = decode_component(raw, false, 0, &mut scratch).expect("decode ascii");
 
-        assert!(matches!(result, Cow::Borrowed("simple")));
+        assert_matches!(result, Cow::Borrowed("simple"));
     }
 
     #[test]
@@ -26,7 +27,7 @@ mod decode_component {
 
         let result = decode_component(raw, true, 5, &mut scratch).expect("decode plus");
 
-        assert!(matches!(result, Cow::Owned(string) if string == "one two"));
+        assert_matches!(result, Cow::Owned(string) if string == "one two");
     }
 
     #[test]
@@ -37,10 +38,12 @@ mod decode_component {
         let error = decode_component(raw, false, 12, &mut scratch)
             .expect_err("invalid second hex digit should fail");
 
-        match error {
-            ParseError::InvalidPercentEncoding { index } => assert_eq!(index, 12),
-            other => panic!("expected InvalidPercentEncoding error, got {other:?}"),
-        }
+        assert_matches!(
+            error,
+            ParseError::InvalidPercentEncoding { index } => {
+                assert_eq!(index, 12);
+            }
+        );
     }
 
     #[test]
@@ -51,13 +54,13 @@ mod decode_component {
 
         let error = decode_component(raw, false, 3, &mut scratch).expect_err("control char");
 
-        match error {
+        assert_matches!(
+            error,
             ParseError::InvalidCharacter { character, index } => {
                 assert_eq!(character, '\u{0007}');
                 assert_eq!(index, 6);
             }
-            other => panic!("expected InvalidCharacter error, got {other:?}"),
-        }
+        );
     }
 }
 
@@ -69,7 +72,7 @@ mod fast_path_ascii {
         let raw = "visible";
         let outcome =
             fast_path_ascii_for_test(raw, raw.as_bytes(), 0).expect("fast path should borrow");
-        assert!(matches!(outcome, Cow::Borrowed("visible")));
+        assert_matches!(outcome, Cow::Borrowed("visible"));
     }
 
     #[test]
@@ -78,13 +81,13 @@ mod fast_path_ascii {
         let err = fast_path_ascii_for_test(raw, raw.as_bytes(), 10)
             .expect_err("control characters should error");
 
-        match err {
+        assert_matches!(
+            err,
             ParseError::InvalidCharacter { character, index } => {
                 assert_eq!(character, '\u{0007}');
                 assert_eq!(index, 13);
             }
-            other => panic!("expected InvalidCharacter, got {other:?}"),
-        }
+        );
     }
 }
 
@@ -99,7 +102,7 @@ mod decode_with_special_chars {
         let result = decode_with_special_chars_for_test(raw, raw.as_bytes(), true, 0, &mut scratch)
             .expect("percent and plus decode");
 
-        assert!(matches!(result, Cow::Owned(text) if text == "+ matrix"));
+        assert_matches!(result, Cow::Owned(text) if text == "+ matrix");
     }
 
     #[test]
@@ -110,10 +113,19 @@ mod decode_with_special_chars {
         let err = decode_with_special_chars_for_test(raw, raw.as_bytes(), false, 4, &mut scratch)
             .expect_err("invalid percent should bubble up");
 
-        assert!(matches!(
-            err,
-            ParseError::InvalidPercentEncoding { index: 4 }
-        ));
+        assert_matches!(err, ParseError::InvalidPercentEncoding { index: 4 });
+    }
+
+    #[test]
+    fn should_handle_utf8_cluster_when_non_ascii_byte_encountered() {
+        let raw = "café";
+        let mut scratch = super::scratch_vec();
+
+        let result =
+            decode_with_special_chars_for_test(raw, raw.as_bytes(), false, 0, &mut scratch)
+                .expect("utf8 cluster should decode");
+
+        assert_matches!(result, Cow::Borrowed("café"));
     }
 }
 
@@ -140,10 +152,7 @@ mod decode_percent_sequence {
         let err = decode_percent_sequence_for_test(bytes, 0, 2, &mut scratch)
             .expect_err("truncated percent should err");
 
-        assert!(matches!(
-            err,
-            ParseError::InvalidPercentEncoding { index: 2 }
-        ));
+        assert_matches!(err, ParseError::InvalidPercentEncoding { index: 2 });
     }
 
     #[test]
@@ -154,10 +163,7 @@ mod decode_percent_sequence {
         let err = decode_percent_sequence_for_test(bytes, 0, 7, &mut scratch)
             .expect_err("invalid hex digit should err");
 
-        assert!(matches!(
-            err,
-            ParseError::InvalidPercentEncoding { index: 7 }
-        ));
+        assert_matches!(err, ParseError::InvalidPercentEncoding { index: 7 });
     }
 }
 
@@ -210,13 +216,13 @@ mod decode_ascii_run {
         let err = decode_ascii_run_for_test(bytes, 0, 5, false, &mut scratch)
             .expect_err("control char should fail");
 
-        match err {
+        assert_matches!(
+            err,
             ParseError::InvalidCharacter { character, index } => {
                 assert_eq!(character, '\u{0007}');
                 assert_eq!(index, 7);
             }
-            other => panic!("expected InvalidCharacter, got {other:?}"),
-        }
+        );
     }
 }
 
@@ -243,7 +249,7 @@ mod decode_utf8_cluster {
         let err = decode_utf8_cluster_for_test(raw, raw.as_bytes(), raw.len(), &mut scratch)
             .expect_err("out of bounds should error");
 
-        assert!(matches!(err, ParseError::InvalidUtf8));
+        assert_matches!(err, ParseError::InvalidUtf8);
     }
 }
 
@@ -256,7 +262,7 @@ mod finalize_decoded {
 
         let result = finalize_decoded_for_test(&mut scratch).expect("valid utf8");
 
-        assert!(matches!(result, Cow::Owned(text) if text == "hello"));
+        assert_matches!(result, Cow::Owned(text) if text == "hello");
         assert!(scratch.capacity() >= 5);
     }
 
@@ -266,7 +272,7 @@ mod finalize_decoded {
 
         let err = finalize_decoded_for_test(&mut scratch).expect_err("invalid utf8");
 
-        assert!(matches!(err, ParseError::InvalidUtf8));
+        assert_matches!(err, ParseError::InvalidUtf8);
         assert_eq!(scratch, vec![0xF0, 0x28, 0x8C, 0x28]);
     }
 }

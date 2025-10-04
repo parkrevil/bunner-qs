@@ -11,19 +11,21 @@ where
 }
 
 fn assert_string_reuse(buf: &String, min_capacity: usize) {
-    assert_eq!(buf.len(), 0, "reused buffer should be cleared");
-    assert!(
-        buf.capacity() >= min_capacity,
-        "buffer should retain at least prior capacity"
-    );
+    if !buf.is_empty() {
+        panic!("reused buffer should be cleared");
+    }
+    if buf.capacity() < min_capacity {
+        panic!("buffer should retain at least prior capacity");
+    }
 }
 
 fn assert_string_dropped(buf: &String, max_capacity: usize) {
-    assert!(
-        buf.capacity() <= max_capacity,
-        "oversized buffers should not be reused"
-    );
-    assert_eq!(buf.len(), 0);
+    if buf.capacity() > max_capacity {
+        panic!("oversized buffers should not be reused");
+    }
+    if !buf.is_empty() {
+        panic!("dropped buffers should be cleared");
+    }
 }
 
 fn record_byte_capacity<F>(mut fill: F) -> usize
@@ -37,19 +39,21 @@ where
 }
 
 fn assert_byte_reuse(buf: &Vec<u8>, min_capacity: usize) {
-    assert_eq!(buf.len(), 0, "byte buffer should be cleared on reuse");
-    assert!(
-        buf.capacity() >= min_capacity,
-        "byte buffer should retain previous capacity"
-    );
+    if !buf.is_empty() {
+        panic!("byte buffer should be cleared on reuse");
+    }
+    if buf.capacity() < min_capacity {
+        panic!("byte buffer should retain previous capacity");
+    }
 }
 
 fn assert_byte_dropped(buf: &Vec<u8>, max_capacity: usize) {
-    assert!(
-        buf.capacity() <= max_capacity,
-        "oversized byte buffers should not be reused"
-    );
-    assert_eq!(buf.len(), 0);
+    if buf.capacity() > max_capacity {
+        panic!("oversized byte buffers should not be reused");
+    }
+    if !buf.is_empty() {
+        panic!("byte buffers should be cleared when dropped");
+    }
 }
 
 mod acquire_string {

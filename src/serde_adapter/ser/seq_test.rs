@@ -1,5 +1,6 @@
 use super::*;
 use crate::model::Value;
+use assert_matches::assert_matches;
 use serde::ser::{SerializeTuple, SerializeTupleStruct, SerializeTupleVariant};
 
 mod value_seq_serializer {
@@ -32,14 +33,14 @@ mod value_seq_serializer {
             .expect("third element should serialize");
         let result = SerializeSeq::end(serializer).expect("sequence should finish");
 
-        let array = match result.expect("sequence serializer should produce a value") {
-            Value::Array(items) => items,
-            other => panic!("unexpected value: {other:?}"),
-        };
+        let value = result.expect("sequence serializer should produce a value");
+        let array = value
+            .as_array()
+            .expect("sequence serializer should produce an array");
         assert_eq!(array.len(), 3);
-        assert_eq!(array[0], Value::String("alpha".into()));
-        assert_eq!(array[1], Value::String(String::new()));
-        assert_eq!(array[2], Value::String("gamma".into()));
+        assert_matches!(array.first(), Some(Value::String(text)) if text == "alpha");
+        assert_matches!(array.get(1), Some(Value::String(text)) if text.is_empty());
+        assert_matches!(array.get(2), Some(Value::String(text)) if text == "gamma");
     }
 
     #[test]
@@ -52,17 +53,18 @@ mod value_seq_serializer {
             .expect("nested sequence should serialize");
         let result = SerializeSeq::end(serializer).expect("sequence should finish");
 
-        let array = match result.expect("sequence serializer should produce a value") {
-            Value::Array(items) => items,
-            other => panic!("unexpected value: {other:?}"),
-        };
-        let inner = match &array[0] {
-            Value::Array(items) => items,
-            other => panic!("expected nested array, got {other:?}"),
-        };
+        let value = result.expect("sequence serializer should produce a value");
+        let array = value
+            .as_array()
+            .expect("sequence serializer should produce an array");
+        let inner = array
+            .first()
+            .expect("sequence should contain nested array")
+            .as_array()
+            .expect("nested value should be array");
         assert_eq!(inner.len(), 2);
-        assert_eq!(inner[0], Value::String("one".into()));
-        assert_eq!(inner[1], Value::String("two".into()));
+        assert_matches!(inner.first(), Some(Value::String(text)) if text == "one");
+        assert_matches!(inner.get(1), Some(Value::String(text)) if text == "two");
     }
 
     #[test]
@@ -76,14 +78,13 @@ mod value_seq_serializer {
             .expect("second tuple element should serialize");
         let result = SerializeTuple::end(serializer).expect("tuple should finish");
 
-        let items = match result.expect("tuple serializer should produce a value") {
-            Value::Array(items) => items,
-            other => panic!("unexpected value: {other:?}"),
-        };
-        assert_eq!(
-            items,
-            vec![Value::String("left".into()), Value::String("right".into())]
-        );
+        let value = result.expect("tuple serializer should produce a value");
+        let array = value
+            .as_array()
+            .expect("tuple serializer should produce an array");
+        assert_eq!(array.len(), 2);
+        assert_matches!(array.first(), Some(Value::String(text)) if text == "left");
+        assert_matches!(array.get(1), Some(Value::String(text)) if text == "right");
     }
 
     #[test]
@@ -95,11 +96,12 @@ mod value_seq_serializer {
             .expect("tuple struct field should serialize");
         let result = SerializeTupleStruct::end(serializer).expect("tuple struct should finish");
 
-        let items = match result.expect("tuple struct serializer should produce a value") {
-            Value::Array(items) => items,
-            other => panic!("unexpected value: {other:?}"),
-        };
-        assert_eq!(items, vec![Value::String("123".into())]);
+        let value = result.expect("tuple struct serializer should produce a value");
+        let array = value
+            .as_array()
+            .expect("tuple struct serializer should produce an array");
+        assert_eq!(array.len(), 1);
+        assert_matches!(array.first(), Some(Value::String(text)) if text == "123");
     }
 
     #[test]
@@ -133,11 +135,12 @@ mod value_seq_serializer {
         serializer.push_value(None);
         let result = SerializeSeq::end(serializer).expect("sequence end should succeed");
 
-        let array = match result.expect("sequence serializer should produce value") {
-            Value::Array(items) => items,
-            other => panic!("unexpected value: {other:?}"),
-        };
-        assert_eq!(array, vec![Value::String(String::new())]);
+        let value = result.expect("sequence serializer should produce value");
+        let array = value
+            .as_array()
+            .expect("sequence serializer should produce an array");
+        assert_eq!(array.len(), 1);
+        assert_matches!(array.first(), Some(Value::String(text)) if text.is_empty());
     }
 
     #[test]
@@ -147,12 +150,11 @@ mod value_seq_serializer {
         let error = SerializeSeq::serialize_element(&mut serializer, &FailingElement)
             .expect_err("failing element should error");
 
-        match error {
-            SerializeError::Message(message) => {
-                assert_eq!(message, "element serialization failed")
-            }
-            other => panic!("unexpected error type: {other:?}"),
-        }
+        assert_matches!(
+            error,
+            SerializeError::Message(ref message) if message == "element serialization failed",
+            "unexpected error: {error:?}"
+        );
     }
 
     #[test]
@@ -163,10 +165,11 @@ mod value_seq_serializer {
         let result =
             SerializeSeq::end(serializer).expect("sequence should finish after manual push");
 
-        let array = match result.expect("sequence serializer should produce a value") {
-            Value::Array(items) => items,
-            other => panic!("unexpected value: {other:?}"),
-        };
-        assert_eq!(array, vec![Value::String(String::new())]);
+        let value = result.expect("sequence serializer should produce a value");
+        let array = value
+            .as_array()
+            .expect("sequence serializer should produce an array");
+        assert_eq!(array.len(), 1);
+        assert_matches!(array.first(), Some(Value::String(text)) if text.is_empty());
     }
 }

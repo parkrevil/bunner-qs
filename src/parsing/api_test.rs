@@ -1,7 +1,8 @@
-use super::{parse, parse_with};
+use super::{assume_json_value, parse, parse_with};
 use crate::ParseOptions;
 use crate::parsing::ParseError;
 use crate::serde_adapter::SerdeQueryError;
+use assert_matches::assert_matches;
 use serde::Deserialize;
 use serde_json::{Value, json};
 
@@ -59,6 +60,92 @@ mod parse_api {
 
         assert_eq!(parsed, Credentials::default());
     }
+
+    #[test]
+    fn should_error_when_query_contains_interior_question_mark_then_report_index() {
+        let query = "user?name=neo";
+
+        let result = parse::<Value>(query);
+
+        assert_matches!(
+            result,
+            Err(ParseError::UnexpectedQuestionMark { index }) if index == 4
+        );
+    }
+
+    #[test]
+    fn should_return_json_null_when_pairs_absent_then_use_value_null_default() {
+        let query = "&&";
+
+        let parsed = parse::<Value>(query).expect("parse should succeed");
+
+        assert_eq!(parsed, Value::Null);
+    }
+
+    #[test]
+    fn should_report_question_mark_index_with_prefix_then_include_offset_in_error() {
+        let query = "?user?name=neo";
+
+        let result = parse::<Value>(query);
+
+        assert_matches!(
+            result,
+            Err(ParseError::UnexpectedQuestionMark { index }) if index == 5
+        );
+    }
+
+    #[test]
+    fn should_return_duplicate_key_error_when_key_repeats_then_propagate_duplicate_key() {
+        let query = "foo=one&foo=two";
+
+        let result = parse::<Value>(query);
+
+        assert_matches!(
+            result,
+            Err(ParseError::DuplicateKey { ref key }) if key == "foo"
+        );
+    }
+
+    #[test]
+    fn should_return_invalid_percent_error_when_value_encoding_is_invalid_then_report_index() {
+        let query = "name=%GG";
+
+        let result = parse::<Value>(query);
+
+        assert_matches!(
+            result,
+            Err(ParseError::InvalidPercentEncoding { index }) if index == 5
+        );
+    }
+
+    #[test]
+    fn should_return_json_null_when_query_has_only_separators_then_use_value_default() {
+        let query = "?&&";
+
+        let parsed = parse::<Value>(query).expect("parse should succeed");
+
+        assert_eq!(parsed, Value::Null);
+    }
+
+    #[test]
+    fn should_wrap_deserialize_error_when_target_type_rejects_value_then_return_parse_error() {
+        #[allow(dead_code)]
+        #[derive(Debug, Deserialize, Default)]
+        struct StrictFlag {
+            flag: bool,
+        }
+
+        let query = "flag=not-bool";
+
+        let result = parse::<StrictFlag>(query);
+
+        assert_matches!(
+            result,
+            Err(ParseError::Serde(SerdeQueryError::Deserialize(inner))) => {
+                assert!(inner.to_string().contains("invalid boolean"));
+            }
+        );
+    }
 }
 
 mod parse_with_api {
@@ -88,13 +175,13 @@ mod parse_with_api {
 
         let result = parse_with::<Value>(query, &options);
 
-        assert!(matches!(
+        assert_matches!(
             result,
             Err(ParseError::TooManyParameters {
                 limit: 1,
                 actual: 2
             })
-        ));
+        );
     }
 
     #[test]
@@ -129,11 +216,64 @@ mod parse_with_api {
 
         let result = parse_with::<StrictFlag>(query, &ParseOptions::default());
 
-        match result {
-            Err(ParseError::Serde(SerdeQueryError::Deserialize(err))) => {
-                assert!(err.to_string().contains("invalid boolean literal"));
+        let err = result.expect_err("strict flag should fail to deserialize");
+        assert_matches!(
+            err,
+            ParseError::Serde(SerdeQueryError::Deserialize(inner)) => {
+                assert!(inner.to_string().contains("invalid boolean literal"));
             }
-            other => panic!("expected serde deserialize error, but received: {other:?}"),
-        }
+        );
+    }
+
+    #[test]
+    fn should_error_when_input_exceeds_max_length_then_propagate_limit() {
+        let query = "message=too-long";
+        let options = ParseOptions {
+            max_length: Some(3),
+            ..ParseOptions::default()
+        };
+
+        let result = parse_with::<Value>(query, &options);
+
+        assert_matches!(
+            result,
+            Err(ParseError::InputTooLong { limit }) if limit == 3
+        );
+    }
+}
+
+mod json_specialization {
+    use super::*;
+
+    #[test]
+    fn should_transfer_json_value_when_assume_json_value_used_then_preserve_structure() {
+        let complex = json!({
+            "profile": {
+                "name": "trinity",
+                "skills": ["matrix", "kung-fu"],
+                "active": true
+            }
+        });
+
+        let transferred: Value = unsafe { assume_json_value::<Value>(complex.clone()) };
+
+        assert_eq!(transferred, complex);
+    }
+
+    #[test]
+    fn should_preserve_nested_arrays_when_parsing_into_json_value_then_return_expected_structure() {
+        let query = "items[0]=alpha&items[1]=beta&items[2][count]=3";
+
+        let parsed = parse::<Value>(query).expect("parse should succeed");
+
+        let expected = json!({
+            "items": [
+                "alpha",
+                "beta",
+                { "count": "3" }
+            ]
+        });
+
+        assert_eq!(parsed, expected);
     }
 }

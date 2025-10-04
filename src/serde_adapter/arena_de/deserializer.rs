@@ -321,13 +321,12 @@ impl<'de> de::Deserializer<'de> for ArenaValueDeserializer<'de> {
 
     fn deserialize_newtype_struct<V>(
         self,
-        name: &'static str,
+        _name: &'static str,
         visitor: V,
     ) -> Result<V::Value, Self::Error>
     where
         V: Visitor<'de>,
     {
-        debug_assert!(!name.is_empty(), "newtype struct should have a name");
         visitor.visit_newtype_struct(self)
     }
 

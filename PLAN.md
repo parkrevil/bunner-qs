@@ -43,54 +43,14 @@ crates.io 게시 불가능:
 
 ## 3. 코딩 품질 및 성능 개선 (경미)
 
-### 3.5 성능 회귀 대응 (완료)
-- 2025-10-03 Criterion `stringify/simple_struct` 재측정 결과 2.92–3.01µs 범위, 변화 [-1.65%, +0.94%, +3.70%] (p=0.50)로 기존 6~9% 회귀 재현 실패 → 현행 reserve 전략 유지.
-- Encode 경로에서 무인코딩 세그먼트를 직접 push 시도했으나 +5~8% 회귀가 관찰되어 즉시 되돌림, 실험 내용과 원인(추가 스캔 비용)을 기록.
-- 추후 정밀 분석이 필요하면 Criterion baseline을 분리 저장하거나 flamegraph 대체 도구(pprof-rs 등) 도입을 재검토.
-
-### 3.8 전체 코드 재검토 메모 (2025-10-03 야간)
-- 구성 옵션 계층: `ParseOptions`와 `StringifyOptions`는 빌더를 거치지 않고 직접 생성하면 `max_* = Some(0)` 등 잘못된 값이 들어갈 수 있음. 안전한 생성 경로(`new()`, `try_from`) 추가 검토.
-- 메모리 풀: `memory::buffer` TLS 풀은 큰 버퍼를 반납할 때 `String::new()`로 대체하여 메모리 재활용성을 높일 필요.
-- QueryMap → struct 변환: `QueryMap::to_struct`가 이제 §3.1에서 Result 반환으로 전환되어 패닉 제거 완료.
-- Arena 초기 용량: `with_arena_query_map`이 `trimmed.len() * 2`로 과도하게 잡혀 큰 입력에서 잦은 재할당 유도 → 동적 전략 연구.
-- 파서 한계 체크: `increment_pairs`가 `saturating_add`를 사용해 오버플로를 숨김 → `checked_add` 전환 검토.
-- unsafe 경로 가시화: §3.2에서 `parsing::api`와 `stringify::walker` 안전성 메모 보강 완료, 추가 검증은 integration test로 확대 필요.
-- Stringify 스택: §3.3에서 `STACK_INLINE_CAPACITY` 상수화를 적용했으며, 장기적으로 용량 튜닝 여부만 검토.
-- 키 검증 비용: 실패 경로에서 `format!`이 큰 키를 매번 할당 → `String::with_capacity` 혹은 사전 예약 검토.
-- Serializer 성능: `serde_adapter::arena_de::deserializer`의 `HashSet`을 경량 해셔로 교체 시 성능 향상 가능.
-- 벤치마크 유틸리티: Criterion 스위트가 panic 메시지를 항상 준비 → release 벤치에서 feature 게이트 도입 검토.
-
-### 3.10 성능 측정 및 프로파일링 결과 (2025-10-03 심야)
-- `cargo bench` 전 스위트 재실행 결과 (Criterion 0.5.1, gnuplot 미설치 → plotters 백엔드 사용):
-	- Parse 경량/중간/고급 시나리오가 각각 **-8.3%**, **-14.9%**, **-4.9%** 수준의 개선을 보였고 극한 시나리오는 변화 없음.
-	- Stringify는 `simple_struct`에서 **+6.6%** 수준의 **회귀**가 발생, medium/high/extreme 은 -3~-7% 개선 혹은 노이즈 범위.
-	- `ecosystem_compare` 결과에서도 `bunner_qs/stringify/simple`이 +6.6~9.3% 느려졌고, 동일 시나리오에서 `serde_qs`는 6~10% 개선되어 격차가 벌어졌음 → encode 경로 점검 필요.
-- 프로파일링 제약: Linux 기본 `perf`가 환경에 설치되어 있지 않고 사용자 지시에 따라 사용 불가. 대안으로 Criterion의 `cargo bench --profile cargo-criterion` 또는 `pprof-rs`를 추후 도입 제안. 현재 세션에서는 샘플링 기반 프로파일 데이터를 확보하지 못함.
-- 성능 개선 후보:
-	1. `stringify::writer::write_pair`가 매 호출마다 넉넉히 reserve 하므로, `first_pair`가 false일 때만 `push('&')` 후 encode를 수행하고, key/value 길이에 비례한 상수 인자를 조정해 과도한 reserve를 줄일 필요.
-	2. `encode::encode_value_into`가 공백 처리 시 분기(`space_as_plus`)를 각 반복에서 확인 → 옵션을 클로저로 캡처하거나 미리 함수 포인터를 선택해 분기 비용을 제거.
-	3. `SmallVec` 기반 스택에서 deep payload시 heap 재할당이 반복되므로, stringify simple 시나리오에서 배열 push/pop 패턴을 분석해 pre-allocation 전략 개선.
-	4. `serde_adapter::ser::value_serializer`가 반복적으로 `String::from`을 사용해 임시 문자열을 생성 → Cow를 활용해 할당 감소 가능.
-- 후속 작업: `stringify/simple_struct` 회귀 원인 분석을 위해 encode 단계의 분기와 reserve 전략을 수정하는 마이크로벤치 작성 예정.
-
-### 3.11 전체 코드 재독 범위 재확인 (2025-10-03 심야)
-- `src/` 하위 9개 모듈 트리(`config`, `memory`, `model`, `nested`, `parsing`, `serde_adapter`, `stringify`, `prelude`, 루트 `lib.rs`)를 2025-10-03 저녁~심야에 전부 다시 읽고 주석/안전성/검증 포인트를 점검했으며, 각 모듈의 특이사항은 3.9에 세부 메모로 반영됨.
-- `tests/`와 `benches/` 전 파일을 함께 재검토하여, 벤치 입력/테스트 커버리지의 공백을 표기(예: `tests/options_limits.rs` max_pairs 경계 부족)하고 PLAN 섹션 4.x에 후속 액션으로 추가 예정.
-- `serde_adapter` 하위 `arena_de/`, `ser/` 서브모듈은 unsafe 구간 중심으로 다시 탐색해 잠재 UB 후보를 3.9 bullet에 기록했음.
-- 따라서 “코드베이스 전체 재검토” 요구사항은 3.9 + 3.11에 명시된 대로 완료 상태이며, 추후 변경이 생기면 해당 섹션에 시점과 범위를 재추적하도록 유지.
-
-### 3.12 Criterion SVG 직접 해석 (2025-10-03 심야)
-- 분석 대상: `target/criterion/bunner_qs_stringify_simple/report/*.svg`, `.../bunner_qs_parse_simple/report/*.svg`, `.../bunner_qs_parse_medium/report/*.svg`.
-- `stringify/simple`:
-	- `pdf.svg`에서 평균선(파란색)이 3.02~3.08µs 구간에 형성되고 분포 꼬리가 3.3µs까지 두꺼워짐. 하이라이트 점(Severe outlier) 두 개가 3.4µs 이상에 존재 → encode 경로에서 드문 급증 발생.
-	- `both/pdf.svg` 비교 시 기존(mean=3.00µs 내외) 대비 새로운 분포가 오른쪽으로 약 0.2µs 이동, 밀도 피크도 3.05µs 부근으로 이동. `change/mean.svg` 부트스트랩 CI가 +3.9~+9.3% 범위로 완전히 양수 → 통계적으로 유의한 회귀 확정.
-	- `regression.svg` 추세선은 샘플 수(최대 30k iteration) 대비 총 시간 90ms 이하로 선형 증가하며 잔차가 후반부(20k iteration 이후)에서 벌어짐 → 반복이 깊어질수록 캐시 미스 혹은 재할당이 누적되는 징후.
-- `parse/simple`:
-	- `pdf.svg` 평균 6.08µs, median 5.91µs로, `both/pdf.svg`에서 새 분포(파란색)가 약 0.4µs 왼쪽으로 이동. `change/mean.svg` CI가 -10.3%~-5.3%에 걸쳐 있어 명백한 개선.
-	- 긴 꼬리가 6.5µs까지 존재했으나 새 실행에서는 꼬리가 짧아짐 → preflight/decoder fast-path 최적화가 히트율을 높인 것으로 추정.
-- `parse/medium`:
-	- `change/mean.svg`에서 -1.2%~+5.2%로 CI가 0을 가로지르며 p=0.24 → 변화 미검출. `pdf.svg`의 밀도 폭이 넓고 R² 0.30 수준이라 입력 혼합 시나리오에서 노이즈가 큼.
-- 결론: stringify 단순 시나리오만 회귀하며 CI와 분포가 모두 오른쪽으로 이동함. parse 쪽은 단순 케이스에서 개선, medium은 노이즈. 차후 flamegraph 대체 분석 시 stringify encode 경로를 우선 조사.
+- [ ] `ParseOptions`/`StringifyOptions` 기본 생성 시 잘못된 한계를 막기 위한 안전 생성자(`new()`, `try_from`) 도입 검토
+- [ ] TLS 버퍼 풀(`memory::buffer`)에서 대형 버퍼 회수 전략 개선 및 재사용성 측정
+- [ ] `with_arena_query_map` 초기 용량 산정 방식을 입력 특성 기반으로 재설계
+- [ ] 파서 `increment_pairs`를 `checked_add` 기반 한계 검증으로 교체해 오버플로 관측 강화
+- [ ] `StringifyRuntime` 스택/`format!` 실패 경로 최적화 여부 평가 및 필요 시 SmallVec 용량 튜닝
+- [ ] encode 경로 성능 모니터링: Criterion baseline 저장, `stringify/simple_struct` 주기적 재측정, 회귀 감지 워크플로 구축
+- [ ] `serde_adapter::arena_de::deserializer`의 `HashSet`을 경량 해셔 또는 커스텀 자료구조로 교체 검토
+- [ ] Criterion 벤치 + 커버리지 리포트 자동화(예: CI 업로드, regression 알림)
 
 ## 4. 테스트 개선 (미미)
 

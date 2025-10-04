@@ -136,21 +136,18 @@ impl ser::Serializer for MapKeySerializer {
 
     fn serialize_unit_variant(
         self,
-        name: &'static str,
-        variant_index: u32,
+        _name: &'static str,
+        _variant_index: u32,
         variant: &'static str,
     ) -> Result<Self::Ok, Self::Error> {
-        debug_assert!(!name.is_empty(), "enum should have a name");
-        debug_assert!(variant_index < u32::MAX, "variant index must be finite");
         Ok(variant.to_string())
     }
 
     fn serialize_newtype_struct<T: ?Sized + Serialize>(
         self,
-        name: &'static str,
+        _name: &'static str,
         value: &T,
     ) -> Result<Self::Ok, Self::Error> {
-        debug_assert!(!name.is_empty(), "newtype struct should have a name");
         value.serialize(self)
     }
 

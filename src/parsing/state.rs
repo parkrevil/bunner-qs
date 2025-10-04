@@ -9,6 +9,15 @@ pub(crate) enum ArenaLease {
     Owned(ParseArena),
 }
 
+impl std::fmt::Debug for ArenaLease {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ArenaLease::Guard(_) => f.write_str("ArenaLease::Guard"),
+            ArenaLease::Owned(_) => f.write_str("ArenaLease::Owned"),
+        }
+    }
+}
+
 impl ArenaLease {
     pub(crate) fn acquire(min_capacity: usize) -> Self {
         if min_capacity == 0 {

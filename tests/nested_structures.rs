@@ -5,6 +5,7 @@ mod options;
 #[path = "common/serde_helpers.rs"]
 mod serde_helpers;
 
+use assert_matches::assert_matches;
 use asserts::{assert_str_path, assert_string_array_path};
 use bunner_qs::{ParseError, parse, parse_with};
 use options::try_build_parse_options;
@@ -120,7 +121,7 @@ mod parse_conflict_tests {
 
         let key = duplicate_key_key(query);
 
-        assert!(matches!(key.as_str(), "items" | "0"));
+        assert_matches!(key.as_str(), "items" | "0");
     }
 
     #[test]

@@ -4,6 +4,7 @@ use crate::arena_helpers::map_with_capacity;
 use crate::nested::pattern_state::acquire_pattern_state;
 use crate::parsing::arena::ArenaValue;
 use crate::parsing_helpers::expect_duplicate_key;
+use assert_matches::assert_matches;
 
 mod insert_pair_arena {
     use super::*;
@@ -27,11 +28,7 @@ mod insert_pair_arena {
         let entries = map.entries_slice();
         assert_eq!(entries.len(), 1);
         assert_eq!(entries[0].0, "foo");
-        if let ArenaValue::String(value) = entries[0].1 {
-            assert_eq!(value, "bar");
-        } else {
-            panic!("expected string value");
-        }
+        assert_matches!(&entries[0].1, ArenaValue::String(value) if *value == "bar");
     }
 
     #[test]
@@ -91,11 +88,7 @@ mod insert_pair_arena {
         let entries = map.entries_slice();
         assert_eq!(entries.len(), 1);
         assert_eq!(entries[0].0, "foo");
-        if let ArenaValue::String(value) = entries[0].1 {
-            assert_eq!(value, "first");
-        } else {
-            panic!("expected string value");
-        }
+        assert_matches!(&entries[0].1, ArenaValue::String(value) if *value == "first");
     }
 
     #[test]
@@ -126,11 +119,7 @@ mod insert_pair_arena {
         let entries = map.entries_slice();
         assert_eq!(entries.len(), 1);
         assert_eq!(entries[0].0, "foo");
-        if let ArenaValue::String(value) = entries[0].1 {
-            assert_eq!(value, "second");
-        } else {
-            panic!("expected string value");
-        }
+        assert_matches!(&entries[0].1, ArenaValue::String(value) if *value == "second");
     }
 
     #[test]
@@ -152,11 +141,7 @@ mod insert_pair_arena {
         let entries = map.entries_slice();
         assert_eq!(entries.len(), 1);
         assert_eq!(entries[0].0, "");
-        if let ArenaValue::String(value) = entries[0].1 {
-            assert_eq!(value, "value");
-        } else {
-            panic!("expected string value");
-        }
+        assert_matches!(&entries[0].1, ArenaValue::String(value) if *value == "value");
     }
 
     #[test]
@@ -185,5 +170,43 @@ mod insert_pair_arena {
         .expect_err("duplicate root key should error");
 
         expect_duplicate_key(error, "");
+    }
+
+    #[test]
+    fn should_insert_nested_segments_when_key_contains_brackets_then_defer_to_nested_inserter() {
+        let arena = ParseArena::new();
+        let mut map = map_with_capacity(&arena, 4);
+        let mut pattern_state = acquire_pattern_state();
+
+        insert_pair_arena(
+            &arena,
+            &mut map,
+            &mut pattern_state,
+            Cow::Borrowed("user[profile][name]"),
+            Cow::Borrowed("neo"),
+            DuplicateKeyBehavior::Reject,
+        )
+        .expect("nested insert should succeed");
+
+        let entries = map.entries_slice();
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].0, "user");
+
+        assert_matches!(&entries[0].1, ArenaValue::Map { entries: profile_entries, .. } => {
+            assert_eq!(profile_entries.len(), 1);
+            assert_eq!(profile_entries[0].0, "profile");
+
+            assert_matches!(
+                &profile_entries[0].1,
+                ArenaValue::Map { entries: inner_entries, .. } => {
+                    assert_eq!(inner_entries.len(), 1);
+                    assert_eq!(inner_entries[0].0, "name");
+                    assert_matches!(
+                        &inner_entries[0].1,
+                        ArenaValue::String(text) if *text == "neo"
+                    );
+                }
+            );
+        });
     }
 }

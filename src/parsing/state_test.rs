@@ -1,4 +1,5 @@
 use super::{ARENA_REUSE_UPPER_BOUND, ArenaLease};
+use assert_matches::assert_matches;
 
 mod arena_lease_acquire {
     use super::*;
@@ -9,13 +10,10 @@ mod arena_lease_acquire {
 
         let lease = ArenaLease::acquire(min_capacity);
 
-        match lease {
-            ArenaLease::Guard(guard) => {
-                let stored = guard.alloc_str("alpha");
-                assert_eq!(stored, "alpha");
-            }
-            ArenaLease::Owned(_) => panic!("expected pooled guard"),
-        }
+        assert_matches!(lease, ArenaLease::Guard(guard) => {
+            let stored = guard.alloc_str("alpha");
+            assert_eq!(stored, "alpha");
+        });
     }
 
     #[test]
@@ -24,13 +22,10 @@ mod arena_lease_acquire {
 
         let lease = ArenaLease::acquire(min_capacity);
 
-        match lease {
-            ArenaLease::Guard(guard) => {
-                let stored = guard.alloc_str("beta");
-                assert_eq!(stored, "beta");
-            }
-            ArenaLease::Owned(_) => panic!("expected pooled guard"),
-        }
+        assert_matches!(lease, ArenaLease::Guard(guard) => {
+            let stored = guard.alloc_str("beta");
+            assert_eq!(stored, "beta");
+        });
     }
 
     #[test]
@@ -39,13 +34,10 @@ mod arena_lease_acquire {
 
         let lease = ArenaLease::acquire(min_capacity);
 
-        match lease {
-            ArenaLease::Owned(arena) => {
-                let stored = arena.alloc_str("gamma");
-                assert_eq!(stored, "gamma");
-            }
-            ArenaLease::Guard(_) => panic!("expected owned arena"),
-        }
+        assert_matches!(lease, ArenaLease::Owned(arena) => {
+            let stored = arena.alloc_str("gamma");
+            assert_eq!(stored, "gamma");
+        });
     }
 }
 
@@ -88,5 +80,23 @@ mod arena_lease_deref {
         let stored = lease.alloc_str("resized");
 
         assert_eq!(stored, "resized");
+    }
+}
+
+mod arena_lease_debug {
+    use super::*;
+
+    #[test]
+    fn should_format_guard_variant_then_emit_debug_identifier() {
+        let lease = ArenaLease::acquire(0);
+
+        assert_eq!(format!("{:?}", lease), "ArenaLease::Guard");
+    }
+
+    #[test]
+    fn should_format_owned_variant_then_emit_debug_identifier() {
+        let lease = ArenaLease::acquire(ARENA_REUSE_UPPER_BOUND + 1);
+
+        assert_eq!(format!("{:?}", lease), "ArenaLease::Owned");
     }
 }

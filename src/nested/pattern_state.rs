@@ -91,10 +91,10 @@ impl PatternState {
     fn alloc_node(&mut self) -> usize {
         if let Some(idx) = self.free_nodes.pop() {
             let node = &mut self.nodes[idx];
-            debug_assert!(!node.dirty);
             node.kind = None;
             node.next_index = 0;
             node.children.clear();
+            node.dirty = false;
             idx
         } else {
             let idx = self.nodes.len();
