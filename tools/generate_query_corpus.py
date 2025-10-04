@@ -10,7 +10,8 @@ The cases draw inspiration from public test suites and guidance:
 - PayloadsAllTheThings URL payload samples
 
 Running this script rewrites the JSON corpora consumed by tests in
-`tests/data/query_allow.json` and `tests/data/query_reject.json`.
+`tests/data/query_allow.json`, `tests/data/query_reject.json`, and
+`tests/data/query_roundtrip.json`.
 """
 from __future__ import annotations
 
@@ -22,9 +23,12 @@ from typing import Dict, List, Optional
 ROOT = Path(__file__).resolve().parents[1]
 ALLOW_PATH = ROOT / "tests" / "data" / "query_allow.json"
 REJECT_PATH = ROOT / "tests" / "data" / "query_reject.json"
+ROUNDTRIP_PATH = ROOT / "tests" / "data" / "query_roundtrip.json"
+DATA_DIR = ALLOW_PATH.parent
 
 
 Case = Dict[str, object]
+RoundTripCase = Dict[str, object]
 
 
 def add_case(collection: List[Case], name: str, query: str, expect: str,
@@ -32,6 +36,25 @@ def add_case(collection: List[Case], name: str, query: str, expect: str,
     case: Case = {"name": name, "input": query, "expect": expect}
     if options:
         case["options"] = options
+    collection.append(case)
+
+
+def add_roundtrip_case(
+    collection: List[RoundTripCase],
+    name: str,
+    query: str,
+    *,
+    parse_options: Optional[Dict[str, object]] = None,
+    stringify_options: Optional[Dict[str, object]] = None,
+    normalized: Optional[str] = None,
+) -> None:
+    case: RoundTripCase = {"name": name, "query": query}
+    if parse_options:
+        case["parse_options"] = parse_options
+    if stringify_options:
+        case["stringify_options"] = stringify_options
+    if normalized is not None:
+        case["normalized"] = normalized
     collection.append(case)
 
 
@@ -388,14 +411,113 @@ def build_reject_cases() -> List[Case]:
     return cases
 
 
+def build_roundtrip_cases() -> List[RoundTripCase]:
+    cases: List[RoundTripCase] = []
+
+    base_cases = [
+        {"name": "simple_roundtrip", "query": "a=1&b=2"},
+        {
+            "name": "space_plus_roundtrip",
+            "query": "note=hello+world",
+            "parse_options": {"space_as_plus": True},
+            "stringify_options": {"space_as_plus": True},
+        },
+        {
+            "name": "unicode_roundtrip",
+            "query": "name=%E6%9D%8E%E9%9B%84",
+        },
+        {
+            "name": "nested_array_roundtrip",
+            "query": "items[0]=alpha&items[1]=beta",
+        },
+        {
+            "name": "config_roundtrip",
+            "query": "settings[flags][strict]=true&settings[limits][max]=10",
+        },
+        {
+            "name": "sorted_alpha_roundtrip",
+            "query": "alpha=1&beta=2&gamma=3",
+        },
+    ]
+
+    for case in base_cases:
+        add_roundtrip_case(
+            cases,
+            case["name"],
+            case["query"],
+            parse_options=case.get("parse_options"),
+            stringify_options=case.get("stringify_options"),
+            normalized=case.get("normalized", case["query"]),
+        )
+
+    key_patterns = [
+        {"slug": "alpha", "template": "alpha{idx}"},
+        {"slug": "token", "template": "token_{idx}"},
+        {"slug": "flat_dash", "template": "flat-key-{idx}"},
+        {"slug": "nested_user", "template": "user{idx}[name]"},
+        {"slug": "nested_order", "template": "order{idx}[items][0][sku]"},
+        {"slug": "array_index", "template": "items{idx}[0]"},
+        {"slug": "config_limit", "template": "config{idx}[limits][max]"},
+        {"slug": "matrix_value", "template": "matrix{idx}[data][0][0]"},
+        {"slug": "env_var", "template": "env_{idx}"},
+        {"slug": "profile_pref", "template": "profile{idx}[preferences][newsletter]"},
+    ]
+
+    value_patterns = [
+        {"slug": "simple", "value": "value"},
+        {"slug": "numeric", "value": "123456"},
+        {"slug": "dash", "value": "foo-bar"},
+        {"slug": "tilde", "value": "tilde~value"},
+        {"slug": "percent_tokyo", "value": "%E6%9D%B1%E4%BA%AC"},
+        {"slug": "percent_hangul", "value": "%ED%95%9C%EA%B8%80"},
+        {"slug": "percent_reserved", "value": "%26%3D%23%3F"},
+        {"slug": "long16", "value": "l" * 16},
+        {
+            "slug": "space_plus",
+            "value": "hello+world",
+            "space_as_plus": True,
+        },
+        {"slug": "snake", "value": "snake_value"},
+    ]
+
+    fanout = 10  # 10 key patterns * 10 value patterns * 10 fanout = 1,000 cases
+
+    for idx in range(fanout):
+        for key_pat in key_patterns:
+            key = key_pat["template"].format(idx=idx)
+            for val_pat in value_patterns:
+                parse_options: Dict[str, object] = {}
+                stringify_options: Dict[str, object] = {}
+                if val_pat.get("space_as_plus"):
+                    parse_options["space_as_plus"] = val_pat["space_as_plus"]
+                    stringify_options["space_as_plus"] = val_pat["space_as_plus"]
+                query = f"{key}={val_pat['value']}"
+                add_roundtrip_case(
+                    cases,
+                    f"pair_{key_pat['slug']}__{val_pat['slug']}__{idx}",
+                    query,
+                    parse_options=parse_options or None,
+                    stringify_options=stringify_options or None,
+                    normalized=query,
+                )
+
+    cases.sort(key=lambda item: item["name"])
+    return cases
+
+
 def main() -> None:
     allow_cases = build_allow_cases()
     reject_cases = build_reject_cases()
+    roundtrip_cases = build_roundtrip_cases()
+
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
 
     ALLOW_PATH.write_text(json.dumps(allow_cases, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     REJECT_PATH.write_text(json.dumps(reject_cases, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    ROUNDTRIP_PATH.write_text(json.dumps(roundtrip_cases, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     print(f"Wrote {len(allow_cases)} allow cases -> {ALLOW_PATH}")
     print(f"Wrote {len(reject_cases)} reject cases -> {REJECT_PATH}")
+    print(f"Wrote {len(roundtrip_cases)} roundtrip cases -> {ROUNDTRIP_PATH}")
 
 
 if __name__ == "__main__":

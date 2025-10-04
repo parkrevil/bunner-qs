@@ -19,10 +19,13 @@ format:
 	cargo fmt --all
 
 ## Testing
-.PHONY: test
+.PHONY: test test-seed
 
-test:
+test: test-seed
 	INSTA_UPDATE=always RUSTFLAGS="-A dead_code" cargo nextest run --package $(PACKAGE); \
+
+test-seed:
+	python3 tools/generate_query_corpus.py
 
 ## Benchmarking
 .PHONY: bench bench-compare
