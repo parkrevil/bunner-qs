@@ -24,7 +24,8 @@ mod parse_arena_new {
     }
 
     #[test]
-    fn should_delegate_zero_capacity_to_new_arena_when_with_capacity_called_with_zero_then_return_default_instance() {
+    fn should_delegate_zero_capacity_to_new_arena_when_with_capacity_called_with_zero_then_return_default_instance()
+     {
         let zero = std::hint::black_box(0usize);
 
         let arena = ParseArena::with_capacity(zero);
@@ -53,14 +54,16 @@ mod parse_arena_new {
     }
 
     #[test]
-    fn should_allocate_capacity_hint_when_constructed_with_non_zero_capacity_then_reserve_internal_buffer() {
+    fn should_allocate_capacity_hint_when_constructed_with_non_zero_capacity_then_reserve_internal_buffer()
+     {
         let arena = ParseArena::with_capacity(4096);
 
         assert_eq!(arena.capacity_hint(), 4096);
     }
 
     #[test]
-    fn should_reallocate_arena_when_prepare_requests_more_capacity_than_current_then_expand_allocation() {
+    fn should_reallocate_arena_when_prepare_requests_more_capacity_than_current_then_expand_allocation()
+     {
         let mut arena = ParseArena::with_capacity(1024);
 
         arena.prepare(4096);
@@ -69,7 +72,8 @@ mod parse_arena_new {
     }
 
     #[test]
-    fn should_reset_without_shrinking_when_capacity_below_threshold_and_minimum_is_smaller_then_preserve_existing_capacity() {
+    fn should_reset_without_shrinking_when_capacity_below_threshold_and_minimum_is_smaller_then_preserve_existing_capacity()
+     {
         let mut arena = ParseArena::with_capacity(64 * 1024);
         arena.alloc_str("primed");
 
@@ -161,7 +165,8 @@ mod arena_query_map_zero_capacity {
     use super::*;
 
     #[test]
-    fn should_initialize_query_map_without_preallocating_when_capacity_is_zero_then_allocate_empty_map() {
+    fn should_initialize_query_map_without_preallocating_when_capacity_is_zero_then_allocate_empty_map()
+     {
         let lease = acquire_parse_arena(0);
         let arena: &ParseArena = &lease;
 
@@ -235,7 +240,8 @@ mod arena_value_accessors {
     }
 
     #[test]
-    fn should_create_sequence_without_reserve_when_capacity_is_small_then_allocate_small_sequence() {
+    fn should_create_sequence_without_reserve_when_capacity_is_small_then_allocate_small_sequence()
+    {
         let lease = acquire_parse_arena(0);
         let arena: &ParseArena = &lease;
 
@@ -266,7 +272,8 @@ mod arena_value_accessors {
     }
 
     #[test]
-    fn should_expose_entries_and_index_when_map_parts_mut_called_on_map_then_return_mutable_parts() {
+    fn should_expose_entries_and_index_when_map_parts_mut_called_on_map_then_return_mutable_parts()
+    {
         let lease = acquire_parse_arena(0);
         let arena: &ParseArena = &lease;
 

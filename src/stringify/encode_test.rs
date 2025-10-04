@@ -113,7 +113,7 @@ mod encode_value_into {
     }
 }
 
-mod component_set_behavior {
+mod build_component_set {
     #[test]
     fn should_mark_expected_bytes_for_encoding_when_building_component_set_then_include_reserved_characters()
      {
@@ -124,7 +124,7 @@ mod component_set_behavior {
     }
 }
 
-mod append_encoded_behavior {
+mod append_encoded {
     #[test]
     fn should_leave_buffer_unchanged_when_segment_is_empty_then_skip_encoding() {
         let mut buffer = String::from("seed");

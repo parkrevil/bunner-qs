@@ -249,7 +249,8 @@ mod value_serializer {
     }
 
     #[test]
-    fn should_preserve_none_as_empty_string_when_sequence_serializer_handles_none_then_emit_placeholder_string() {
+    fn should_preserve_none_as_empty_string_when_sequence_serializer_handles_none_then_emit_placeholder_string()
+     {
         let serializer = ValueSerializer::sequence_element();
 
         let result = serializer
@@ -345,7 +346,7 @@ mod value_serializer {
     }
 }
 
-mod describe_value_fn {
+mod describe_value {
     use super::*;
 
     #[test]

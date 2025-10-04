@@ -178,7 +178,8 @@ mod with_arena_query_map {
     }
 
     #[test]
-    fn should_skip_empty_segments_when_multiple_separators_appear_consecutively_then_ignore_blank_pairs() {
+    fn should_skip_empty_segments_when_multiple_separators_appear_consecutively_then_ignore_blank_pairs()
+     {
         let options = ParseOptions::default();
         let trimmed = "&&foo=bar";
 
@@ -212,9 +213,9 @@ mod with_arena_query_map {
 
     #[test]
     fn should_handle_large_query_without_panicking_then_store_all_pairs() {
-    let options = ParseOptions::default();
-    let pairs = 256;
-    let trimmed = (0..pairs)
+        let options = ParseOptions::default();
+        let pairs = 256;
+        let trimmed = (0..pairs)
             .map(|idx| format!("key{idx}={idx}"))
             .collect::<Vec<_>>()
             .join("&");
@@ -232,7 +233,8 @@ mod with_arena_query_map {
     }
 
     #[test]
-    fn should_report_invalid_percent_error_with_offset_when_value_contains_invalid_encoding_then_include_absolute_index() {
+    fn should_report_invalid_percent_error_with_offset_when_value_contains_invalid_encoding_then_include_absolute_index()
+     {
         let options = ParseOptions::default();
         let trimmed = "flag=%GG";
         let offset = 10;

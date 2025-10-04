@@ -70,7 +70,8 @@ mod serialize_error {
     }
 
     #[test]
-    fn should_render_unsupported_variant_message_when_serializer_reports_unsupported_form_then_return_expected_message() {
+    fn should_render_unsupported_variant_message_when_serializer_reports_unsupported_form_then_return_expected_message()
+     {
         let error = SerializeError::Unsupported("enum variant");
 
         let rendered = error.to_string();

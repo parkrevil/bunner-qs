@@ -292,7 +292,8 @@ mod query_map_from_struct {
     }
 
     #[test]
-    fn should_serialize_nested_structures_and_arrays_when_using_from_struct_then_preserve_hierarchy() {
+    fn should_serialize_nested_structures_and_arrays_when_using_from_struct_then_preserve_hierarchy()
+     {
         let payload = Library {
             owner: Credentials {
                 username: String::from("trinity"),
@@ -350,7 +351,8 @@ mod query_map_to_struct {
     }
 
     #[test]
-    fn should_deserialize_nested_struct_from_query_map_when_using_to_struct_then_reconstruct_struct() {
+    fn should_deserialize_nested_struct_from_query_map_when_using_to_struct_then_reconstruct_struct()
+     {
         let mut cover = OrderedMap::default();
         cover.insert(String::from("width"), Value::from("800"));
         cover.insert(String::from("height"), Value::from("600"));
@@ -479,7 +481,8 @@ mod insert_value_into_arena_map {
     use crate::SerdeQueryError;
 
     #[test]
-    fn should_convert_duplicate_insertion_into_serde_query_error_when_insert_fails_then_return_duplicate_key_error() {
+    fn should_convert_duplicate_insertion_into_serde_query_error_when_insert_fails_then_return_duplicate_key_error()
+     {
         let arena = ParseArena::new();
         let mut map = ArenaQueryMap::with_capacity(&arena, 1);
         let value = Value::from("alpha");

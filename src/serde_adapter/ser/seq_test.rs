@@ -129,7 +129,8 @@ mod value_seq_serializer {
     }
 
     #[test]
-    fn should_convert_none_sequence_element_into_empty_string_when_pushed_directly_then_emit_placeholder_string() {
+    fn should_convert_none_sequence_element_into_empty_string_when_pushed_directly_then_emit_placeholder_string()
+     {
         let mut serializer = ValueSeqSerializer::new(Some(1));
 
         serializer.push_value(None);

@@ -96,7 +96,8 @@ mod segment_key_debug {
     use smallvec::SmallVec;
 
     #[test]
-    fn should_return_invalid_utf8_error_when_segment_bytes_are_not_valid_utf8_then_surface_parse_error() {
+    fn should_return_invalid_utf8_error_when_segment_bytes_are_not_valid_utf8_then_surface_parse_error()
+     {
         let key = SegmentKey(SmallVec::from_slice(&[0xFF]));
 
         let result = key.as_str();
@@ -105,7 +106,8 @@ mod segment_key_debug {
     }
 
     #[test]
-    fn should_include_fallback_marker_when_segment_contains_invalid_utf8_bytes_then_show_debug_marker() {
+    fn should_include_fallback_marker_when_segment_contains_invalid_utf8_bytes_then_show_debug_marker()
+     {
         let key = SegmentKey(SmallVec::from_slice(&[0xF0, 0x28]));
 
         let formatted = format!("{key:?}");

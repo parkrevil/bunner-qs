@@ -83,7 +83,8 @@ mod ascii_digits_to_str {
     }
 
     #[test]
-    fn should_detect_invalid_digit_bytes_based_on_build_mode_when_invalid_digits_present_then_follow_build_guard() {
+    fn should_detect_invalid_digit_bytes_based_on_build_mode_when_invalid_digits_present_then_follow_build_guard()
+     {
         let invalid = b"12a45";
 
         if cfg!(debug_assertions) {

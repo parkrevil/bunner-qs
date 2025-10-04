@@ -376,7 +376,8 @@ mod insert_nested_value_arena {
     }
 
     #[test]
-    fn should_overwrite_placeholder_sequence_entry_when_existing_value_is_empty_then_store_latest_value() {
+    fn should_overwrite_placeholder_sequence_entry_when_existing_value_is_empty_then_store_latest_value()
+     {
         let arena = ParseArena::new();
         let mut map = map_with_capacity(&arena, 0);
         let mut state = acquire_pattern_state();
@@ -462,7 +463,8 @@ mod insert_nested_value_arena {
     }
 
     #[test]
-    fn should_return_duplicate_key_when_sequence_index_skips_existing_length_then_reject_sparse_insert() {
+    fn should_return_duplicate_key_when_sequence_index_skips_existing_length_then_reject_sparse_insert()
+     {
         let arena = ParseArena::new();
         let mut map = map_with_capacity(&arena, 0);
         let mut state = acquire_pattern_state();
@@ -709,7 +711,8 @@ mod arena_set_nested_value {
     }
 
     #[test]
-    fn should_return_duplicate_key_when_string_node_cannot_promote_with_override_then_report_error() {
+    fn should_return_duplicate_key_when_string_node_cannot_promote_with_override_then_report_error()
+    {
         let arena = ParseArena::new();
         let mut state = acquire_pattern_state();
         let resolved = resolve_segments(&mut state, &["root", "child"]).expect("resolve");
@@ -730,7 +733,8 @@ mod arena_set_nested_value {
     }
 
     #[test]
-    fn should_error_with_unexpected_string_when_promotion_disabled_without_hints_then_return_duplicate_key() {
+    fn should_error_with_unexpected_string_when_promotion_disabled_without_hints_then_return_duplicate_key()
+     {
         let arena = ParseArena::new();
         let state = acquire_pattern_state();
         let segments = [
@@ -968,7 +972,8 @@ mod handle_map_segment {
     use super::*;
 
     #[test]
-    fn should_error_when_map_segment_missing_value_in_vacant_branch_then_return_duplicate_key_error() {
+    fn should_error_when_map_segment_missing_value_in_vacant_branch_then_return_duplicate_key_error()
+     {
         let arena = ParseArena::new();
         let state = acquire_pattern_state();
         let ctx = make_ctx(&arena, &state, "root", DuplicateKeyBehavior::LastWins);
@@ -1300,7 +1305,8 @@ mod resolve_segments {
     }
 
     #[test]
-    fn should_return_single_segment_when_path_contains_only_root_segment_then_preserve_root_segment() {
+    fn should_return_single_segment_when_path_contains_only_root_segment_then_preserve_root_segment()
+     {
         let mut state = acquire_pattern_state();
         let path = ["token"];
 

@@ -32,7 +32,7 @@ mod parse_error_display {
     }
 }
 
-mod serde_conversion_behavior {
+mod from {
     use super::*;
 
     #[test]

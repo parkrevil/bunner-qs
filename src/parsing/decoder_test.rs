@@ -95,7 +95,8 @@ mod decode_with_special_chars {
     use super::*;
 
     #[test]
-    fn should_decode_percent_sequences_and_plus_runs_when_mixed_input_present_then_normalize_bytes() {
+    fn should_decode_percent_sequences_and_plus_runs_when_mixed_input_present_then_normalize_bytes()
+    {
         let raw = "%2B+matrix";
         let mut scratch = super::scratch_vec();
 
@@ -106,7 +107,8 @@ mod decode_with_special_chars {
     }
 
     #[test]
-    fn should_propagate_invalid_percent_error_from_sequence_helper_when_sequence_invalid_then_bubble_error() {
+    fn should_propagate_invalid_percent_error_from_sequence_helper_when_sequence_invalid_then_bubble_error()
+     {
         let raw = "%2Z";
         let mut scratch = super::scratch_vec();
 
@@ -185,7 +187,8 @@ mod decode_ascii_run {
     use super::*;
 
     #[test]
-    fn should_collect_ascii_until_percent_boundary_when_visible_run_present_then_accumulate_segment() {
+    fn should_collect_ascii_until_percent_boundary_when_visible_run_present_then_accumulate_segment()
+     {
         let bytes = b"abc%20";
         let mut scratch = super::scratch_vec();
 
