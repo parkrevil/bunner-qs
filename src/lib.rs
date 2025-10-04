@@ -15,10 +15,7 @@ pub use config::{
 };
 pub use parsing::{ParseError, ParseResult, parse, parse_with};
 pub use serde_adapter::SerdeAdapterError;
-pub use stringify::{
-    StringifyError, StringifyResult, stringify,
-    stringify_with,
-};
+pub use stringify::{StringifyError, StringifyResult, stringify, stringify_with};
 
 #[cfg(test)]
 #[path = "../tests/common/parsing_helpers.rs"]

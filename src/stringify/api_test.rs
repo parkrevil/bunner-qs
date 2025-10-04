@@ -84,9 +84,7 @@ mod stringify {
 
         assert_matches!(
             error,
-            StringifyError::Serialize(SerdeAdapterError::Serialize(
-                SerializeError::UnexpectedSkip
-            ))
+            StringifyError::Serialize(SerdeAdapterError::Serialize(SerializeError::UnexpectedSkip))
         );
     }
 
