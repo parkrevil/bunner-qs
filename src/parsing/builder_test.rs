@@ -1,8 +1,8 @@
 use super::*;
 use crate::arena_helpers::map_with_capacity;
 use crate::config::{DuplicateKeyBehavior, ParseOptions};
-use crate::parsing::arena::ArenaValue;
 use crate::parsing::ParseError;
+use crate::parsing::arena::ArenaValue;
 use assert_matches::assert_matches;
 
 mod with_arena_query_map {

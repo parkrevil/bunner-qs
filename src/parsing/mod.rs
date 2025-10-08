@@ -11,5 +11,5 @@ pub mod arena;
 
 pub mod api;
 
-pub use api::{parse, ParseResult};
+pub use api::{ParseResult, parse};
 pub use errors::ParseError;

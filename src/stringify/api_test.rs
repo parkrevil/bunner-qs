@@ -1,5 +1,5 @@
 use crate::StringifyOptions;
-use crate::stringify::{stringify, StringifyError};
+use crate::stringify::{StringifyError, stringify};
 use assert_matches::assert_matches;
 use serde::Serialize;
 
