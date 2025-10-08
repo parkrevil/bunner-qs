@@ -5,7 +5,7 @@ edition = "2024"
 license = "MIT"
 
 [dependencies]
-indexmap = "2.2"
+indexmap = "2.11"
 thiserror = "1.0"
 derive_builder = "0.20"
 serde = { version = "1.0", features = ["derive"] }
@@ -14,11 +14,11 @@ percent-encoding = "2.3.2"
 ahash = "0.8"
 hashbrown = { version = "0.14", features = ["raw"] }
 memchr = "2.7"
-bumpalo = { version = "3.15", features = ["collections"] }
-smallvec = "1.13"
+bumpalo = { version = "3.19", features = ["collections"] }
+smallvec = "1.15"
 
 [dev-dependencies]
-proptest = "1.4"
+proptest = "1.8"
 criterion = { version = "0.5", features = ["html_reports"] }
 serde_qs = "0.12"
 assert_matches = "1.5"
