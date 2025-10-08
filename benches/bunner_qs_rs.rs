@@ -1,8 +1,9 @@
 mod scenarios;
 
 use bunner_qs_rs::{parse_with, stringify_with};
-use criterion::{Criterion, black_box, criterion_group, criterion_main};
+use criterion::{Criterion, criterion_group, criterion_main};
 use serde_json::Value;
+use std::hint::black_box;
 
 use scenarios::{
     Scenario, max_bracket_depth, scenario_extreme, scenario_high, scenario_medium, scenario_simple,

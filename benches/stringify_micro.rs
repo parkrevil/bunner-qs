@@ -1,6 +1,7 @@
 use bunner_qs_rs::{StringifyOptions, stringify_with};
-use criterion::{Criterion, black_box, criterion_group, criterion_main};
+use criterion::{Criterion, criterion_group, criterion_main};
 use serde::Serialize;
+use std::hint::black_box;
 
 #[derive(Serialize)]
 struct SimplePair<'a> {
