@@ -1,7 +1,7 @@
 mod scenarios;
 
-use bunner_qs_rs::parsing::api::parse;
-use bunner_qs_rs::stringify::api::stringify;
+use bunner_qs_rs::parsing::parse;
+use bunner_qs_rs::stringify::stringify;
 use criterion::{Criterion, criterion_group, criterion_main};
 use serde::Deserialize;
 use serde_json::{Map, Value};

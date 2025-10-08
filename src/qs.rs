@@ -3,10 +3,8 @@ use serde::de::DeserializeOwned;
 use thiserror::Error;
 
 use crate::config::OptionsValidationError;
-use crate::parsing::api::parse;
-use crate::parsing::errors::ParseError;
-use crate::stringify::api::stringify;
-use crate::stringify::errors::StringifyError;
+use crate::parsing::{parse, ParseError};
+use crate::stringify::{stringify, StringifyError};
 use crate::{ParseOptions, StringifyOptions};
 
 #[derive(Debug, Clone, Default)]

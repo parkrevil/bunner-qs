@@ -10,3 +10,6 @@ mod state;
 pub mod arena;
 
 pub mod api;
+
+pub use api::{parse, ParseResult};
+pub use errors::ParseError;

@@ -6,8 +6,8 @@ mod fuzzish;
 mod seed;
 
 use api::{parse_default, parse_query, stringify_with_options};
-use bunner_qs_rs::parsing::errors::ParseError;
-use bunner_qs_rs::stringify::errors::StringifyError;
+use bunner_qs_rs::parsing::ParseError;
+use bunner_qs_rs::stringify::StringifyError;
 use bunner_qs_rs::{
     DuplicateKeyBehavior, ParseOptions, QsParseError, QsStringifyError, StringifyOptions,
 };

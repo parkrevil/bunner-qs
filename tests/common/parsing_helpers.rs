@@ -1,5 +1,5 @@
 use crate::parsing::arena::{ArenaValue, ParseArena};
-use crate::parsing::errors::ParseError;
+use crate::parsing::ParseError;
 
 #[track_caller]
 pub fn expect_duplicate_key(error: ParseError, expected_key: &str) {

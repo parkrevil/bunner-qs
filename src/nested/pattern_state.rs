@@ -1,4 +1,4 @@
-use crate::parsing::errors::ParseError;
+use crate::parsing::ParseError;
 use ahash::AHashMap;
 use std::borrow::Cow;
 use std::cell::RefCell;

@@ -1,4 +1,4 @@
-use crate::parsing::errors::ParseError;
+use crate::parsing::ParseError;
 use smallvec::SmallVec;
 use std::borrow::{Borrow, Cow};
 use std::fmt;

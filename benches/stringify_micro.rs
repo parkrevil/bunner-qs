@@ -1,5 +1,5 @@
 use bunner_qs_rs::StringifyOptions;
-use bunner_qs_rs::stringify::api::stringify;
+use bunner_qs_rs::stringify::stringify;
 use criterion::{Criterion, criterion_group, criterion_main};
 use serde::Serialize;
 use std::hint::black_box;

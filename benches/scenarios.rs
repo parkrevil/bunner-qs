@@ -1,4 +1,4 @@
-use bunner_qs_rs::stringify::api::stringify;
+use bunner_qs_rs::stringify::stringify;
 use bunner_qs_rs::{ParseOptions, StringifyOptions};
 use serde_json::{Value, json};
 

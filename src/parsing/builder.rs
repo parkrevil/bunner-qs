@@ -1,8 +1,7 @@
 use crate::config::ParseOptions;
 use crate::memory::acquire_bytes;
 use crate::nested::pattern_state::{PatternState, acquire_pattern_state};
-use crate::parsing::api::ParseResult;
-use crate::parsing::errors::ParseError;
+use crate::parsing::{ParseError, ParseResult};
 use memchr::{memchr, memchr2};
 
 use super::arena::{ArenaQueryMap, ParseArena};

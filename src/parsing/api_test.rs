@@ -1,6 +1,6 @@
 use super::{assume_json_value, parse};
 use crate::ParseOptions;
-use crate::parsing::errors::ParseError;
+use crate::parsing::ParseError;
 use assert_matches::assert_matches;
 use serde::Deserialize;
 use serde::de::DeserializeOwned;

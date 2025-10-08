@@ -9,7 +9,8 @@ mod serde_helpers;
 
 use api::{build_parse_options as api_build_parse_options, parse_default, parse_query};
 use asserts::{assert_str_path, assert_string_array_path};
-use bunner_qs_rs::parsing::errors::{DeserializeError, ParseError};
+use bunner_qs_rs::parsing::{ParseError};
+use bunner_qs_rs::parsing::errors::DeserializeError;
 use bunner_qs_rs::{DuplicateKeyBehavior, ParseOptions, QsParseError};
 use json::json_from_pairs;
 use serde::Deserialize;

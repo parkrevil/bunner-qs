@@ -1,5 +1,5 @@
 use crate::api::stringify_with_options;
-use bunner_qs_rs::stringify::errors::StringifyError;
+use bunner_qs_rs::stringify::StringifyError;
 use bunner_qs_rs::{QsStringifyError, StringifyOptions};
 use proptest::prelude::*;
 use serde_json::{Map as JsonMap, Value};

@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 
 use crate::config::ParseOptions;
-use crate::parsing::api::ParseResult;
+use crate::parsing::ParseResult;
 
 use super::decoder::decode_component;
 use super::key_path::validate_brackets;

@@ -9,7 +9,7 @@ use api::{build_parse_options as api_build_parse_options, parse_default, parse_q
 use assert_matches::assert_matches;
 use asserts::{assert_str_path, assert_string_array_path};
 use bunner_qs_rs::QsParseError;
-use bunner_qs_rs::parsing::errors::ParseError;
+use bunner_qs_rs::parsing::ParseError;
 use serde_helpers::{assert_parse_roundtrip, assert_stringify_roundtrip};
 use serde_json::{Value, json};
 fn parse_value(query: &str) -> Value {

@@ -20,8 +20,8 @@ use api::{
 };
 use assert_matches::assert_matches;
 use asserts::{assert_str_path, assert_string_array_path, expect_path};
-use bunner_qs_rs::parsing::errors::ParseError;
-use bunner_qs_rs::stringify::errors::StringifyError;
+use bunner_qs_rs::parsing::ParseError;
+use bunner_qs_rs::stringify::StringifyError;
 use bunner_qs_rs::{ParseOptions, QsParseError, QsStringifyError, StringifyOptions};
 use json::json_from_pairs;
 use proptest::prelude::*;

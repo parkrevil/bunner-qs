@@ -1,5 +1,5 @@
 use super::{duplicate_key_label, estimate_param_capacity, validate_brackets};
-use crate::parsing::errors::ParseError;
+use crate::parsing::ParseError;
 use assert_matches::assert_matches;
 
 mod validate_brackets {

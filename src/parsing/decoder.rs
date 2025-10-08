@@ -1,4 +1,4 @@
-use crate::parsing::errors::ParseError;
+use crate::parsing::ParseError;
 use memchr::{memchr, memchr2};
 use std::borrow::Cow;
 

@@ -12,7 +12,7 @@ use api::{
     stringify_with_options,
 };
 use asserts::assert_str_path;
-use bunner_qs_rs::stringify::errors::StringifyError;
+use bunner_qs_rs::stringify::StringifyError;
 use bunner_qs_rs::{QsStringifyError, StringifyOptions};
 use json::json_from_pairs;
 use serde::Serialize;

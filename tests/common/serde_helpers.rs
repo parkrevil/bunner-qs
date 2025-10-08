@@ -1,6 +1,6 @@
 use crate::api::{parse_default, parse_query, stringify_default, stringify_with_options};
-use bunner_qs_rs::parsing::errors::ParseError;
-use bunner_qs_rs::stringify::errors::StringifyError;
+use bunner_qs_rs::parsing::ParseError;
+use bunner_qs_rs::stringify::StringifyError;
 use bunner_qs_rs::{ParseOptions, QsParseError, QsStringifyError, StringifyOptions};
 use serde::Serialize;
 use serde::de::DeserializeOwned;

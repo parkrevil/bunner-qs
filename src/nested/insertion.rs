@@ -1,6 +1,6 @@
 use crate::DuplicateKeyBehavior;
 use crate::parsing::arena::{ArenaQueryMap, ArenaValue, ArenaVec, ParseArena};
-use crate::parsing::errors::ParseError;
+use crate::parsing::ParseError;
 use hashbrown::hash_map::RawEntryMut;
 use smallvec::SmallVec;
 

@@ -6,7 +6,7 @@ mod asserts;
 mod json;
 
 use asserts::assert_str_path;
-use bunner_qs_rs::parsing::errors::ParseError;
+use bunner_qs_rs::parsing::ParseError;
 use bunner_qs_rs::{
     OptionsValidationError, ParseOptions, QsParseError, QsStringifyError, StringifyOptions,
 };

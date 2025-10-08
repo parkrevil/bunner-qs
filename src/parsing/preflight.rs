@@ -1,5 +1,5 @@
 use crate::config::ParseOptions;
-use crate::parsing::errors::ParseError;
+use crate::parsing::ParseError;
 use crate::util::is_ascii_control;
 
 pub(crate) fn preflight<'a>(
