@@ -9,7 +9,7 @@ DOC_DIR := $(TARGET_DIR)/doc
 all: format lint test
 
 ## Code Quality
-.PHONY: lint format
+.PHONY: lint format format-check
 
 lint:
 	cargo clippy --workspace --all-features --lib --bins -- -D warnings -D clippy::dbg_macro -D clippy::todo -D clippy::unimplemented -D clippy::panic -D clippy::print_stdout -D clippy::print_stderr
@@ -17,6 +17,9 @@ lint:
 
 format:
 	cargo fmt --all
+
+format-check:
+	cargo fmt --all -- --check
 
 ## Testing
 .PHONY: test test-seed
@@ -55,18 +58,30 @@ audit:
 	fi
 
 ## Coverage
-.PHONY: coverage
+.PHONY: coverage coverage-lcov
 coverage:
 	@if command -v cargo-llvm-cov >/dev/null 2>&1; then \
-		cargo llvm-cov --ignore-filename-regex '($(CURDIR)/tests/.*|$(CURDIR)/src/.*_test\.rs$$)'; \
+		mkdir -p $(TARGET_DIR)/llvm-cov-target/html; \
+		RUSTFLAGS="-A dead_code" cargo llvm-cov --ignore-filename-regex '($(CURDIR)/tests/.*|$(CURDIR)/src/.*_test\.rs$$)'; \
+	else \
+		echo "cargo-llvm-cov not installed. Install with: cargo install cargo-llvm-cov" >&2; \
+	fi
+
+coverage-lcov:
+	@if command -v cargo-llvm-cov >/dev/null 2>&1; then \
+		mkdir -p $(TARGET_DIR)/llvm-cov-target; \
+		RUSTFLAGS="-A dead_code" cargo llvm-cov --ignore-filename-regex '($(CURDIR)/tests/.*|$(CURDIR)/src/.*_test\.rs$$)' --lcov --output-path $(TARGET_DIR)/llvm-cov-target/lcov.info; \
 	else \
 		echo "cargo-llvm-cov not installed. Install with: cargo install cargo-llvm-cov" >&2; \
 	fi
 
 ## Release / Publish
-.PHONY: release
-release:
-	cargo build --release --all-features
+.PHONY: publish-dry-run publish
+publish-dry-run:
+	cargo publish --dry-run
+
+publish:
+	cargo publish
 
 ## Cleanup
 .PHONY: clean distclean
