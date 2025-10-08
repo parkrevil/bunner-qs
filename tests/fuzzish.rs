@@ -1,11 +1,15 @@
+#[path = "common/api.rs"]
+mod api;
 #[path = "common/fuzzish/mod.rs"]
 mod fuzzish;
 #[path = "common/seed/mod.rs"]
 mod seed;
 
+use api::{parse_default, parse_query, stringify_with_options};
+use bunner_qs_rs::parsing::errors::ParseError;
+use bunner_qs_rs::stringify::errors::StringifyError;
 use bunner_qs_rs::{
-    DuplicateKeyBehavior, ParseError, ParseOptions, StringifyOptions, parse, parse_with,
-    stringify_with,
+    DuplicateKeyBehavior, ParseOptions, QsParseError, QsStringifyError, StringifyOptions,
 };
 use fuzzish::{
     allowed_char, arb_roundtrip_input, estimate_params, form_encode, percent_encode, root_depth,
@@ -16,6 +20,45 @@ use proptest::prelude::*;
 use proptest::test_runner::{Config as ProptestConfig, FileFailurePersistence};
 use seed::{allow_cases, assert_case_outcome, normalize_empty, reject_cases, roundtrip_cases};
 use serde_json::{Value, json};
+
+fn parse<T>(query: &str) -> Result<T, ParseError>
+where
+    T: serde::de::DeserializeOwned + Default + 'static,
+{
+    match parse_default(query) {
+        Ok(value) => Ok(value),
+        Err(QsParseError::Parse(err)) => Err(err),
+        Err(QsParseError::MissingParseOptions) => {
+            unreachable!("parse options must be configured before parsing")
+        }
+    }
+}
+
+fn parse_with<T>(query: &str, options: &ParseOptions) -> Result<T, ParseError>
+where
+    T: serde::de::DeserializeOwned + Default + 'static,
+{
+    match parse_query(query, options) {
+        Ok(value) => Ok(value),
+        Err(QsParseError::Parse(err)) => Err(err),
+        Err(QsParseError::MissingParseOptions) => {
+            unreachable!("parse options must be configured before parsing")
+        }
+    }
+}
+
+fn stringify_with<T>(value: &T, options: &StringifyOptions) -> Result<String, StringifyError>
+where
+    T: serde::Serialize,
+{
+    match stringify_with_options(value, options) {
+        Ok(encoded) => Ok(encoded),
+        Err(QsStringifyError::Stringify(err)) => Err(err),
+        Err(QsStringifyError::MissingStringifyOptions) => {
+            unreachable!("stringify options must be configured before stringifying")
+        }
+    }
+}
 
 #[test]
 fn should_allow_seed_cases_when_parse_options_match_expectations() {
@@ -131,7 +174,7 @@ proptest! {
 
     #[test]
     fn should_enforce_max_params_when_limit_exceeded_in_property_cases(
-        limit in 0usize..6,
+        limit in 1usize..6,
         extra in 1usize..4
     ) {
         let actual_params = limit + extra;
@@ -177,7 +220,7 @@ proptest! {
     }
 
     #[test]
-    fn should_enforce_max_depth_when_limit_exceeded_in_property_cases(limit in 0usize..4) {
+    fn should_enforce_max_depth_when_limit_exceeded_in_property_cases(limit in 1usize..5) {
         let depth = limit + 1;
         let mut key = String::from("root");
         for _ in 0..depth {
@@ -199,15 +242,18 @@ proptest! {
     }
 
     #[test]
-    fn should_allow_max_depth_when_limit_is_met_in_property_cases(limit in 0usize..4) {
-        let key = if limit == 0 {
-            String::from("flat")
-        } else {
+    fn should_allow_max_depth_when_limit_is_met_in_property_cases(
+        limit in 1usize..5,
+        use_nested in any::<bool>()
+    ) {
+        let key = if use_nested {
             let mut k = String::from("root");
             for _ in 0..limit {
                 k.push_str("[branch]");
             }
             k
+        } else {
+            String::from("flat")
         };
         let query = format!("{key}=ok");
         let opts = ParseOptions {
@@ -359,8 +405,12 @@ proptest! {
             prop_assume!(encoded.len() <= limit);
         }
 
-    let reparsed: Value = parse_with(&encoded, &parse_options).expect("round trip parse should succeed");
-    prop_assert_eq!(normalize_empty(reparsed), normalize_empty(map.clone()));
+        let reparsed: Value =
+            parse_with(&encoded, &parse_options).expect("round trip parse should succeed");
+        prop_assert_eq!(
+            normalize_empty(reparsed),
+            normalize_empty(map.clone())
+        );
     }
 
     #[test]
@@ -415,7 +465,7 @@ proptest! {
     ) {
         let bad_value: String = value.into_iter().collect();
         let query = format!("bad={}", percent_encode(&bad_value));
-    let result = parse::<Value>(&query);
+        let result = parse::<Value>(&query);
         match result {
             Err(ParseError::InvalidCharacter { .. }) => {}
             other => prop_assert!(false, "expected InvalidCharacter for control chars, got {:?}", other),
@@ -434,7 +484,7 @@ proptest! {
             duplicate_keys: DuplicateKeyBehavior::Reject,
             ..Default::default()
         };
-    let result = parse_with::<Value>(&query, &opts);
+        let result = parse_with::<Value>(&query, &opts);
         prop_assert!(result.is_ok(), "deep nesting should succeed within limit");
     }
 
@@ -451,7 +501,7 @@ proptest! {
             duplicate_keys: DuplicateKeyBehavior::Reject,
             ..Default::default()
         };
-    let result = parse_with::<Value>(&query, &opts);
+        let result = parse_with::<Value>(&query, &opts);
         prop_assert!(result.is_ok(), "large input should parse within limits");
     }
 }

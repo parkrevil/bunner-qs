@@ -1,7 +1,5 @@
 use super::*;
-use crate::serde_adapter::{
-    DeserializeError, DeserializeErrorKind, SerdeAdapterError, SerializeError,
-};
+use crate::serde_adapter::{DeserializeError, DeserializeErrorKind};
 
 mod parse_error_display {
     use super::*;
@@ -37,27 +35,14 @@ mod from {
 
     #[test]
     fn should_prefix_message_when_wrapping_deserialize_error_then_include_error_context() {
-        let serde_error = SerdeAdapterError::from(DeserializeError::from_kind(
-            DeserializeErrorKind::InvalidBool { value: "NO".into() },
-        ));
+        let serde_error =
+            DeserializeError::from_kind(DeserializeErrorKind::InvalidBool { value: "NO".into() });
 
         let error = ParseError::from(serde_error);
 
         assert_eq!(
             error.to_string(),
-            "failed to deserialize parsed query into target type: failed to deserialize query map: invalid boolean literal `NO`",
-        );
-    }
-
-    #[test]
-    fn should_prefix_message_when_wrapping_serialize_error_then_include_error_context() {
-        let serde_error = SerdeAdapterError::from(SerializeError::Unsupported("tuple variant"));
-
-        let error = ParseError::from(serde_error);
-
-        assert_eq!(
-            error.to_string(),
-            "failed to deserialize parsed query into target type: failed to serialize values into query map: unsupported serialization form: tuple variant",
+            "failed to deserialize parsed query into target type: invalid boolean literal `NO`",
         );
     }
 }

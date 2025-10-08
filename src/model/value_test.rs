@@ -334,7 +334,7 @@ mod query_map_from_struct {
 
 mod query_map_to_struct {
     use super::*;
-    use crate::SerdeAdapterError;
+    use crate::serde_adapter::DeserializeErrorKind;
     use serde::{Deserialize, Serialize};
 
     #[derive(Debug, Serialize, Deserialize, PartialEq)]
@@ -387,11 +387,10 @@ mod query_map_to_struct {
         let result = map.to_struct::<Profile>();
 
         let err = result.expect_err("invalid number should fail");
+        assert!(err.to_string().contains("invalid number"));
         assert_matches!(
-            err,
-            SerdeAdapterError::Deserialize(source) => {
-                assert!(source.to_string().contains("invalid number"));
-            }
+            err.kind(),
+            DeserializeErrorKind::InvalidNumber { value } if value == "not-a-number"
         );
     }
 }
@@ -478,7 +477,7 @@ mod clone_value_into_arena {
 
 mod insert_value_into_arena_map {
     use super::*;
-    use crate::SerdeAdapterError;
+    use crate::serde_adapter::DeserializeErrorKind;
 
     #[test]
     fn should_convert_duplicate_insertion_into_serde_query_error_when_insert_fails_then_return_duplicate_key_error()
@@ -493,14 +492,13 @@ mod insert_value_into_arena_map {
         let error = super::insert_value_into_arena_map(&arena, &mut map, "token", &value)
             .expect_err("duplicate insert should return error");
 
-        match error {
-            SerdeAdapterError::Deserialize(inner) => {
-                let message = inner.to_string();
-                assert!(message.contains("duplicate field"));
-                assert!(message.contains("token"));
-            }
-            other => panic!("expected deserialize error, got {other:?}"),
-        }
+        let message = error.to_string();
+        assert!(message.contains("duplicate field"));
+        assert!(message.contains("token"));
+        assert_matches!(
+            error.kind(),
+            DeserializeErrorKind::DuplicateField { field } if field == "token"
+        );
         assert_eq!(map.len(), 1, "duplicate insert should not grow map");
     }
 }

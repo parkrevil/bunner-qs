@@ -1,4 +1,4 @@
-use bunner_qs_rs::{parse, stringify};
+use bunner_qs_rs::{ParseOptions, Qs, StringifyOptions};
 use serde_json::Value;
 use std::thread;
 
@@ -16,12 +16,19 @@ fn should_roundtrip_parse_and_stringify_concurrently_without_panics() {
         .map(|_| {
             let query = query.clone();
             thread::spawn(move || {
+                let qs = Qs::new()
+                    .with_parse(ParseOptions::default())
+                    .expect("parse options should validate")
+                    .with_stringify(StringifyOptions::default())
+                    .expect("stringify options should validate");
+
                 for _ in 0..iterations {
-                    let parsed: Value = parse(&query).expect("parse should succeed");
+                    let parsed: Value = qs.parse(&query).expect("parse should succeed");
                     assert_eq!(parsed["profile"]["name"], "Ada");
 
-                    let encoded = stringify(&parsed).expect("stringify should succeed");
-                    let reparsed: Value = parse(&encoded).expect("roundtrip parse should succeed");
+                    let encoded = qs.stringify(&parsed).expect("stringify should succeed");
+                    let reparsed: Value =
+                        qs.parse(&encoded).expect("roundtrip parse should succeed");
                     assert_eq!(parsed, reparsed);
                 }
             })

@@ -1,9 +1,9 @@
+#[path = "common/api.rs"]
+mod api;
 #[path = "common/asserts.rs"]
 mod asserts;
 #[path = "common/json.rs"]
 mod json;
-#[path = "common/options.rs"]
-mod options;
 #[path = "common/proptest_profiles.rs"]
 mod proptest_profiles;
 #[path = "common/serde_data.rs"]
@@ -12,17 +12,18 @@ mod serde_data;
 mod serde_error_fixtures;
 #[path = "common/serde_helpers.rs"]
 mod serde_helpers;
-#[path = "common/stringify_options.rs"]
-mod stringify_options;
 
+use api::{
+    build_parse_options as api_build_parse_options,
+    build_stringify_options as api_build_stringify_options, parse_default, parse_query,
+    stringify_default, stringify_with_options,
+};
 use assert_matches::assert_matches;
 use asserts::{assert_str_path, assert_string_array_path, expect_path};
-use bunner_qs_rs::{
-    ParseError, ParseOptions, SerdeAdapterError, StringifyError, StringifyOptions, parse,
-    parse_with, stringify, stringify_with,
-};
+use bunner_qs_rs::parsing::errors::ParseError;
+use bunner_qs_rs::stringify::errors::StringifyError;
+use bunner_qs_rs::{ParseOptions, QsParseError, QsStringifyError, StringifyOptions};
 use json::json_from_pairs;
-use options::try_build_parse_options;
 use proptest::prelude::*;
 use proptest_profiles::{RandomProfileData, random_profile_strategy};
 use serde::de::DeserializeOwned;
@@ -40,27 +41,76 @@ use serde_json::{Value, json};
 use std::borrow::Cow;
 use std::collections::BTreeMap;
 use std::error::Error;
-use stringify_options::try_build_stringify_options;
 
 use serde_error_fixtures::{BoolField, NestedWrapper, UnitHolder};
 
-const STRINGIFY_BUILD_OK: &str = "stringify options builder should succeed";
-
-type ParseOptionsBuilder = bunner_qs_rs::ParseOptionsBuilder;
-type StringifyOptionsBuilder = bunner_qs_rs::StringifyOptionsBuilder;
+const PARSE_BUILD_OK: &str = "parse options configuration should succeed";
+const STRINGIFY_BUILD_OK: &str = "stringify options configuration should succeed";
 
 fn build_parse_options<F>(configure: F) -> ParseOptions
 where
-    F: FnOnce(ParseOptionsBuilder) -> ParseOptionsBuilder,
+    F: FnOnce(ParseOptions) -> ParseOptions,
 {
-    try_build_parse_options(configure).expect("parse options builder should succeed")
+    api_build_parse_options(configure).expect(PARSE_BUILD_OK)
 }
 
 fn build_stringify_options<F>(configure: F) -> StringifyOptions
 where
-    F: FnOnce(StringifyOptionsBuilder) -> StringifyOptionsBuilder,
+    F: FnOnce(StringifyOptions) -> StringifyOptions,
 {
-    try_build_stringify_options(configure).expect(STRINGIFY_BUILD_OK)
+    api_build_stringify_options(configure).expect(STRINGIFY_BUILD_OK)
+}
+
+fn parse<T>(query: &str) -> Result<T, ParseError>
+where
+    T: DeserializeOwned + Default + 'static,
+{
+    match parse_default(query) {
+        Ok(value) => Ok(value),
+        Err(QsParseError::Parse(err)) => Err(err),
+        Err(QsParseError::MissingParseOptions) => {
+            unreachable!("parse options must be configured before parsing")
+        }
+    }
+}
+
+fn parse_with<T>(query: &str, options: &ParseOptions) -> Result<T, ParseError>
+where
+    T: DeserializeOwned + Default + 'static,
+{
+    match parse_query(query, options) {
+        Ok(value) => Ok(value),
+        Err(QsParseError::Parse(err)) => Err(err),
+        Err(QsParseError::MissingParseOptions) => {
+            unreachable!("parse options must be configured before parsing")
+        }
+    }
+}
+
+fn stringify<T>(value: &T) -> Result<String, StringifyError>
+where
+    T: Serialize,
+{
+    match stringify_default(value) {
+        Ok(encoded) => Ok(encoded),
+        Err(QsStringifyError::Stringify(err)) => Err(err),
+        Err(QsStringifyError::MissingStringifyOptions) => {
+            unreachable!("stringify options must be configured before stringifying")
+        }
+    }
+}
+
+fn stringify_with<T>(value: &T, options: &StringifyOptions) -> Result<String, StringifyError>
+where
+    T: Serialize,
+{
+    match stringify_with_options(value, options) {
+        Ok(encoded) => Ok(encoded),
+        Err(QsStringifyError::Stringify(err)) => Err(err),
+        Err(QsStringifyError::MissingStringifyOptions) => {
+            unreachable!("stringify options must be configured before stringifying")
+        }
+    }
 }
 
 fn parse_serde_error_message<T>(query: &str) -> String
@@ -406,15 +456,13 @@ mod struct_roundtrip_tests {
     }
 
     #[test]
-    fn should_preserve_contact_fields_when_to_json_style_roundtrip_runs()
-    -> Result<(), SerdeAdapterError> {
+    fn should_preserve_contact_fields_when_to_json_style_roundtrip_runs() {
         let profile = profile_form();
 
         let encoded = stringify(&profile).expect("stringify should succeed");
         let value: Value = parse(&encoded).expect("parse should succeed");
 
         assert_str_path(&value, &["contact📞", "email📧"], "ada@example.com");
-        Ok(())
     }
 
     #[test]
@@ -505,7 +553,7 @@ mod enum_roundtrip_tests {
 
         asserts::assert_err_matches!(
             parse::<InternalEnvelope>(&encoded),
-            ParseError::Serde(SerdeAdapterError::Deserialize(_)) => |message| {
+            ParseError::Serde(_) => |message| {
                 assert!(message.contains("enum"), "expected enum error: {message}");
             }
         );
@@ -528,7 +576,7 @@ mod enum_roundtrip_tests {
 
         asserts::assert_err_matches!(
             parse::<UntaggedEnvelope>(&encoded),
-            ParseError::Serde(SerdeAdapterError::Deserialize(_)) => |message| {
+            ParseError::Serde(_) => |message| {
                 assert!(
                     message.contains("did not match any variant"),
                     "unexpected untagged enum error: {message}"
@@ -783,7 +831,7 @@ mod stringify_error_tests {
 
         asserts::assert_err_matches!(
             stringify(&value),
-            StringifyError::Serialize(SerdeAdapterError::Serialize(_)) => |message| {
+            StringifyError::Serialize(_) => |message| {
                 assert!(message.contains("tuple variant"), "unexpected serialize error: {message}");
             }
         );
@@ -796,7 +844,7 @@ mod stringify_error_tests {
 
         asserts::assert_err_matches!(
             stringify(&map),
-            StringifyError::Serialize(SerdeAdapterError::Serialize(_)) => |message| {
+            StringifyError::Serialize(_) => |message| {
                 assert!(message.contains("map key must be a string"), "unexpected serialize error: {message}");
             }
         );

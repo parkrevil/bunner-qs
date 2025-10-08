@@ -6,11 +6,11 @@ use super::{
     with_string_promotion_suppressed,
 };
 use crate::DuplicateKeyBehavior;
-use crate::ParseError;
 use crate::arena_helpers::map_with_capacity;
 use crate::nested::pattern_state::{PatternStateGuard, acquire_pattern_state};
 use crate::nested::segment::{ContainerType, ResolvedSegment};
 use crate::parsing::arena::{ArenaQueryMap, ArenaValue, ParseArena};
+use crate::parsing::errors::ParseError;
 use crate::parsing_helpers::expect_duplicate_key;
 use ahash::RandomState;
 use assert_matches::assert_matches;

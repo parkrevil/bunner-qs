@@ -7,6 +7,7 @@ mod value_seq_serializer {
     use super::*;
     use serde::Serialize;
     use serde::ser::{Error as _, SerializeSeq};
+    use serde_json::json;
 
     #[derive(Debug)]
     struct FailingElement;
@@ -65,6 +66,50 @@ mod value_seq_serializer {
         assert_eq!(inner.len(), 2);
         assert_matches!(inner.first(), Some(Value::String(text)) if text == "one");
         assert_matches!(inner.get(1), Some(Value::String(text)) if text == "two");
+    }
+
+    #[test]
+    fn should_convert_serde_json_value_elements_into_internal_value_types() {
+        let mut serializer = ValueSeqSerializer::new(None);
+        let json_value = json!(["alpha", { "nested": 42 }, null]);
+
+        SerializeSeq::serialize_element(&mut serializer, &json_value)
+            .expect("serde_json::Value element should serialize");
+        let result = SerializeSeq::end(serializer).expect("sequence should finish");
+
+        let value = result.expect("sequence serializer should produce a value");
+        let array = value
+            .as_array()
+            .expect("sequence serializer should produce an array");
+        assert_eq!(array.len(), 1);
+
+        let serde_element = array
+            .first()
+            .expect("sequence should contain serialized serde_json::Value");
+        let serde_array = serde_element
+            .as_array()
+            .expect("serde_json::Value::Array should serialize into Value::Array");
+        assert_eq!(serde_array.len(), 3);
+
+        assert_matches!(
+            serde_array.first(),
+            Some(Value::String(text)) if text == "alpha"
+        );
+
+        let nested = serde_array
+            .get(1)
+            .expect("json array should contain object entry")
+            .as_object()
+            .expect("object entry should serialize into Value::Object");
+        assert_matches!(
+            nested.get("nested"),
+            Some(Value::String(text)) if text == "42"
+        );
+
+        assert_matches!(
+            serde_array.get(2),
+            Some(Value::String(text)) if text.is_empty()
+        );
     }
 
     #[test]

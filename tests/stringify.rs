@@ -1,25 +1,26 @@
+#[path = "common/api.rs"]
+mod api;
 #[path = "common/asserts.rs"]
 mod asserts;
 #[path = "common/json.rs"]
 mod json;
-#[path = "common/options.rs"]
-mod options;
 #[path = "common/serde_helpers.rs"]
 mod serde_helpers;
-#[path = "common/stringify_options.rs"]
-mod stringify_options;
 
+use api::{
+    build_parse_options, build_stringify_options, parse_default, stringify_default,
+    stringify_with_options,
+};
 use asserts::assert_str_path;
-use bunner_qs_rs::{StringifyError, StringifyOptions, parse, stringify, stringify_with};
+use bunner_qs_rs::stringify::errors::StringifyError;
+use bunner_qs_rs::{QsStringifyError, StringifyOptions};
 use json::json_from_pairs;
-use options::try_build_parse_options;
 use serde::Serialize;
 use serde_helpers::{
     assert_encoded_contains, assert_parse_roundtrip, assert_stringify_roundtrip,
     assert_stringify_roundtrip_with_options,
 };
 use serde_json::{Map, Value, json};
-use stringify_options::try_build_stringify_options;
 
 fn build_nested_user_value() -> Value {
     json!({
@@ -39,7 +40,7 @@ const STRINGIFY_BUILD_OK: &str = "stringify options builder should succeed";
 #[test]
 fn should_stringify_basic_pairs_when_map_contains_simple_entries() {
     let map = json_from_pairs(&[("a", "1"), ("b", "two")]);
-    let encoded = stringify(&map).expect("should stringify basic pairs");
+    let encoded = stringify_default(&map).expect("should stringify basic pairs");
     assert_eq!(encoded, "a=1&b=two");
     assert_parse_roundtrip(&encoded);
 }
@@ -47,28 +48,28 @@ fn should_stringify_basic_pairs_when_map_contains_simple_entries() {
 #[test]
 fn should_return_empty_string_when_map_has_no_entries() {
     let map = Value::Object(Map::new());
-    let encoded = stringify(&map).expect("empty map should stringify");
+    let encoded = stringify_default(&map).expect("empty map should stringify");
     assert_eq!(encoded, "");
 }
 
 #[test]
 fn should_match_function_output_when_using_default_options() {
     let map = json_from_pairs(&[("x", "1"), ("y", "two")]);
-    let via_fn = stringify(&map).expect("function stringify should succeed");
-    let via_options = stringify_with(&map, &StringifyOptions::default())
-        .expect("default stringify_with should match");
+    let via_fn = stringify_default(&map).expect("function stringify should succeed");
+    let via_options = stringify_with_options(&map, &StringifyOptions::default())
+        .expect("default stringify should match");
     assert_eq!(via_fn, via_options);
 }
 
 #[test]
 fn should_encode_spaces_as_plus_when_option_is_enabled() {
     let map = json_from_pairs(&[("note", "hello world")]);
-    let plus = try_build_stringify_options(|builder| builder.space_as_plus(true))
-        .expect(STRINGIFY_BUILD_OK);
-    let encoded_plus = stringify_with(&map, &plus).expect("should encode spaces as plus");
+    let plus =
+        build_stringify_options(|builder| builder.space_as_plus(true)).expect(STRINGIFY_BUILD_OK);
+    let encoded_plus = stringify_with_options(&map, &plus).expect("should encode spaces as plus");
     assert_eq!(encoded_plus, "note=hello+world");
 
-    let encoded_default = stringify(&map).expect("default should percent encode spaces");
+    let encoded_default = stringify_default(&map).expect("default should percent encode spaces");
     assert_eq!(encoded_default, "note=hello%20world");
 }
 
@@ -77,7 +78,7 @@ fn should_percent_encode_reserved_and_unicode_characters_when_stringifying() {
     let map = json!({
         "title": "rock & roll/舞"
     });
-    let encoded = stringify(&map).expect("should percent encode reserved characters");
+    let encoded = stringify_default(&map).expect("should percent encode reserved characters");
     assert_eq!(encoded, "title=rock%20%26%20roll%2F%E8%88%9E");
 }
 
@@ -87,10 +88,10 @@ fn should_percent_encode_fragments_and_equals_when_reserved_characters_present()
         "frag#ment": "a=b&c"
     });
 
-    let encoded = stringify(&map).expect("reserved characters should be encoded");
+    let encoded = stringify_default(&map).expect("reserved characters should be encoded");
     assert_eq!(encoded, "frag%23ment=a%3Db%26c");
 
-    let reparsed: Value = parse(&encoded).expect("encoded string should be parseable");
+    let reparsed: Value = parse_default(&encoded).expect("encoded string should be parseable");
     assert_str_path(&reparsed, &["frag#ment"], "a=b&c");
 }
 
@@ -100,10 +101,10 @@ fn should_percent_encode_plus_sign_when_using_default_behavior() {
         "symbol": "1+1"
     });
 
-    let encoded = stringify(&map).expect("plus should be percent encoded");
+    let encoded = stringify_default(&map).expect("plus should be percent encoded");
     assert_eq!(encoded, "symbol=1%2B1");
 
-    let parsed: Value = parse(&encoded).expect("encoded plus should decode");
+    let parsed: Value = parse_default(&encoded).expect("encoded plus should decode");
     assert_str_path(&parsed, &["symbol"], "1+1");
 }
 
@@ -117,10 +118,10 @@ fn should_percent_encode_long_unicode_values_when_stringifying_nested_data() {
         }
     });
 
-    let encoded = stringify(&root).expect("should stringify long unicode value");
+    let encoded = stringify_default(&root).expect("should stringify long unicode value");
     assert_encoded_contains(&encoded, &["%F0%9F%9A%80"]);
 
-    let parsed: Value = parse(&encoded).expect("percent encoded payload should parse");
+    let parsed: Value = parse_default(&encoded).expect("percent encoded payload should parse");
     assert_str_path(&parsed, &["profile", "bio"], &long_value);
 }
 
@@ -135,7 +136,7 @@ fn should_percent_encode_multilingual_values_when_stringifying_map() {
         "thai": "สวัสดี"
     });
 
-    let encoded = stringify(&map).expect("should percent encode multilingual values");
+    let encoded = stringify_default(&map).expect("should percent encode multilingual values");
     assert_encoded_contains(
         &encoded,
         &[
@@ -157,7 +158,7 @@ fn should_encode_extended_unicode_keys_and_values_when_serializing() {
         "combinação": "linhão"
     });
 
-    let encoded = stringify(&map).expect("should encode extended unicode keys and values");
+    let encoded = stringify_default(&map).expect("should encode extended unicode keys and values");
     assert_encoded_contains(
         &encoded,
         &[
@@ -167,7 +168,7 @@ fn should_encode_extended_unicode_keys_and_values_when_serializing() {
         ],
     );
 
-    let reparsed: Value = parse(&encoded).expect("encoded query should round-trip");
+    let reparsed: Value = parse_default(&encoded).expect("encoded query should round-trip");
     assert_str_path(&reparsed, &["鍵🔑"], "值🌈");
     assert_str_path(&reparsed, &["emoji_key🙂"], "مرحبا");
     assert_str_path(&reparsed, &["combinação"], "linhão");
@@ -176,7 +177,7 @@ fn should_encode_extended_unicode_keys_and_values_when_serializing() {
 #[test]
 fn should_use_bracket_notation_when_stringifying_nested_structures() {
     let map = build_nested_user_value();
-    let encoded = stringify(&map).expect("should stringify nested structures");
+    let encoded = stringify_default(&map).expect("should stringify nested structures");
     assert_encoded_contains(
         &encoded,
         &[
@@ -201,9 +202,9 @@ fn should_roundtrip_with_spaces_when_plus_option_enabled() {
         "msg": "one two"
     });
 
-    let options = try_build_stringify_options(|builder| builder.space_as_plus(true))
-        .expect(STRINGIFY_BUILD_OK);
-    let parse_options = try_build_parse_options(|builder| builder.space_as_plus(true))
+    let options =
+        build_stringify_options(|builder| builder.space_as_plus(true)).expect(STRINGIFY_BUILD_OK);
+    let parse_options = build_parse_options(|builder| builder.space_as_plus(true))
         .expect("parse options builder should succeed");
     let reparsed = assert_stringify_roundtrip_with_options(&map, &options, &parse_options);
     assert_str_path(&reparsed, &["msg"], "one two");
@@ -214,12 +215,13 @@ fn should_reject_control_characters_when_key_contains_them() {
     let map = json!({
         "bad\u{0007}key": "value"
     });
-    asserts::assert_err_matches!(
-        stringify(&map),
-        StringifyError::InvalidKey { key } => |_message| {
+    let result = stringify_default(&map);
+    match result {
+        Err(QsStringifyError::Stringify(StringifyError::InvalidKey { key })) => {
             assert_eq!(key, "bad\u{0007}key");
         }
-    );
+        other => panic!("expected InvalidKey error, got {:?}", other),
+    }
 }
 
 #[test]
@@ -227,12 +229,13 @@ fn should_reject_control_characters_when_value_contains_line_break() {
     let map = json!({
         "normal": "line\nbreak"
     });
-    asserts::assert_err_matches!(
-        stringify(&map),
-        StringifyError::InvalidValue { key } => |_message| {
+    let result = stringify_default(&map);
+    match result {
+        Err(QsStringifyError::Stringify(StringifyError::InvalidValue { key })) => {
             assert_eq!(key, "normal");
         }
-    );
+        other => panic!("expected InvalidValue error, got {:?}", other),
+    }
 }
 
 #[test]
@@ -241,12 +244,13 @@ fn should_reject_delete_character_when_value_contains_delete_control() {
         "note": format!("alert{}signal", '\u{007F}')
     });
 
-    asserts::assert_err_matches!(
-        stringify(&map),
-        StringifyError::InvalidValue { key } => |_message| {
+    let result = stringify_default(&map);
+    match result {
+        Err(QsStringifyError::Stringify(StringifyError::InvalidValue { key })) => {
             assert_eq!(key, "note");
         }
-    );
+        other => panic!("expected InvalidValue error, got {:?}", other),
+    }
 }
 
 #[test]
@@ -259,12 +263,13 @@ fn should_reject_control_characters_when_nested_value_contains_them() {
         }
     });
 
-    asserts::assert_err_matches!(
-        stringify(&map),
-        StringifyError::InvalidValue { key } => |_message| {
+    let result = stringify_default(&map);
+    match result {
+        Err(QsStringifyError::Stringify(StringifyError::InvalidValue { key })) => {
             assert_eq!(key, "profile[address][line1]");
         }
-    );
+        other => panic!("expected InvalidValue error, got {:?}", other),
+    }
 }
 
 #[test]
@@ -284,8 +289,8 @@ fn should_stringify_array_of_objects_when_structure_is_nested() {
 
 #[test]
 fn should_configure_flags_when_building_stringify_options() {
-    let options = try_build_stringify_options(|builder| builder.space_as_plus(true))
-        .expect(STRINGIFY_BUILD_OK);
+    let options =
+        build_stringify_options(|builder| builder.space_as_plus(true)).expect(STRINGIFY_BUILD_OK);
     assert!(options.space_as_plus);
 }
 
@@ -302,7 +307,7 @@ fn should_skip_none_fields_when_option_values_are_missing() {
         drop: None,
     };
 
-    let encoded = stringify(&payload).expect("option fields set to None should be skipped");
+    let encoded = stringify_default(&payload).expect("option fields set to None should be skipped");
     assert_eq!(encoded, "keep=alpha");
 }
 
@@ -317,6 +322,6 @@ fn should_preserve_none_placeholders_when_sequence_contains_gaps() {
         tags: vec![Some("zero"), None, Some("two")],
     };
 
-    let encoded = stringify(&payload).expect("sequence placeholders should be preserved");
+    let encoded = stringify_default(&payload).expect("sequence placeholders should be preserved");
     assert_eq!(encoded, "tags%5B0%5D=zero&tags%5B1%5D=&tags%5B2%5D=two");
 }

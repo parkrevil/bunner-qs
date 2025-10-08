@@ -1,5 +1,5 @@
 use super::{ContainerType, ResolvedSegment, SegmentKey, SegmentKind};
-use crate::ParseError;
+use crate::parsing::errors::ParseError;
 use assert_matches::assert_matches;
 use std::borrow::{Borrow, Cow};
 

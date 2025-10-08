@@ -1,8 +1,8 @@
 use super::*;
 use crate::arena_helpers::map_with_capacity;
 use crate::config::{DuplicateKeyBehavior, ParseOptions};
-use crate::parsing::ParseError;
 use crate::parsing::arena::ArenaValue;
+use crate::parsing::errors::ParseError;
 use assert_matches::assert_matches;
 
 mod with_arena_query_map {
@@ -47,10 +47,8 @@ mod with_arena_query_map {
     #[test]
     fn should_allow_duplicate_keys_when_first_wins_enabled_then_preserve_initial_value() {
         let trimmed = "foo=one&foo=two";
-        let options = ParseOptions::builder()
-            .duplicate_keys(DuplicateKeyBehavior::FirstWins)
-            .build()
-            .expect("builder should succeed");
+        let options = ParseOptions::new().duplicate_keys(DuplicateKeyBehavior::FirstWins);
+        options.validate().expect("configuration should succeed");
 
         let result = with_arena_query_map(trimmed, 0, &options, |_, map| {
             let entries = map.entries_slice();
@@ -67,10 +65,8 @@ mod with_arena_query_map {
     #[test]
     fn should_overwrite_duplicate_keys_when_last_wins_enabled_then_store_latest_value() {
         let trimmed = "foo=one&foo=two";
-        let options = ParseOptions::builder()
-            .duplicate_keys(DuplicateKeyBehavior::LastWins)
-            .build()
-            .expect("builder should succeed");
+        let options = ParseOptions::new().duplicate_keys(DuplicateKeyBehavior::LastWins);
+        options.validate().expect("configuration should succeed");
 
         let result = with_arena_query_map(trimmed, 0, &options, |_, map| {
             let entries = map.entries_slice();
@@ -87,10 +83,8 @@ mod with_arena_query_map {
     #[test]
     fn should_return_too_many_parameters_when_parameter_limit_exceeded_then_report_limit_and_actual()
      {
-        let options = ParseOptions::builder()
-            .max_params(1)
-            .build()
-            .expect("builder should succeed");
+        let options = ParseOptions::new().max_params(1);
+        options.validate().expect("configuration should succeed");
 
         let error = with_arena_query_map("a=1&b=2", 0, &options, |_, _| Ok(())).unwrap_err();
 
@@ -105,10 +99,8 @@ mod with_arena_query_map {
 
     #[test]
     fn should_decode_plus_signs_when_space_as_plus_enabled_then_convert_to_spaces() {
-        let options = ParseOptions::builder()
-            .space_as_plus(true)
-            .build()
-            .expect("builder should succeed");
+        let options = ParseOptions::new().space_as_plus(true);
+        options.validate().expect("configuration should succeed");
 
         let result = with_arena_query_map("hello+world=value+here", 0, &options, |_, map| {
             let entries = map.entries_slice();
@@ -288,10 +280,8 @@ mod parse_segments_into_map {
         let arena = ParseArena::new();
         let mut map = map_with_capacity(&arena, 4);
         let mut pattern_state = acquire_pattern_state();
-        let options = ParseOptions::builder()
-            .max_params(1)
-            .build()
-            .expect("builder should succeed");
+        let options = ParseOptions::new().max_params(1);
+        options.validate().expect("configuration should succeed");
         let trimmed = "a=1&b=2";
         let mut scratch = Vec::new();
 

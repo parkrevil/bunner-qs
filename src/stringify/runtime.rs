@@ -1,4 +1,5 @@
-use super::{StringifyError, StringifyResult};
+use super::StringifyResult;
+use super::errors::StringifyError;
 use crate::config::StringifyOptions;
 use crate::memory::{acquire_string, buffer::StringGuard};
 use crate::model::{QueryMap, Value};

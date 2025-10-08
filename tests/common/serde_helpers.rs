@@ -1,7 +1,7 @@
-use bunner_qs_rs::{
-    ParseError, ParseOptions, StringifyError, StringifyOptions, parse, parse_with, stringify,
-    stringify_with,
-};
+use crate::api::{parse_default, parse_query, stringify_default, stringify_with_options};
+use bunner_qs_rs::parsing::errors::ParseError;
+use bunner_qs_rs::stringify::errors::StringifyError;
+use bunner_qs_rs::{ParseOptions, QsParseError, QsStringifyError, StringifyOptions};
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 use serde_json::{Map as JsonMap, Value};
@@ -16,7 +16,8 @@ pub fn assert_encoded_contains(encoded: &str, expected: &[&str]) {
 }
 
 pub fn assert_parse_roundtrip(input: &str) -> Value {
-    let parsed: Value = parse(input).expect("parse should succeed");
+    let parsed: Value = parse_default(input)
+        .unwrap_or_else(|err| panic!("parse should succeed but got: {}", format_parse_error(err)));
     assert_stringify_roundtrip(&parsed)
 }
 
@@ -38,11 +39,19 @@ pub fn assert_stringify_roundtrip_with_options(
     stringify_options: &StringifyOptions,
     parse_options: &ParseOptions,
 ) -> Value {
-    let encoded = stringify_with(value, stringify_options)
-        .expect("stringify_with should succeed with provided options");
+    let encoded = stringify_with_options(value, stringify_options).unwrap_or_else(|err| {
+        panic!(
+            "stringify_with should succeed with provided options but got: {}",
+            format_stringify_error(err)
+        )
+    });
     assert_encoded_contains(&encoded, &[]);
-    let reparsed: Value = parse_with(&encoded, parse_options)
-        .expect("parse_with should succeed with provided options");
+    let reparsed: Value = parse_query(&encoded, parse_options).unwrap_or_else(|err| {
+        panic!(
+            "parse_with should succeed with provided options but got: {}",
+            format_parse_error(err)
+        )
+    });
     assert_eq!(
         canonicalize_query_value(&reparsed),
         canonicalize_query_value(value),
@@ -72,8 +81,10 @@ pub fn roundtrip_via_public_api<T>(value: &T) -> Result<T, RoundtripError>
 where
     T: Serialize + DeserializeOwned + Default + 'static,
 {
-    let encoded = stringify(value).map_err(RoundtripError::from_stringify)?;
-    let parsed = parse(&encoded).map_err(RoundtripError::from_parse)?;
+    let encoded = stringify_default(value)
+        .map_err(|err| RoundtripError::from_stringify(into_stringify_error(err)))?;
+    let parsed =
+        parse_default(&encoded).map_err(|err| RoundtripError::from_parse(into_parse_error(err)))?;
     Ok(parsed)
 }
 
@@ -81,6 +92,38 @@ where
 pub enum RoundtripError {
     Stringify(StringifyError),
     Parse(ParseError),
+}
+
+fn format_parse_error(err: QsParseError) -> String {
+    match &err {
+        QsParseError::Parse(inner) => inner.to_string(),
+        QsParseError::MissingParseOptions => "missing parse options".to_string(),
+    }
+}
+
+fn format_stringify_error(err: QsStringifyError) -> String {
+    match &err {
+        QsStringifyError::Stringify(inner) => inner.to_string(),
+        QsStringifyError::MissingStringifyOptions => "missing stringify options".to_string(),
+    }
+}
+
+fn into_parse_error(err: QsParseError) -> ParseError {
+    match err {
+        QsParseError::Parse(inner) => inner,
+        QsParseError::MissingParseOptions => {
+            unreachable!("parse options should always be configured")
+        }
+    }
+}
+
+fn into_stringify_error(err: QsStringifyError) -> StringifyError {
+    match err {
+        QsStringifyError::Stringify(inner) => inner,
+        QsStringifyError::MissingStringifyOptions => {
+            unreachable!("stringify options should always be configured")
+        }
+    }
 }
 
 impl RoundtripError {

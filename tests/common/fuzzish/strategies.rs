@@ -1,7 +1,21 @@
-use bunner_qs_rs::StringifyOptions;
-use bunner_qs_rs::stringify_with;
+use crate::api::stringify_with_options;
+use bunner_qs_rs::stringify::errors::StringifyError;
+use bunner_qs_rs::{QsStringifyError, StringifyOptions};
 use proptest::prelude::*;
 use serde_json::{Map as JsonMap, Value};
+
+fn stringify_with<T>(value: &T, options: &StringifyOptions) -> Result<String, StringifyError>
+where
+    T: serde::Serialize,
+{
+    match stringify_with_options(value, options) {
+        Ok(encoded) => Ok(encoded),
+        Err(QsStringifyError::Stringify(err)) => Err(err),
+        Err(QsStringifyError::MissingStringifyOptions) => {
+            unreachable!("stringify options must be configured before stringifying")
+        }
+    }
+}
 
 pub fn allowed_char() -> impl Strategy<Value = char> {
     prop::char::range('\u{0020}', '\u{10FFFF}').prop_filter("exclude DEL", |c| *c != '\u{007F}')
@@ -168,7 +182,10 @@ pub fn arb_roundtrip_input() -> impl Strategy<Value = (Value, RoundTripConfig)> 
         )
             .prop_map(
                 move |(space_as_plus, extra_params, use_length, use_depth)| {
-                    let max_params = extra_params.map(|extra| params + extra);
+                    let max_params = extra_params.map(|extra| {
+                        let limit = params.saturating_add(extra);
+                        limit.max(1)
+                    });
                     let estimated_len = stringify_with(&seed, &StringifyOptions::default())
                         .map(|encoded| encoded.len())
                         .unwrap_or(0);

@@ -1,4 +1,4 @@
-use crate::parsing::ParseError;
+use crate::parsing::errors::ParseError;
 use memchr::memchr_iter;
 
 pub(crate) fn validate_brackets(key: &str, max_depth: Option<usize>) -> Result<(), ParseError> {

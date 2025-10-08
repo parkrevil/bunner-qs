@@ -1,84 +1,112 @@
+#[path = "common/api.rs"]
+mod api;
 #[path = "common/asserts.rs"]
 mod asserts;
 #[path = "common/json.rs"]
 mod json;
-#[path = "common/options.rs"]
-mod options;
-#[path = "common/stringify_options.rs"]
-mod stringify_options;
 
 use asserts::assert_str_path;
-use bunner_qs_rs::{ParseError, ParseOptions, StringifyOptions, parse, parse_with, stringify_with};
+use bunner_qs_rs::parsing::errors::ParseError;
+use bunner_qs_rs::{
+    OptionsValidationError, ParseOptions, QsParseError, QsStringifyError, StringifyOptions,
+};
 use json::json_from_pairs;
-use options::try_build_parse_options;
 use serde_json::Value;
-use stringify_options::try_build_stringify_options;
 
-const BUILD_OK: &str = "parse options builder should succeed";
-const STRINGIFY_BUILD_OK: &str = "stringify options builder should succeed";
+use api::{
+    build_parse_options as api_build_parse_options,
+    build_stringify_options as api_build_stringify_options, parse_default, parse_query,
+    stringify_with_options,
+};
+
+const BUILD_OK: &str = "parse options configuration should succeed";
+const STRINGIFY_BUILD_OK: &str = "stringify options configuration should succeed";
 
 fn build_parse_options<F>(configure: F) -> ParseOptions
 where
-    F: FnOnce(ParseOptionsBuilder) -> ParseOptionsBuilder,
+    F: FnOnce(ParseOptions) -> ParseOptions,
 {
-    try_build_parse_options(configure).expect(BUILD_OK)
+    api_build_parse_options(configure).expect(BUILD_OK)
 }
 
 fn parse_with_options(query: &str, options: &ParseOptions) -> Value {
-    parse_with(query, options).expect("parse should succeed with provided options")
+    parse_query(query, options).unwrap_or_else(|err| match err {
+        QsParseError::Parse(inner) => {
+            panic!("parse should succeed with provided options but got: {inner}")
+        }
+        QsParseError::MissingParseOptions => {
+            unreachable!("parse options must be configured before parsing")
+        }
+    })
 }
 
 fn parse_value(query: &str) -> Value {
-    parse(query).expect("parse should succeed")
+    parse_default(query).unwrap_or_else(|err| match err {
+        QsParseError::Parse(inner) => panic!("parse should succeed but got: {inner}"),
+        QsParseError::MissingParseOptions => {
+            unreachable!("parse options must be configured before parsing")
+        }
+    })
 }
 
 fn expect_too_many_parameters(query: &str, options: &ParseOptions) -> (usize, usize) {
-    match parse_with::<Value>(query, options).expect_err("should exceed parameter limit") {
-        ParseError::TooManyParameters { limit, actual } => (limit, actual),
-        other => panic!("expected too many parameters error, got {other:?}"),
+    match parse_query::<Value>(query, options).expect_err("should exceed parameter limit") {
+        QsParseError::Parse(ParseError::TooManyParameters { limit, actual }) => (limit, actual),
+        QsParseError::Parse(other) => panic!("expected too many parameters error, got {other:?}"),
+        QsParseError::MissingParseOptions => {
+            unreachable!("parse options must be configured before parsing")
+        }
     }
 }
 
 fn expect_input_too_long(query: &str, options: &ParseOptions) -> usize {
-    match parse_with::<Value>(query, options).expect_err("should exceed length limit") {
-        ParseError::InputTooLong { limit } => limit,
-        other => panic!("expected input too long error, got {other:?}"),
+    match parse_query::<Value>(query, options).expect_err("should exceed length limit") {
+        QsParseError::Parse(ParseError::InputTooLong { limit }) => limit,
+        QsParseError::Parse(other) => panic!("expected input too long error, got {other:?}"),
+        QsParseError::MissingParseOptions => {
+            unreachable!("parse options must be configured before parsing")
+        }
     }
 }
 
 fn expect_depth_exceeded(query: &str, options: &ParseOptions) -> (String, usize) {
-    match parse_with::<Value>(query, options).expect_err("should exceed depth limit") {
-        ParseError::DepthExceeded { key, limit } => (key, limit),
-        other => panic!("expected depth exceeded error, got {other:?}"),
+    match parse_query::<Value>(query, options).expect_err("should exceed depth limit") {
+        QsParseError::Parse(ParseError::DepthExceeded { key, limit }) => (key, limit),
+        QsParseError::Parse(other) => panic!("expected depth exceeded error, got {other:?}"),
+        QsParseError::MissingParseOptions => {
+            unreachable!("parse options must be configured before parsing")
+        }
     }
 }
 
-fn expect_builder_error<F>(configure: F) -> String
+fn expect_validation_error<F>(configure: F) -> OptionsValidationError
 where
-    F: FnOnce(ParseOptionsBuilder) -> ParseOptionsBuilder,
+    F: FnOnce(ParseOptions) -> ParseOptions,
 {
-    try_build_parse_options(configure)
-        .expect_err("builder should reject configuration")
-        .to_string()
+    api_build_parse_options(configure).expect_err("configuration should fail")
 }
 
 fn build_stringify_options<F>(configure: F) -> StringifyOptions
 where
-    F: FnOnce(StringifyOptionsBuilder) -> StringifyOptionsBuilder,
+    F: FnOnce(StringifyOptions) -> StringifyOptions,
 {
-    try_build_stringify_options(configure).expect(STRINGIFY_BUILD_OK)
+    api_build_stringify_options(configure).expect(STRINGIFY_BUILD_OK)
 }
 
 fn stringify_with_options_map<F>(map: &Value, configure: F) -> String
 where
-    F: FnOnce(StringifyOptionsBuilder) -> StringifyOptionsBuilder,
+    F: FnOnce(StringifyOptions) -> StringifyOptions,
 {
     let options = build_stringify_options(configure);
-    stringify_with(map, &options).expect("stringify should succeed")
+    stringify_with_options(map, &options).unwrap_or_else(|err| match err {
+        QsStringifyError::Stringify(inner) => {
+            panic!("stringify should succeed but got: {inner}")
+        }
+        QsStringifyError::MissingStringifyOptions => {
+            unreachable!("stringify options must be configured before stringifying")
+        }
+    })
 }
-
-type ParseOptionsBuilder = bunner_qs_rs::ParseOptionsBuilder;
-type StringifyOptionsBuilder = bunner_qs_rs::StringifyOptionsBuilder;
 
 mod parse_limits_tests {
     use super::*;
@@ -96,15 +124,22 @@ mod parse_limits_tests {
     }
 
     #[test]
-    fn should_error_on_first_pair_when_max_params_is_zero() {
+    fn should_reject_zero_max_params_during_validation() {
         let options = ParseOptions {
             max_params: Some(0),
             ..ParseOptions::default()
         };
 
-        let (limit, actual) = expect_too_many_parameters("only=one", &options);
+        let error = options
+            .validate()
+            .expect_err("parse options configuration should fail");
 
-        assert_eq!((limit, actual), (0, 1));
+        assert!(matches!(
+            error,
+            OptionsValidationError::NonZeroRequired {
+                field: "max_params"
+            }
+        ));
     }
 
     #[test]
@@ -211,14 +246,27 @@ mod parse_builder_tests {
 
     #[test]
     fn should_fail_when_builder_receives_zero_limits() {
-        let params_msg = expect_builder_error(|builder| builder.max_params(0));
-        let length_msg = expect_builder_error(|builder| builder.max_length(0));
-        let depth_msg = expect_builder_error(|builder| builder.max_depth(0));
+        let params_err = expect_validation_error(|builder| builder.max_params(0));
+        let length_err = expect_validation_error(|builder| builder.max_length(0));
+        let depth_err = expect_validation_error(|builder| builder.max_depth(0));
 
         let matches = [
-            params_msg.contains("max_params"),
-            length_msg.contains("max_length"),
-            depth_msg.contains("max_depth"),
+            matches!(
+                params_err,
+                OptionsValidationError::NonZeroRequired {
+                    field: "max_params"
+                }
+            ),
+            matches!(
+                length_err,
+                OptionsValidationError::NonZeroRequired {
+                    field: "max_length"
+                }
+            ),
+            matches!(
+                depth_err,
+                OptionsValidationError::NonZeroRequired { field: "max_depth" }
+            ),
         ];
 
         assert_eq!(matches, [true, true, true]);

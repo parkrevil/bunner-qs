@@ -1,18 +1,24 @@
+#[path = "common/api.rs"]
+mod api;
 #[path = "common/asserts.rs"]
 mod asserts;
-#[path = "common/options.rs"]
-mod options;
 #[path = "common/serde_helpers.rs"]
 mod serde_helpers;
 
+use api::{build_parse_options as api_build_parse_options, parse_default, parse_query};
 use assert_matches::assert_matches;
 use asserts::{assert_str_path, assert_string_array_path};
-use bunner_qs_rs::{ParseError, parse, parse_with};
-use options::try_build_parse_options;
+use bunner_qs_rs::QsParseError;
+use bunner_qs_rs::parsing::errors::ParseError;
 use serde_helpers::{assert_parse_roundtrip, assert_stringify_roundtrip};
 use serde_json::{Value, json};
 fn parse_value(query: &str) -> Value {
-    parse(query).expect("parse should succeed")
+    parse_default(query).unwrap_or_else(|err| match err {
+        QsParseError::Parse(inner) => panic!("parse should succeed but got: {inner}"),
+        QsParseError::MissingParseOptions => {
+            unreachable!("parse options must be configured before parsing")
+        }
+    })
 }
 
 fn stringify_roundtrip(map: &Value) -> Value {
@@ -20,16 +26,25 @@ fn stringify_roundtrip(map: &Value) -> Value {
 }
 
 fn duplicate_key_key(query: &str) -> String {
-    match parse::<Value>(query).expect_err("duplicate key should fail") {
-        ParseError::DuplicateKey { key } => key,
-        other => panic!("expected duplicate key error, got {other:?}"),
+    match parse_default::<Value>(query).expect_err("duplicate key should fail") {
+        QsParseError::Parse(ParseError::DuplicateKey { key }) => key,
+        QsParseError::Parse(other) => panic!("expected duplicate key error, got {other:?}"),
+        QsParseError::MissingParseOptions => {
+            unreachable!("parse options must be configured before parsing")
+        }
     }
 }
 
 fn parse_with_depth(query: &str, depth: usize) -> Result<Value, ParseError> {
-    let options = try_build_parse_options(|builder| builder.max_depth(depth))
+    let options = api_build_parse_options(|builder| builder.max_depth(depth))
         .expect("parse options builder should succeed");
-    parse_with(query, &options)
+    match parse_query(query, &options) {
+        Ok(value) => Ok(value),
+        Err(QsParseError::Parse(err)) => Err(err),
+        Err(QsParseError::MissingParseOptions) => {
+            unreachable!("parse options must be configured before parsing")
+        }
+    }
 }
 
 fn depth_error(query: &str, depth: usize) -> ParseError {

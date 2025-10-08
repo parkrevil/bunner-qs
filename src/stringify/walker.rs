@@ -50,9 +50,6 @@ fn push_usize_decimal(buffer: &mut String, mut value: usize) {
 }
 
 #[inline]
-/// Converts a slice of ASCII digit bytes into a `&str` without additional
-/// allocation. Debug assertions ensure the invariant before falling back to the
-/// unchecked UTF-8 conversion.
 fn ascii_digits_to_str(slice: &[u8]) -> &str {
     debug_assert!(
         slice.iter().all(|byte| byte.is_ascii_digit()),

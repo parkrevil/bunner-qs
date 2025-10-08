@@ -1,4 +1,5 @@
-use bunner_qs_rs::{ParseError, ParseOptions, StringifyOptions};
+use bunner_qs_rs::parsing::errors::ParseError;
+use bunner_qs_rs::{ParseOptions, StringifyOptions};
 use serde::Deserialize;
 use serde_json::{Map as JsonMap, Value};
 

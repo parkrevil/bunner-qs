@@ -1,6 +1,7 @@
 mod scenarios;
 
-use bunner_qs_rs::{parse_with, stringify_with};
+use bunner_qs_rs::parsing::api::parse;
+use bunner_qs_rs::stringify::api::stringify;
 use criterion::{Criterion, criterion_group, criterion_main};
 use serde::Deserialize;
 use serde_json::{Map, Value};
@@ -100,7 +101,7 @@ fn register_parse_benches(c: &mut Criterion, label: &str, scenario: Scenario) {
     let serde_qs_cfg = serde_qs_config(depth_limit);
 
     let bunner_baseline: Value =
-        parse_with(&query, &parse_options).expect("bunner parse baseline should succeed");
+        parse(&query, &parse_options).expect("bunner parse baseline should succeed");
     assert_eq!(
         bunner_baseline, payload,
         "bunner baseline should equal payload"
@@ -117,7 +118,7 @@ fn register_parse_benches(c: &mut Criterion, label: &str, scenario: Scenario) {
     c.bench_function(&format!("bunner_qs_rs/parse/{}", label), move |b| {
         b.iter(|| {
             let parsed: Value =
-                parse_with(black_box(bunner_query.as_str()), &bunner_opts).expect("parse");
+                parse(black_box(bunner_query.as_str()), &bunner_opts).expect("parse");
             black_box(parsed);
         });
     });
@@ -146,14 +147,14 @@ fn register_stringify_benches(c: &mut Criterion, label: &str, scenario: Scenario
     let depth_limit = max_depth + 2;
     let serde_qs_cfg = serde_qs_config(depth_limit);
 
-    let bunner_encoded = stringify_with(&payload, &stringify_options).expect("bunner stringify");
+    let bunner_encoded = stringify(&payload, &stringify_options).expect("bunner stringify");
     assert_eq!(
         bunner_encoded, query,
         "bunner baseline encode should match query"
     );
 
     let bunner_roundtrip: Value =
-        parse_with(&bunner_encoded, &parse_options).expect("bunner roundtrip parse");
+        parse(&bunner_encoded, &parse_options).expect("bunner roundtrip parse");
     assert_eq!(bunner_roundtrip, payload, "bunner roundtrip value");
 
     let serde_qs_encoded = serde_qs::to_string(&payload).expect("serde_qs encode");
@@ -171,7 +172,7 @@ fn register_stringify_benches(c: &mut Criterion, label: &str, scenario: Scenario
     c.bench_function(&format!("bunner_qs_rs/stringify/{}", label), move |b| {
         b.iter(|| {
             let encoded =
-                stringify_with(black_box(&bunner_payload), &bunner_opts).expect("stringify");
+                stringify(black_box(&bunner_payload), &bunner_opts).expect("stringify");
             black_box(encoded);
         });
     });

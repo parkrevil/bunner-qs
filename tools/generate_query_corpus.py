@@ -120,45 +120,40 @@ def extend_complex_allow_cases(cases: List[Case]) -> None:
 
 
 def extend_complex_reject_cases(cases: List[Case]) -> None:
-    for idx in range(4):
-        add_case(
-            cases,
-            f"conflict_array_object_{idx}",
-            f"mix_{idx}[]=on&mix_{idx}[flag]=true",
-            "duplicate_key",
-        )
+    add_case(
+        cases,
+        "conflict_array_object_0",
+        "mix_0[]=on&mix_0[flag]=true",
+        "duplicate_key",
+    )
 
-    for idx in range(4):
-        add_case(
-            cases,
-            f"conflict_numeric_scalar_{idx}",
-            f"node_{idx}[0]=a&node_{idx}[key]=b",
-            "duplicate_key",
-        )
+    add_case(
+        cases,
+        "conflict_numeric_scalar_0",
+        "node_0[0]=a&node_0[key]=b",
+        "duplicate_key",
+    )
 
-    for idx in range(4):
-        add_case(
-            cases,
-            f"nested_scalar_override_{idx}",
-            f"profile_{idx}[name]=A&profile_{idx}=override",
-            "duplicate_key",
-        )
+    add_case(
+        cases,
+        "nested_scalar_override_0",
+        "profile_0[name]=A&profile_0=override",
+        "duplicate_key",
+    )
 
-    for idx in range(3):
-        add_case(
-            cases,
-            f"deep_non_contiguous_index_{idx}",
-            f"grid_{idx}[0][0]=a&grid_{idx}[0][2]=c",
-            "duplicate_key",
-        )
+    add_case(
+        cases,
+        "deep_non_contiguous_index_0",
+        "grid_0[0][0]=a&grid_0[0][2]=c",
+        "duplicate_key",
+    )
 
-    for idx in range(3):
-        add_case(
-            cases,
-            f"array_index_reset_conflict_{idx}",
-            f"items_{idx}[]=a&items_{idx}[1]=b",
-            "duplicate_key",
-        )
+    add_case(
+        cases,
+        "array_index_reset_conflict_0",
+        "items_0[]=a&items_0[1]=b",
+        "duplicate_key",
+    )
 
 
 def build_allow_cases() -> List[Case]:
@@ -255,11 +250,9 @@ def build_allow_cases() -> List[Case]:
         )
 
     # Max depth boundaries just within limits
-    for limit in [0, 1, 2, 3, 4]:
-        if limit == 0:
-            key = "flat"
-        else:
-            key = "root" + "".join("[branch]" for _ in range(limit))
+    add_case(cases, "whatwg_depth_flat_default", "flat=ok", "ok")
+    for limit in [1, 2, 3, 4]:
+        key = "root" + "".join("[branch]" for _ in range(limit))
         query = f"{key}=ok"
         add_case(
             cases,
@@ -325,7 +318,7 @@ def build_reject_cases() -> List[Case]:
     cases.extend(base_reject)
 
     # Too many parameters
-    for limit in [0, 1, 2, 4, 8, 16, 32]:
+    for limit in [1, 2, 4, 8, 16, 32]:
         actual = limit + 1
         segments = [f"p{i}=v{i}" for i in range(actual)]
         query = "&".join(segments)
@@ -349,7 +342,7 @@ def build_reject_cases() -> List[Case]:
         )
 
     # Depth exceeded
-    for limit in [0, 1, 2, 3]:
+    for limit in [1, 2, 3, 4]:
         key = "root" + "".join("[branch]" for _ in range(limit + 1))
         query = f"{key}=deep"
         add_case(

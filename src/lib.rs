@@ -5,17 +5,13 @@ mod memory;
 mod model;
 mod nested;
 pub mod parsing;
+mod qs;
 mod serde_adapter;
-mod stringify;
+pub mod stringify;
 mod util;
 
-pub use config::{
-    DuplicateKeyBehavior, ParseOptions, ParseOptionsBuilder, StringifyOptions,
-    StringifyOptionsBuilder,
-};
-pub use parsing::{ParseError, ParseResult, parse, parse_with};
-pub use serde_adapter::SerdeAdapterError;
-pub use stringify::{StringifyError, StringifyResult, stringify, stringify_with};
+pub use config::{DuplicateKeyBehavior, OptionsValidationError, ParseOptions, StringifyOptions};
+pub use qs::{Qs, QsParseError, QsStringifyError};
 
 #[cfg(test)]
 #[path = "../tests/common/parsing_helpers.rs"]

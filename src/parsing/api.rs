@@ -5,9 +5,7 @@ use serde::de::DeserializeOwned;
 use serde_json::Value as JsonValue;
 
 use crate::config::ParseOptions;
-use crate::serde_adapter::{
-    SerdeAdapterError, arena_map_to_json_value, deserialize_from_arena_map,
-};
+use crate::serde_adapter::{arena_map_to_json_value, deserialize_from_arena_map};
 
 use super::builder::with_arena_query_map;
 use super::errors::ParseError;
@@ -15,14 +13,7 @@ use super::preflight::preflight;
 
 pub type ParseResult<T> = Result<T, ParseError>;
 
-pub fn parse<T>(input: impl AsRef<str>) -> ParseResult<T>
-where
-    T: DeserializeOwned + Default + 'static,
-{
-    parse_with(input, &ParseOptions::default())
-}
-
-pub fn parse_with<T>(input: impl AsRef<str>, options: &ParseOptions) -> ParseResult<T>
+pub fn parse<T>(input: impl AsRef<str>, options: &ParseOptions) -> ParseResult<T>
 where
     T: DeserializeOwned + Default + 'static,
 {
@@ -42,18 +33,11 @@ where
                 let value = unsafe { assume_json_value::<T>(json_value) };
                 return Ok(value);
             }
-            deserialize_from_arena_map::<T>(arena_map)
-                .map_err(SerdeAdapterError::Deserialize)
-                .map_err(ParseError::from)
+            deserialize_from_arena_map::<T>(arena_map).map_err(ParseError::from)
         }
     })
 }
 
-/// # Safety
-///
-/// `T` must be `serde_json::Value` (verified by the caller before invoking). The
-/// function assumes ownership of the provided `JsonValue` without running Drop
-/// for the original instance.
 #[inline]
 unsafe fn assume_json_value<T>(value: JsonValue) -> T
 where

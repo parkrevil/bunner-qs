@@ -217,33 +217,3 @@ mod path_display {
         assert_eq!(error.to_string(), "invalid at config[0].enabled");
     }
 }
-
-mod serde_query_error {
-    use super::*;
-
-    #[test]
-    fn should_prefix_message_when_wrapping_serialize_error_then_include_original_detail() {
-        let inner = SerializeError::Unsupported("tuple variant");
-
-        let error = SerdeAdapterError::from(inner);
-
-        assert_eq!(
-            error.to_string(),
-            "failed to serialize values into query map: unsupported serialization form: tuple variant"
-        );
-    }
-
-    #[test]
-    fn should_prefix_message_when_wrapping_deserialize_error_then_include_original_detail() {
-        let inner = DeserializeError::from_kind(DeserializeErrorKind::InvalidBool {
-            value: "YES".into(),
-        });
-
-        let error = SerdeAdapterError::from(inner);
-
-        assert_eq!(
-            error.to_string(),
-            "failed to deserialize query map: invalid boolean literal `YES`"
-        );
-    }
-}

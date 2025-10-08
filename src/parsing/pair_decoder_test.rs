@@ -1,5 +1,5 @@
 use super::*;
-use crate::parsing::ParseError;
+use crate::parsing::errors::ParseError;
 use assert_matches::assert_matches;
 use std::borrow::Cow;
 
@@ -67,10 +67,8 @@ mod decode_pair {
 
     #[test]
     fn should_return_depth_exceeded_error_when_bracket_depth_exceeds_limit_then_report_limit() {
-        let options = ParseOptions::builder()
-            .max_depth(1)
-            .build()
-            .expect("builder should succeed");
+        let options = ParseOptions::new().max_depth(1);
+        options.validate().expect("configuration should succeed");
         let mut scratch = Vec::new();
         let key = "user[address][city]";
 

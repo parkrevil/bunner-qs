@@ -1,6 +1,7 @@
 mod scenarios;
 
-use bunner_qs_rs::{parse_with, stringify_with};
+use bunner_qs_rs::parsing::api::parse;
+use bunner_qs_rs::stringify::api::stringify;
 use criterion::{Criterion, criterion_group, criterion_main};
 use serde_json::Value;
 use std::hint::black_box;
@@ -50,8 +51,7 @@ fn run_parse_bench(c: &mut Criterion, name: &str, scenario: Scenario) {
 
     let _stringify_options = stringify_options;
 
-    let baseline: Value =
-        parse_with(&query, &parse_options).expect("baseline parse should succeed");
+    let baseline: Value = parse(&query, &parse_options).expect("baseline parse should succeed");
     assert_eq!(
         baseline, payload,
         "baseline parse output should match payload"
@@ -71,7 +71,7 @@ fn run_parse_bench(c: &mut Criterion, name: &str, scenario: Scenario) {
     c.bench_function(name, move |b| {
         b.iter(|| {
             let parsed: Value =
-                parse_with(black_box(query_owned.as_str()), &options_owned).expect("parse");
+                parse(black_box(query_owned.as_str()), &options_owned).expect("parse");
             black_box(parsed);
         });
     });
@@ -85,13 +85,13 @@ fn run_stringify_bench(c: &mut Criterion, name: &str, scenario: Scenario) {
         max_depth,
     } = scenario;
 
-    let encoded = stringify_with(&payload, &stringify_options).expect("stringify baseline");
+    let encoded = stringify(&payload, &stringify_options).expect("stringify baseline");
     assert_eq!(
         encoded, query,
         "baseline stringify should match calibrated query"
     );
 
-    let reparsed: Value = parse_with(&encoded, &parse_options).expect("roundtrip parse");
+    let reparsed: Value = parse(&encoded, &parse_options).expect("roundtrip parse");
     assert_eq!(reparsed, payload, "roundtrip parse should match payload");
 
     let depth = max_bracket_depth(&encoded);
@@ -108,7 +108,7 @@ fn run_stringify_bench(c: &mut Criterion, name: &str, scenario: Scenario) {
     c.bench_function(name, move |b| {
         b.iter(|| {
             let encoded =
-                stringify_with(black_box(&payload_for_bench), &options_owned).expect("stringify");
+                stringify(black_box(&payload_for_bench), &options_owned).expect("stringify");
             black_box(encoded);
         });
     });

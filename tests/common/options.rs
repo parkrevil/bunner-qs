@@ -1,10 +1,10 @@
-use bunner_qs_rs::{ParseOptions, ParseOptionsBuilder};
+use bunner_qs_rs::{OptionsValidationError, ParseOptions};
 
-pub fn try_build_parse_options<F>(configure: F) -> Result<ParseOptions, String>
+pub fn try_build_parse_options<F>(configure: F) -> Result<ParseOptions, OptionsValidationError>
 where
-    F: FnOnce(ParseOptionsBuilder) -> ParseOptionsBuilder,
+    F: FnOnce(ParseOptions) -> ParseOptions,
 {
-    configure(ParseOptions::builder())
-        .build()
-        .map_err(|err| err.to_string())
+    let options = configure(ParseOptions::new());
+    options.validate()?;
+    Ok(options)
 }

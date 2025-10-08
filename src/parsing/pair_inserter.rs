@@ -3,7 +3,8 @@ use std::borrow::Cow;
 use crate::config::DuplicateKeyBehavior;
 use crate::nested::pattern_state::PatternState;
 use crate::nested::{insertion::insert_nested_value_arena, parse_key_path};
-use crate::parsing::{ParseError, ParseResult};
+use crate::parsing::api::ParseResult;
+use crate::parsing::errors::ParseError;
 
 use super::arena::{ArenaQueryMap, ArenaValue, ParseArena};
 use super::key_path::duplicate_key_label;

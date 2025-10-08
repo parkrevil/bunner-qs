@@ -1,135 +1,142 @@
+#[path = "common/api.rs"]
+mod api;
 #[path = "common/asserts.rs"]
 mod asserts;
 #[path = "common/json.rs"]
 mod json;
-#[path = "common/options.rs"]
-mod options;
 #[path = "common/serde_helpers.rs"]
 mod serde_helpers;
 
+use api::{build_parse_options as api_build_parse_options, parse_default, parse_query};
 use asserts::{assert_str_path, assert_string_array_path};
-use bunner_qs_rs::{
-    DuplicateKeyBehavior, ParseError, ParseOptions, SerdeAdapterError, parse, parse_with,
-};
+use bunner_qs_rs::parsing::errors::{DeserializeError, ParseError};
+use bunner_qs_rs::{DuplicateKeyBehavior, ParseOptions, QsParseError};
 use json::json_from_pairs;
-use options::try_build_parse_options;
 use serde::Deserialize;
 use serde::de::DeserializeOwned;
 use serde_helpers::assert_parse_roundtrip;
 use serde_json::{Value, json};
 use std::fmt::Debug;
 
-const BUILD_OK: &str = "parse options builder should succeed";
+const BUILD_OK: &str = "parse options configuration should succeed";
 
 fn build_parse_options<F>(configure: F) -> ParseOptions
 where
-    F: FnOnce(ParseOptionsBuilder) -> ParseOptionsBuilder,
+    F: FnOnce(ParseOptions) -> ParseOptions,
 {
-    try_build_parse_options(configure).expect(BUILD_OK)
+    api_build_parse_options(configure).expect(BUILD_OK)
 }
 
 fn parse_value(query: &str) -> Value {
-    parse(query).expect("parse should succeed")
+    parse_default(query).unwrap_or_else(|e| match e {
+        QsParseError::Parse(err) => panic!("parse should succeed but got: {}", err),
+        QsParseError::MissingParseOptions => unreachable!(),
+    })
 }
 
 fn parse_with_options(query: &str, options: &ParseOptions) -> Value {
-    parse_with(query, options).expect("parse should succeed with options")
+    parse_query(query, options).unwrap_or_else(|e| match e {
+        QsParseError::Parse(err) => panic!("parse should succeed with options but got: {}", err),
+        QsParseError::MissingParseOptions => unreachable!(),
+    })
 }
 
 fn expect_invalid_percent_encoding(query: &str) -> (usize, String) {
-    let err = parse::<Value>(query).expect_err("expected invalid percent encoding error");
+    let err = parse_default::<Value>(query).expect_err("expected invalid percent encoding error");
     let message = err.to_string();
     match err {
-        ParseError::InvalidPercentEncoding { index } => (index, message),
+        QsParseError::Parse(ParseError::InvalidPercentEncoding { index }) => (index, message),
         other => panic!("expected invalid percent encoding, got {other:?}"),
     }
 }
 
 fn expect_unmatched_bracket(query: &str) -> (String, String) {
-    let err = parse::<Value>(query).expect_err("expected unmatched bracket error");
+    let err = parse_default::<Value>(query).expect_err("expected unmatched bracket error");
     let message = err.to_string();
     match err {
-        ParseError::UnmatchedBracket { key } => (key, message),
+        QsParseError::Parse(ParseError::UnmatchedBracket { key }) => (key, message),
         other => panic!("expected unmatched bracket, got {other:?}"),
     }
 }
 
 fn expect_invalid_character(query: &str) -> (char, usize, String) {
-    let err = parse::<Value>(query).expect_err("expected invalid character error");
+    let err = parse_default::<Value>(query).expect_err("expected invalid character error");
     let message = err.to_string();
     match err {
-        ParseError::InvalidCharacter { character, index } => (character, index, message),
+        QsParseError::Parse(ParseError::InvalidCharacter { character, index }) => {
+            (character, index, message)
+        }
         other => panic!("expected invalid character, got {other:?}"),
     }
 }
 
 fn expect_unexpected_question_mark(query: &str) -> (usize, String) {
-    let err = parse::<Value>(query).expect_err("expected unexpected question mark error");
+    let err = parse_default::<Value>(query).expect_err("expected unexpected question mark error");
     let message = err.to_string();
     match err {
-        ParseError::UnexpectedQuestionMark { index } => (index, message),
+        QsParseError::Parse(ParseError::UnexpectedQuestionMark { index }) => (index, message),
         other => panic!("expected unexpected question mark, got {other:?}"),
     }
 }
 
 fn expect_duplicate_key(query: &str) -> (String, String) {
-    let err = parse::<Value>(query).expect_err("expected duplicate key error");
+    let err = parse_default::<Value>(query).expect_err("expected duplicate key error");
     let message = err.to_string();
     match err {
-        ParseError::DuplicateKey { key } => (key, message),
+        QsParseError::Parse(ParseError::DuplicateKey { key }) => (key, message),
         other => panic!("expected duplicate key, got {other:?}"),
     }
 }
 
 fn expect_depth_exceeded(query: &str, options: &ParseOptions) -> (String, usize, String) {
-    let err = parse_with::<Value>(query, options).expect_err("expected depth exceeded error");
+    let err = parse_query::<Value>(query, options).expect_err("expected depth exceeded error");
     let message = err.to_string();
     match err {
-        ParseError::DepthExceeded { key, limit } => (key, limit, message),
+        QsParseError::Parse(ParseError::DepthExceeded { key, limit }) => (key, limit, message),
         other => panic!("expected depth exceeded, got {other:?}"),
     }
 }
 
 fn expect_too_many_parameters(query: &str, options: &ParseOptions) -> (usize, usize, String) {
-    let err = parse_with::<Value>(query, options).expect_err("expected too many parameters error");
+    let err = parse_query::<Value>(query, options).expect_err("expected too many parameters error");
     let message = err.to_string();
     match err {
-        ParseError::TooManyParameters { limit, actual } => (limit, actual, message),
+        QsParseError::Parse(ParseError::TooManyParameters { limit, actual }) => {
+            (limit, actual, message)
+        }
         other => panic!("expected too many parameters, got {other:?}"),
     }
 }
 
 fn expect_input_too_long(query: &str, options: &ParseOptions) -> (usize, String) {
-    let err = parse_with::<Value>(query, options).expect_err("expected input too long error");
+    let err = parse_query::<Value>(query, options).expect_err("expected input too long error");
     let message = err.to_string();
     match err {
-        ParseError::InputTooLong { limit } => (limit, message),
+        QsParseError::Parse(ParseError::InputTooLong { limit }) => (limit, message),
         other => panic!("expected input too long, got {other:?}"),
     }
 }
 
 fn expect_invalid_utf8(query: &str) -> String {
-    let err = parse::<Value>(query).expect_err("expected invalid utf8 error");
+    let err = parse_default::<Value>(query).expect_err("expected invalid utf8 error");
     let message = err.to_string();
     match err {
-        ParseError::InvalidUtf8 => message,
+        QsParseError::Parse(ParseError::InvalidUtf8) => message,
         other => panic!("expected invalid utf8, got {other:?}"),
     }
 }
 
-fn expect_serde_error<T>(query: &str) -> (String, SerdeAdapterError)
+fn expect_serde_error<T>(query: &str) -> (String, DeserializeError)
 where
     T: DeserializeOwned + Default + Debug + 'static,
 {
-    let err = parse::<T>(query).expect_err("expected serde error");
+    let err = parse_default::<T>(query).expect_err("expected serde error");
     let message = err.to_string();
     match err {
-        ParseError::Serde(source) => (message, source),
+        QsParseError::Parse(ParseError::Serde(source)) => (message, source),
         other => panic!("expected serde error, got {other:?}"),
     }
 }
-
-type ParseOptionsBuilder = bunner_qs_rs::ParseOptionsBuilder;
 
 mod basic_parsing_tests {
     use super::*;
@@ -552,13 +559,8 @@ mod serde_integration_tests {
 
         assert_eq!(
             message,
-            "failed to deserialize parsed query into target type: failed to deserialize query map: invalid number literal `abc` at count"
+            "failed to deserialize parsed query into target type: invalid number literal `abc` at count"
         );
-        match source {
-            SerdeAdapterError::Deserialize(inner) => {
-                assert_eq!(inner.to_string(), "invalid number literal `abc` at count");
-            }
-            other => panic!("unexpected inner serde error: {other:?}"),
-        }
+        assert_eq!(source.to_string(), "invalid number literal `abc` at count");
     }
 }

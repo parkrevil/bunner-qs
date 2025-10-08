@@ -1,4 +1,5 @@
-use bunner_qs_rs::{ParseOptions, StringifyOptions, stringify_with};
+use bunner_qs_rs::stringify::api::stringify;
+use bunner_qs_rs::{ParseOptions, StringifyOptions};
 use serde_json::{Value, json};
 
 pub const SIMPLE_TARGET_BYTES: usize = 500;
@@ -29,9 +30,9 @@ pub struct Scenario {
 pub type PayloadBuilder = fn(&str) -> Value;
 
 pub fn scenario_simple() -> Scenario {
-    let stringify_options = StringifyOptions::builder()
-        .space_as_plus(false)
-        .build()
+    let stringify_options = StringifyOptions::new().space_as_plus(false);
+    stringify_options
+        .validate()
         .expect("build stringify options");
 
     let (payload, query) = calibrate_payload(
@@ -54,9 +55,9 @@ pub fn scenario_simple() -> Scenario {
 }
 
 pub fn scenario_medium() -> Scenario {
-    let stringify_options = StringifyOptions::builder()
-        .space_as_plus(false)
-        .build()
+    let stringify_options = StringifyOptions::new().space_as_plus(false);
+    stringify_options
+        .validate()
         .expect("build stringify options");
 
     let (payload, query) = calibrate_payload(
@@ -79,9 +80,9 @@ pub fn scenario_medium() -> Scenario {
 }
 
 pub fn scenario_high() -> Scenario {
-    let stringify_options = StringifyOptions::builder()
-        .space_as_plus(false)
-        .build()
+    let stringify_options = StringifyOptions::new().space_as_plus(false);
+    stringify_options
+        .validate()
         .expect("build stringify options");
 
     let (payload, query) = calibrate_payload(
@@ -104,9 +105,9 @@ pub fn scenario_high() -> Scenario {
 }
 
 pub fn scenario_extreme() -> Scenario {
-    let stringify_options = StringifyOptions::builder()
-        .space_as_plus(false)
-        .build()
+    let stringify_options = StringifyOptions::new().space_as_plus(false);
+    stringify_options
+        .validate()
         .expect("build stringify options");
 
     let (payload, query) = calibrate_payload(
@@ -146,7 +147,7 @@ pub fn calibrate_payload(
         let filler = "x".repeat(mid);
         let candidate_payload = build_payload(&filler);
         let candidate_query =
-            stringify_with(&candidate_payload, options).expect("stringify during calibration");
+            stringify(&candidate_payload, options).expect("stringify during calibration");
         let len = candidate_query.len();
         let depth = max_bracket_depth(&candidate_query);
         assert!(
@@ -190,13 +191,13 @@ pub fn calibrate_payload(
 }
 
 fn parse_options_for(target_len: usize, depth: usize) -> ParseOptions {
-    ParseOptions::builder()
+    let options = ParseOptions::new()
         .space_as_plus(false)
         .max_length(target_len + target_len / 4 + 512)
         .max_params(65_536)
-        .max_depth(depth + 2)
-        .build()
-        .expect("build parse options")
+        .max_depth(depth + 2);
+    options.validate().expect("build parse options");
+    options
 }
 
 fn build_simple_payload(filler: &str) -> Value {

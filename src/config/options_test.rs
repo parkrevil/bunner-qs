@@ -5,9 +5,8 @@ mod parse_options_builder {
 
     #[test]
     fn should_build_successfully_when_using_defaults_then_return_default_parse_options() {
-        let builder = ParseOptions::builder();
-
-        let options = builder.build().expect("defaults should be valid");
+        let options = ParseOptions::new();
+        options.validate().expect("defaults should be valid");
 
         assert!(!options.space_as_plus);
         assert_eq!(options.duplicate_keys, DuplicateKeyBehavior::Reject);
@@ -18,16 +17,13 @@ mod parse_options_builder {
 
     #[test]
     fn should_store_values_when_setting_positive_limits_then_apply_configured_limits() {
-        let builder = ParseOptions::builder();
-
-        let options = builder
+        let options = ParseOptions::new()
             .space_as_plus(true)
             .duplicate_keys(DuplicateKeyBehavior::LastWins)
             .max_params(100)
             .max_length(2048)
-            .max_depth(32)
-            .build()
-            .expect("positive limits should be valid");
+            .max_depth(32);
+        options.validate().expect("positive limits should be valid");
 
         assert!(options.space_as_plus);
         assert_eq!(options.duplicate_keys, DuplicateKeyBehavior::LastWins);
@@ -38,46 +34,44 @@ mod parse_options_builder {
 
     #[test]
     fn should_fail_when_setting_zero_max_params_then_return_builder_error() {
-        let builder = ParseOptions::builder();
-
-        let error = builder
+        let error = ParseOptions::new()
             .max_params(0)
-            .build()
+            .validate()
             .expect_err("zero max_params should be rejected");
 
         assert_eq!(
-            error.to_string(),
-            "max_params must be greater than 0 when using the builder"
+            error,
+            OptionsValidationError::NonZeroRequired {
+                field: "max_params"
+            }
         );
     }
 
     #[test]
     fn should_fail_when_setting_zero_max_length_then_return_builder_error() {
-        let builder = ParseOptions::builder();
-
-        let error = builder
+        let error = ParseOptions::new()
             .max_length(0)
-            .build()
+            .validate()
             .expect_err("zero max_length should be rejected");
 
         assert_eq!(
-            error.to_string(),
-            "max_length must be greater than 0 when using the builder"
+            error,
+            OptionsValidationError::NonZeroRequired {
+                field: "max_length"
+            }
         );
     }
 
     #[test]
     fn should_fail_when_setting_zero_max_depth_then_return_builder_error() {
-        let builder = ParseOptions::builder();
-
-        let error = builder
+        let error = ParseOptions::new()
             .max_depth(0)
-            .build()
+            .validate()
             .expect_err("zero max_depth should be rejected");
 
         assert_eq!(
-            error.to_string(),
-            "max_depth must be greater than 0 when using the builder"
+            error,
+            OptionsValidationError::NonZeroRequired { field: "max_depth" }
         );
     }
 }
@@ -88,21 +82,16 @@ mod stringify_options_builder {
     #[test]
     fn should_build_successfully_when_using_stringify_defaults_then_return_default_stringify_options()
      {
-        let builder = StringifyOptions::builder();
-
-        let options = builder.build().expect("defaults should be valid");
+        let options = StringifyOptions::new();
+        options.validate().expect("defaults should be valid");
 
         assert!(!options.space_as_plus);
     }
 
     #[test]
     fn should_store_flag_when_enabling_space_as_plus_then_set_space_as_plus_true() {
-        let builder = StringifyOptions::builder();
-
-        let options = builder
-            .space_as_plus(true)
-            .build()
-            .expect("flag should be valid");
+        let options = StringifyOptions::new().space_as_plus(true);
+        options.validate().expect("flag should be valid");
 
         assert!(options.space_as_plus);
     }

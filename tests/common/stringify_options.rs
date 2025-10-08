@@ -1,10 +1,12 @@
-use bunner_qs_rs::{StringifyOptions, StringifyOptionsBuilder};
+use bunner_qs_rs::{OptionsValidationError, StringifyOptions};
 
-pub fn try_build_stringify_options<F>(configure: F) -> Result<StringifyOptions, String>
+pub fn try_build_stringify_options<F>(
+    configure: F,
+) -> Result<StringifyOptions, OptionsValidationError>
 where
-    F: FnOnce(StringifyOptionsBuilder) -> StringifyOptionsBuilder,
+    F: FnOnce(StringifyOptions) -> StringifyOptions,
 {
-    configure(StringifyOptions::builder())
-        .build()
-        .map_err(|err| err.to_string())
+    let options = configure(StringifyOptions::new());
+    options.validate()?;
+    Ok(options)
 }

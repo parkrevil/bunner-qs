@@ -1,7 +1,7 @@
 use crate::model::OrderedMap;
 use crate::parsing::arena::{ArenaQueryMap, ArenaValue, ParseArena};
 use crate::serde_adapter::{
-    DeserializeError, DeserializeErrorKind, SerdeAdapterError, deserialize_from_arena_map,
+    DeserializeError, DeserializeErrorKind, SerializeError, deserialize_from_arena_map,
     serialize_to_query_map,
 };
 use ahash::RandomState;
@@ -88,7 +88,7 @@ impl QueryMap {
         }
     }
 
-    pub fn to_struct<T>(&self) -> Result<T, SerdeAdapterError>
+    pub fn to_struct<T>(&self) -> Result<T, DeserializeError>
     where
         T: DeserializeOwned,
     {
@@ -99,10 +99,10 @@ impl QueryMap {
             insert_value_into_arena_map(&arena, &mut arena_map, key, value)?;
         }
 
-        deserialize_from_arena_map(&arena_map).map_err(SerdeAdapterError::from)
+        deserialize_from_arena_map(&arena_map)
     }
 
-    pub fn from_struct<T>(value: &T) -> Result<Self, SerdeAdapterError>
+    pub fn from_struct<T>(value: &T) -> Result<Self, SerializeError>
     where
         T: Serialize,
     {
@@ -155,17 +155,16 @@ fn insert_value_into_arena_map<'arena>(
     map: &mut ArenaQueryMap<'arena>,
     key: &str,
     value: &Value,
-) -> Result<(), SerdeAdapterError> {
+) -> Result<(), DeserializeError> {
     let arena_value = clone_value_into_arena(arena, value);
     map.try_insert_str(arena, key, arena_value)
         .map_err(|()| duplicate_field_error(key))
 }
 
-fn duplicate_field_error(key: &str) -> SerdeAdapterError {
-    let error = DeserializeError::from_kind(DeserializeErrorKind::DuplicateField {
+fn duplicate_field_error(key: &str) -> DeserializeError {
+    DeserializeError::from_kind(DeserializeErrorKind::DuplicateField {
         field: key.to_string(),
-    });
-    SerdeAdapterError::from(error)
+    })
 }
 
 impl std::ops::Deref for QueryMap {
