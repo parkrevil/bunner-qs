@@ -171,8 +171,7 @@ fn register_stringify_benches(c: &mut Criterion, label: &str, scenario: Scenario
     let bunner_opts = stringify_options.clone();
     c.bench_function(&format!("bunner_qs_rs/stringify/{}", label), move |b| {
         b.iter(|| {
-            let encoded =
-                stringify(black_box(&bunner_payload), &bunner_opts).expect("stringify");
+            let encoded = stringify(black_box(&bunner_payload), &bunner_opts).expect("stringify");
             black_box(encoded);
         });
     });

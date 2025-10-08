@@ -1,10 +1,10 @@
 use super::{assume_json_value, parse};
-use crate::parsing::errors::ParseError;
 use crate::ParseOptions;
+use crate::parsing::errors::ParseError;
 use assert_matches::assert_matches;
-use serde::de::DeserializeOwned;
 use serde::Deserialize;
-use serde_json::{json, Value};
+use serde::de::DeserializeOwned;
+use serde_json::{Value, json};
 
 #[derive(Debug, Deserialize, PartialEq, Eq, Default)]
 struct Credentials {
@@ -47,18 +47,21 @@ mod parse {
 
     #[test]
     fn should_deserialize_json_value_from_pairs() {
-        let parsed: Value = parse_with_defaults("user[name]=alice&user[role]=admin")
-            .expect("parse should succeed");
+        let parsed: Value =
+            parse_with_defaults("user[name]=alice&user[role]=admin").expect("parse should succeed");
 
-        assert_eq!(parsed, json!({ "user": { "name": "alice", "role": "admin" } }));
+        assert_eq!(
+            parsed,
+            json!({ "user": { "name": "alice", "role": "admin" } })
+        );
     }
 
     #[test]
     fn should_apply_space_as_plus_option() {
         let options = ParseOptions::new().space_as_plus(true);
 
-        let parsed: Value = parse_with_options("message=hello+world", &options)
-            .expect("parse should succeed");
+        let parsed: Value =
+            parse_with_options("message=hello+world", &options).expect("parse should succeed");
 
         assert_eq!(parsed, json!({ "message": "hello world" }));
     }

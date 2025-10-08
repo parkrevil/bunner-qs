@@ -34,7 +34,7 @@ mod with_stringify {
     #[test]
     fn given_valid_stringify_options_when_with_stringify_called_then_store_options() {
         // Arrange
-    let options = StringifyOptions::new().space_as_plus(true);
+        let options = StringifyOptions::new().space_as_plus(true);
         let qs = Qs::new();
 
         // Act

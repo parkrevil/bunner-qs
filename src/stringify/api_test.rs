@@ -1,6 +1,6 @@
+use crate::StringifyOptions;
 use crate::stringify::api::stringify;
 use crate::stringify::errors::StringifyError;
-use crate::StringifyOptions;
 use assert_matches::assert_matches;
 use serde::Serialize;
 
@@ -15,7 +15,10 @@ struct Message<'a> {
     body: &'a str,
 }
 
-fn stringify_with_options<T>(value: &T, options: &StringifyOptions) -> Result<String, StringifyError>
+fn stringify_with_options<T>(
+    value: &T,
+    options: &StringifyOptions,
+) -> Result<String, StringifyError>
 where
     T: Serialize,
 {
@@ -47,8 +50,13 @@ mod stringify {
     fn should_encode_spaces_as_plus_when_option_enabled() {
         let options = StringifyOptions::new().space_as_plus(true);
 
-        let result = stringify_with_options(&Message { body: "hello world" }, &options)
-            .expect("stringify should succeed");
+        let result = stringify_with_options(
+            &Message {
+                body: "hello world",
+            },
+            &options,
+        )
+        .expect("stringify should succeed");
 
         assert_eq!(result, "body=hello+world");
     }
@@ -57,16 +65,23 @@ mod stringify {
     fn should_preserve_percent_encoding_when_space_as_plus_disabled() {
         let options = StringifyOptions::new().space_as_plus(false);
 
-        let result = stringify_with_options(&Message { body: "hello world" }, &options)
-            .expect("stringify should succeed");
+        let result = stringify_with_options(
+            &Message {
+                body: "hello world",
+            },
+            &options,
+        )
+        .expect("stringify should succeed");
 
         assert_eq!(result, "body=hello%20world");
     }
 
     #[test]
     fn should_surface_invalid_value_error_for_control_characters() {
-        let error = stringify_default(&Message { body: "line1\nline2" })
-            .expect_err("control characters should fail");
+        let error = stringify_default(&Message {
+            body: "line1\nline2",
+        })
+        .expect_err("control characters should fail");
 
         assert_matches!(error, StringifyError::InvalidValue { key } if key == "body");
     }
