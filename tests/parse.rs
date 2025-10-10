@@ -143,7 +143,7 @@ mod basic_parsing_tests {
     use super::*;
 
     #[test]
-    fn should_parse_basic_pairs_into_expected_map_when_query_contains_two_pairs() {
+    fn should_parse_basic_pairs_into_expected_map_when_query_contains_two_pairs_then_produce_flat_object_with_pairs() {
         let query = "a=1&b=two";
 
         let parsed = parse_value(query);
@@ -152,7 +152,7 @@ mod basic_parsing_tests {
     }
 
     #[test]
-    fn should_decode_unicode_percent_encoded_text_when_query_contains_international_values() {
+    fn should_decode_unicode_percent_encoded_text_when_query_contains_international_values_then_decode_international_characters_correctly() {
         let query = concat!(
             "name=J%C3%BCrgen",
             "&emoji=%F0%9F%98%80",
@@ -173,7 +173,7 @@ mod basic_parsing_tests {
     }
 
     #[test]
-    fn should_roundtrip_percent_encoded_unicode_keys_when_query_contains_multilingual_pairs() {
+    fn should_roundtrip_percent_encoded_unicode_keys_when_query_contains_multilingual_pairs_then_restore_original_multilingual_keys_and_values() {
         use percent_encoding::{NON_ALPHANUMERIC, utf8_percent_encode};
 
         let key_one = "ключ🌌";
@@ -195,7 +195,7 @@ mod basic_parsing_tests {
     }
 
     #[test]
-    fn should_parse_null_value_when_query_is_empty() {
+    fn should_parse_null_value_when_query_is_empty_then_return_null_value() {
         let query = "";
 
         let parsed = parse_value(query);
@@ -204,7 +204,7 @@ mod basic_parsing_tests {
     }
 
     #[test]
-    fn should_parse_null_value_when_query_is_lone_question_mark() {
+    fn should_parse_null_value_when_query_is_lone_question_mark_then_return_null_value_for_prefix_only() {
         let query = "?";
 
         let parsed = parse_value(query);
@@ -213,7 +213,7 @@ mod basic_parsing_tests {
     }
 
     #[test]
-    fn should_ignore_leading_question_mark_when_query_has_prefix() {
+    fn should_ignore_leading_question_mark_when_query_has_prefix_then_strip_prefix_and_parse_pairs() {
         let query = "?foo=bar&baz=qux";
 
         let parsed = parse_value(query);
@@ -222,7 +222,7 @@ mod basic_parsing_tests {
     }
 
     #[test]
-    fn should_store_empty_string_when_flag_without_value_present() {
+    fn should_store_empty_string_when_flag_without_value_present_then_store_empty_string_for_flag() {
         let query = "flag";
 
         let parsed = parse_value(query);
@@ -231,7 +231,7 @@ mod basic_parsing_tests {
     }
 
     #[test]
-    fn should_keep_entry_for_empty_key_when_query_starts_with_equals() {
+    fn should_keep_entry_for_empty_key_when_query_starts_with_equals_then_preserve_entry_with_empty_key() {
         let query = "=1&foo=bar";
 
         let parsed = parse_value(query);
@@ -240,7 +240,7 @@ mod basic_parsing_tests {
     }
 
     #[test]
-    fn should_store_empty_strings_when_values_are_explicitly_empty() {
+    fn should_store_empty_strings_when_values_are_explicitly_empty_then_store_empty_string_values() {
         let query = "a=&b=2";
 
         let parsed = parse_value(query);
@@ -250,7 +250,7 @@ mod basic_parsing_tests {
     }
 
     #[test]
-    fn should_assign_empty_string_when_flags_and_pairs_are_mixed() {
+    fn should_assign_empty_string_when_flags_and_pairs_are_mixed_then_assign_empty_string_to_flag_entries() {
         let query = "a=1&b&c=3";
 
         let parsed = parse_value(query);
@@ -261,7 +261,7 @@ mod basic_parsing_tests {
     }
 
     #[test]
-    fn should_ignore_trailing_ampersands_when_query_has_extra_separators() {
+    fn should_ignore_trailing_ampersands_when_query_has_extra_separators_then_ignore_trailing_separators() {
         let query = "alpha=beta&&";
 
         let parsed = parse_value(query);
@@ -274,7 +274,7 @@ mod structure_parsing_tests {
     use super::*;
 
     #[test]
-    fn should_parse_object_entry_after_numeric_segment_when_nested_key_present() {
+    fn should_parse_object_entry_after_numeric_segment_when_nested_key_present_then_attach_nested_object_to_numeric_index() {
         let query = "a[0]b=1";
 
         let parsed = parse_value(query);
@@ -289,7 +289,7 @@ mod structure_parsing_tests {
     }
 
     #[test]
-    fn should_treat_nested_empty_brackets_as_literals_when_parsing_keys() {
+    fn should_treat_nested_empty_brackets_as_literals_when_parsing_keys_then_treat_empty_brackets_as_literal_segments() {
         let query = "a[[]]=1";
 
         let parsed = parse_value(query);
@@ -298,7 +298,7 @@ mod structure_parsing_tests {
     }
 
     #[test]
-    fn should_preserve_percent_encoded_equals_when_decoding_segments() {
+    fn should_preserve_percent_encoded_equals_when_decoding_segments_then_decode_key_with_percent_encoded_equals() {
         let query = "profile[key%3Dname]=alice";
 
         let parsed = parse_value(query);
@@ -307,7 +307,7 @@ mod structure_parsing_tests {
     }
 
     #[test]
-    fn should_retain_structure_when_nested_objects_and_arrays_present() {
+    fn should_retain_structure_when_nested_objects_and_arrays_present_then_reconstruct_nested_objects_and_arrays() {
         let query =
             "user[name]=Alice&user[stats][age]=30&user[hobbies][]=reading&user[hobbies][]=coding";
 
@@ -319,7 +319,7 @@ mod structure_parsing_tests {
     }
 
     #[test]
-    fn should_roundtrip_complex_structure_when_query_contains_nested_data() {
+    fn should_roundtrip_complex_structure_when_query_contains_nested_data_then_roundtrip_complex_nested_query() {
         let query = "data[users][0][name]=Alice&data[users][1][name]=Bob&data[meta][version]=1";
 
         assert_parse_roundtrip(query);
@@ -330,7 +330,7 @@ mod option_behavior_tests {
     use super::*;
 
     #[test]
-    fn should_convert_plus_to_space_when_space_as_plus_option_enabled() {
+    fn should_convert_plus_to_space_when_space_as_plus_option_enabled_then_decode_plus_as_space_only_with_option() {
         let options = build_parse_options(|builder| builder.space_as_plus(true));
         let query = "note=one+two";
 
@@ -342,7 +342,7 @@ mod option_behavior_tests {
     }
 
     #[test]
-    fn should_store_configuration_when_builder_sets_multiple_limits() {
+    fn should_store_configuration_when_builder_sets_multiple_limits_then_capture_configured_limit_options() {
         let options = build_parse_options(|builder| {
             builder
                 .space_as_plus(true)
@@ -362,7 +362,7 @@ mod option_behavior_tests {
     }
 
     #[test]
-    fn should_return_errors_when_parameter_and_length_limits_are_enforced() {
+    fn should_return_errors_when_parameter_and_length_limits_are_enforced_then_report_parameter_and_length_violations() {
         let param_limited = build_parse_options(|builder| builder.max_params(1));
         let length_limited = build_parse_options(|builder| builder.max_length(5));
 
@@ -380,7 +380,7 @@ mod option_behavior_tests {
     }
 
     #[test]
-    fn should_keep_initial_values_when_duplicate_keys_use_first_wins() {
+    fn should_keep_initial_values_when_duplicate_keys_use_first_wins_then_keep_first_value_for_duplicates() {
         let options =
             build_parse_options(|builder| builder.duplicate_keys(DuplicateKeyBehavior::FirstWins));
         let query = "color=red&color=blue&user[name]=Alice&user[name]=Bob";
@@ -392,7 +392,7 @@ mod option_behavior_tests {
     }
 
     #[test]
-    fn should_replace_with_latest_values_when_duplicate_keys_use_last_wins() {
+    fn should_replace_with_latest_values_when_duplicate_keys_use_last_wins_then_keep_last_value_for_duplicates() {
         let options =
             build_parse_options(|builder| builder.duplicate_keys(DuplicateKeyBehavior::LastWins));
         let query = "color=red&color=blue&user[name]=Alice&user[name]=Bob";
@@ -408,7 +408,7 @@ mod error_handling_tests {
     use super::*;
 
     #[test]
-    fn should_report_index_when_percent_encoding_is_incomplete() {
+    fn should_report_index_when_percent_encoding_is_incomplete_then_report_offset_for_incomplete_percent_encoding() {
         let query = "bad=%2";
 
         let (index, message) = expect_invalid_percent_encoding(query);
@@ -418,7 +418,7 @@ mod error_handling_tests {
     }
 
     #[test]
-    fn should_report_index_when_percent_encoding_has_invalid_digits() {
+    fn should_report_index_when_percent_encoding_has_invalid_digits_then_report_offset_for_invalid_percent_digits() {
         let query = "bad=%ZZ";
 
         let (index, _) = expect_invalid_percent_encoding(query);
@@ -427,7 +427,7 @@ mod error_handling_tests {
     }
 
     #[test]
-    fn should_return_key_when_closing_bracket_is_unmatched() {
+    fn should_return_key_when_closing_bracket_is_unmatched_then_return_problematic_key_for_unmatched_bracket() {
         let query = "a]=1";
 
         let (key, _) = expect_unmatched_bracket(query);
@@ -436,7 +436,7 @@ mod error_handling_tests {
     }
 
     #[test]
-    fn should_report_unmatched_bracket_when_equals_is_unencoded() {
+    fn should_report_unmatched_bracket_when_equals_is_unencoded_then_return_prefix_key_for_unclosed_bracket() {
         let query = "profile[key=name]=alice";
 
         let (key, _) = expect_unmatched_bracket(query);
@@ -445,7 +445,7 @@ mod error_handling_tests {
     }
 
     #[test]
-    fn should_report_position_when_control_character_present_in_key() {
+    fn should_report_position_when_control_character_present_in_key_then_report_offset_for_control_character_in_key() {
         let input = format!("bad{}key=1", '\u{0007}');
 
         let (character, index, message) = expect_invalid_character(&input);
@@ -459,7 +459,7 @@ mod error_handling_tests {
     }
 
     #[test]
-    fn should_report_position_when_percent_decoding_control_character() {
+    fn should_report_position_when_percent_decoding_control_character_then_report_offset_for_decoded_control_character() {
         let query = "bad=%07";
 
         let (character, index, message) = expect_invalid_character(query);
@@ -473,7 +473,7 @@ mod error_handling_tests {
     }
 
     #[test]
-    fn should_report_unexpected_character_when_question_mark_in_key() {
+    fn should_report_unexpected_character_when_question_mark_in_key_then_report_unexpected_question_mark_position() {
         let query = "foo?bar=1";
 
         let (index, message) = expect_unexpected_question_mark(query);
@@ -486,7 +486,7 @@ mod error_handling_tests {
     }
 
     #[test]
-    fn should_return_invalid_character_error_when_raw_space_present_in_key() {
+    fn should_return_invalid_character_error_when_raw_space_present_in_key_then_report_space_character_violation() {
         let query = "bad key=1";
 
         let (character, index, message) = expect_invalid_character(query);
@@ -500,7 +500,7 @@ mod error_handling_tests {
     }
 
     #[test]
-    fn should_report_errors_when_brackets_unmatched_and_depth_limit_exceeded() {
+    fn should_report_errors_when_brackets_unmatched_and_depth_limit_exceeded_then_surface_unmatched_bracket_and_depth_errors() {
         let depth_limited = build_parse_options(|builder| builder.max_depth(1));
 
         let (key, message) = expect_unmatched_bracket("a[=1");
@@ -517,7 +517,7 @@ mod error_handling_tests {
     }
 
     #[test]
-    fn should_report_conflict_when_duplicate_keys_appear() {
+    fn should_report_conflict_when_duplicate_keys_appear_then_fail_with_duplicate_key_error() {
         let query = "color=red&color=blue";
 
         let (key, message) = expect_duplicate_key(query);
@@ -527,7 +527,7 @@ mod error_handling_tests {
     }
 
     #[test]
-    fn should_materialize_sparse_array_when_indices_skip_values() {
+    fn should_materialize_sparse_array_when_indices_skip_values_then_materialize_sparse_array_with_placeholders() {
         let query = "items[0]=apple&items[2]=cherry";
 
         let parsed = parse_value(query);
@@ -539,7 +539,7 @@ mod error_handling_tests {
     }
 
     #[test]
-    fn should_pad_missing_indices_when_first_element_is_non_zero() {
+    fn should_pad_missing_indices_when_first_element_is_non_zero_then_pad_missing_indices_with_empty_strings() {
         let query = "items[1]=late";
 
         let parsed = parse_value(query);
@@ -551,7 +551,7 @@ mod error_handling_tests {
     }
 
     #[test]
-    fn should_report_failure_when_percent_decoding_yields_invalid_utf8() {
+    fn should_report_failure_when_percent_decoding_yields_invalid_utf8_then_fail_with_invalid_utf8_error() {
         let query = "bad=%FF";
 
         let message = expect_invalid_utf8(query);
@@ -564,7 +564,7 @@ mod serde_integration_tests {
     use super::*;
 
     #[test]
-    fn should_report_human_readable_error_when_deserializing_into_struct_fails() {
+    fn should_report_human_readable_error_when_deserializing_into_struct_fails_then_surface_human_readable_deserialize_error() {
         #[derive(Debug, Deserialize, Default)]
         struct NumericTarget {
             #[serde(rename = "count")]

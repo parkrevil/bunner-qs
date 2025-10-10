@@ -38,7 +38,7 @@ fn build_nested_user_value() -> Value {
 const STRINGIFY_BUILD_OK: &str = "stringify options builder should succeed";
 
 #[test]
-fn should_stringify_basic_pairs_when_map_contains_simple_entries() {
+fn should_stringify_basic_pairs_when_map_contains_simple_entries_then_emit_ampersand_joined_pairs() {
     let map = json_from_pairs(&[("a", "1"), ("b", "two")]);
     let encoded = stringify_default(&map).expect("should stringify basic pairs");
     assert_eq!(encoded, "a=1&b=two");
@@ -46,14 +46,14 @@ fn should_stringify_basic_pairs_when_map_contains_simple_entries() {
 }
 
 #[test]
-fn should_return_empty_string_when_map_has_no_entries() {
+fn should_return_empty_string_when_map_has_no_entries_then_produce_empty_query_string() {
     let map = Value::Object(Map::new());
     let encoded = stringify_default(&map).expect("empty map should stringify");
     assert_eq!(encoded, "");
 }
 
 #[test]
-fn should_match_function_output_when_using_default_options() {
+fn should_match_function_output_when_using_default_options_then_match_default_options_encoding() {
     let map = json_from_pairs(&[("x", "1"), ("y", "two")]);
     let via_fn = stringify_default(&map).expect("function stringify should succeed");
     let via_options = stringify_with_options(&map, &StringifyOptions::default())
@@ -62,7 +62,7 @@ fn should_match_function_output_when_using_default_options() {
 }
 
 #[test]
-fn should_encode_spaces_as_plus_when_option_is_enabled() {
+fn should_encode_spaces_as_plus_when_option_is_enabled_then_encode_spaces_based_on_configuration() {
     let map = json_from_pairs(&[("note", "hello world")]);
     let plus =
         build_stringify_options(|builder| builder.space_as_plus(true)).expect(STRINGIFY_BUILD_OK);
@@ -74,7 +74,7 @@ fn should_encode_spaces_as_plus_when_option_is_enabled() {
 }
 
 #[test]
-fn should_percent_encode_reserved_and_unicode_characters_when_stringifying() {
+fn should_percent_encode_reserved_and_unicode_characters_when_stringifying_then_percent_encode_reserved_sequences() {
     let map = json!({
         "title": "rock & roll/舞"
     });
@@ -83,7 +83,7 @@ fn should_percent_encode_reserved_and_unicode_characters_when_stringifying() {
 }
 
 #[test]
-fn should_percent_encode_fragments_and_equals_when_reserved_characters_present() {
+fn should_percent_encode_fragments_and_equals_when_reserved_characters_present_then_preserve_reserved_characters_via_encoding() {
     let map = json!({
         "frag#ment": "a=b&c"
     });
@@ -96,7 +96,7 @@ fn should_percent_encode_fragments_and_equals_when_reserved_characters_present()
 }
 
 #[test]
-fn should_percent_encode_plus_sign_when_using_default_behavior() {
+fn should_percent_encode_plus_sign_when_using_default_behavior_then_escape_plus_sign_as_percent2b() {
     let map = json!({
         "symbol": "1+1"
     });
@@ -109,7 +109,7 @@ fn should_percent_encode_plus_sign_when_using_default_behavior() {
 }
 
 #[test]
-fn should_percent_encode_long_unicode_values_when_stringifying_nested_data() {
+fn should_percent_encode_long_unicode_values_when_stringifying_nested_data_then_include_percent_encoded_rocket_sequences() {
     let long_value = "🚀".repeat(64);
 
     let root = json!({
@@ -126,7 +126,7 @@ fn should_percent_encode_long_unicode_values_when_stringifying_nested_data() {
 }
 
 #[test]
-fn should_percent_encode_multilingual_values_when_stringifying_map() {
+fn should_percent_encode_multilingual_values_when_stringifying_map_then_percent_encode_each_multilingual_value() {
     let map = json!({
         "name": "Jürgen",
         "emoji": "😀",
@@ -151,7 +151,7 @@ fn should_percent_encode_multilingual_values_when_stringifying_map() {
 }
 
 #[test]
-fn should_encode_extended_unicode_keys_and_values_when_serializing() {
+fn should_encode_extended_unicode_keys_and_values_when_serializing_then_roundtrip_extended_unicode_entries() {
     let map = json!({
         "鍵🔑": "值🌈",
         "emoji_key🙂": "مرحبا",
@@ -175,7 +175,7 @@ fn should_encode_extended_unicode_keys_and_values_when_serializing() {
 }
 
 #[test]
-fn should_use_bracket_notation_when_stringifying_nested_structures() {
+fn should_use_bracket_notation_when_stringifying_nested_structures_then_emit_bracket_notation_segments() {
     let map = build_nested_user_value();
     let encoded = stringify_default(&map).expect("should stringify nested structures");
     assert_encoded_contains(
@@ -191,13 +191,13 @@ fn should_use_bracket_notation_when_stringifying_nested_structures() {
 }
 
 #[test]
-fn should_roundtrip_structure_when_parsing_stringified_payload() {
+fn should_roundtrip_structure_when_parsing_stringified_payload_then_roundtrip_nested_structure_successfully() {
     let map = build_nested_user_value();
     assert_stringify_roundtrip(&map);
 }
 
 #[test]
-fn should_roundtrip_with_spaces_when_plus_option_enabled() {
+fn should_roundtrip_with_spaces_when_plus_option_enabled_then_roundtrip_spaces_using_plus_encoding() {
     let map = json!({
         "msg": "one two"
     });
@@ -211,7 +211,7 @@ fn should_roundtrip_with_spaces_when_plus_option_enabled() {
 }
 
 #[test]
-fn should_reject_control_characters_when_key_contains_them() {
+fn should_reject_control_characters_when_key_contains_them_then_emit_invalid_key_error() {
     let map = json!({
         "bad\u{0007}key": "value"
     });
@@ -225,7 +225,7 @@ fn should_reject_control_characters_when_key_contains_them() {
 }
 
 #[test]
-fn should_reject_control_characters_when_value_contains_line_break() {
+fn should_reject_control_characters_when_value_contains_line_break_then_emit_invalid_value_error_for_line_break() {
     let map = json!({
         "normal": "line\nbreak"
     });
@@ -239,7 +239,7 @@ fn should_reject_control_characters_when_value_contains_line_break() {
 }
 
 #[test]
-fn should_reject_delete_character_when_value_contains_delete_control() {
+fn should_reject_delete_character_when_value_contains_delete_control_then_emit_invalid_value_error_for_delete_character() {
     let map = json!({
         "note": format!("alert{}signal", '\u{007F}')
     });
@@ -254,7 +254,7 @@ fn should_reject_delete_character_when_value_contains_delete_control() {
 }
 
 #[test]
-fn should_reject_control_characters_when_nested_value_contains_them() {
+fn should_reject_control_characters_when_nested_value_contains_them_then_emit_invalid_value_error_for_nested_path() {
     let map = json!({
         "profile": {
             "address": {
@@ -273,7 +273,7 @@ fn should_reject_control_characters_when_nested_value_contains_them() {
 }
 
 #[test]
-fn should_stringify_array_of_objects_when_structure_is_nested() {
+fn should_stringify_array_of_objects_when_structure_is_nested_then_roundtrip_nested_array_objects() {
     let map = json!({
         "contact": {
             "phones": [
@@ -288,14 +288,14 @@ fn should_stringify_array_of_objects_when_structure_is_nested() {
 }
 
 #[test]
-fn should_configure_flags_when_building_stringify_options() {
+fn should_configure_flags_when_building_stringify_options_then_enable_space_as_plus_flag() {
     let options =
         build_stringify_options(|builder| builder.space_as_plus(true)).expect(STRINGIFY_BUILD_OK);
     assert!(options.space_as_plus);
 }
 
 #[test]
-fn should_skip_none_fields_when_option_values_are_missing() {
+fn should_skip_none_fields_when_option_values_are_missing_then_omit_none_serialized_fields() {
     #[derive(Serialize)]
     struct OptionalFields<'a> {
         keep: Option<&'a str>,
@@ -312,7 +312,7 @@ fn should_skip_none_fields_when_option_values_are_missing() {
 }
 
 #[test]
-fn should_preserve_none_placeholders_when_sequence_contains_gaps() {
+fn should_preserve_none_placeholders_when_sequence_contains_gaps_then_preserve_gaps_in_option_vectors() {
     #[derive(Serialize)]
     struct SequenceWithGaps<'a> {
         tags: Vec<Option<&'a str>>,
