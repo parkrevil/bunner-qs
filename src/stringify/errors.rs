@@ -7,6 +7,6 @@ pub enum StringifyError {
     Serialize(#[from] SerializeError),
     #[error("key contains disallowed control character: '{key}'")]
     InvalidKey { key: String },
-    #[error("value for key '{key}' contains disallowed control character")]
-    InvalidValue { key: String },
+    #[error("value for key '{key}' contains disallowed control character: '{value}'")]
+    InvalidValue { key: String, value: String },
 }

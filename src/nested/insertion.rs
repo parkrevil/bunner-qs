@@ -37,7 +37,7 @@ pub(crate) fn insert_nested_value_arena<'arena>(
     if segments.len() == 1 {
         if let Some(existing) = map.get_mut(root_key) {
             return match duplicate_keys {
-                DuplicateKeyBehavior::Reject => Err(ParseError::DuplicateKey {
+                DuplicateKeyBehavior::Reject => Err(ParseError::DuplicateRootKey {
                     key: root_key.to_string(),
                 }),
                 DuplicateKeyBehavior::FirstWins => Ok(()),
@@ -174,7 +174,7 @@ fn arena_set_nested_value<'arena>(
                 }
             },
             ArenaValue::String(_) => {
-                return Err(unexpected_nested_string(ctx.root_key));
+                return Err(unexpected_nested_string(ctx.root_key, &path));
             }
         }
     }
@@ -232,11 +232,13 @@ where
     S: std::hash::BuildHasher,
 {
     if is_last {
+        let parent = format_parent_path(ctx.root_key, path);
         match index.raw_entry_mut().from_key(segment) {
             RawEntryMut::Occupied(entry) => {
                 return match ctx.duplicate_keys {
-                    DuplicateKeyBehavior::Reject => Err(ParseError::DuplicateKey {
-                        key: segment.to_string(),
+                    DuplicateKeyBehavior::Reject => Err(ParseError::DuplicateMapEntry {
+                        parent: parent.clone(),
+                        segment: segment.to_string(),
                     }),
                     DuplicateKeyBehavior::FirstWins => Ok(StepOutcome::Complete),
                     DuplicateKeyBehavior::LastWins => {
@@ -244,8 +246,9 @@ where
                         let value =
                             value_to_set
                                 .take()
-                                .ok_or_else(|| ParseError::DuplicateKey {
-                                    key: segment.to_string(),
+                                .ok_or_else(|| ParseError::DuplicateMapEntry {
+                                    parent: parent.clone(),
+                                    segment: segment.to_string(),
                                 })?;
                         entries[idx].1 = ArenaValue::string(value);
                         Ok(StepOutcome::Complete)
@@ -257,8 +260,9 @@ where
                 let idx = entries.len();
                 let value = value_to_set
                     .take()
-                    .ok_or_else(|| ParseError::DuplicateKey {
-                        key: segment.to_string(),
+                    .ok_or_else(|| ParseError::DuplicateMapEntry {
+                        parent: parent.clone(),
+                        segment: segment.to_string(),
                     })?;
                 entries.push((key_ref, ArenaValue::string(value)));
                 vacant.insert(key_ref, idx);
@@ -338,17 +342,20 @@ fn handle_seq_segment<'arena>(
     is_last: bool,
     value_to_set: &mut Option<&'arena str>,
 ) -> Result<StepOutcome, ParseError> {
+    let parent = format_parent_path(ctx.root_key, path);
     let idx = match segments[depth].kind {
         SegmentKind::Numeric | SegmentKind::Empty => {
             segment
                 .parse::<usize>()
-                .map_err(|_| ParseError::DuplicateKey {
-                    key: ctx.root_key.to_string(),
+                .map_err(|_| ParseError::InvalidSequenceIndex {
+                    parent: parent.clone(),
+                    segment: segment.to_string(),
                 })?
         }
         SegmentKind::Other => {
-            return Err(ParseError::DuplicateKey {
-                key: ctx.root_key.to_string(),
+            return Err(ParseError::KeyPatternConflict {
+                parent: parent.clone(),
+                segment: segment.to_string(),
             });
         }
     };
@@ -364,24 +371,28 @@ fn handle_seq_segment<'arena>(
         if idx == items.len() {
             let value = value_to_set
                 .take()
-                .ok_or_else(|| ParseError::DuplicateKey {
-                    key: segment.to_string(),
+                .ok_or_else(|| ParseError::DuplicateSequenceIndex {
+                    parent: parent.clone(),
+                    index: idx,
                 })?;
             items.push(ArenaValue::string(value));
             return Ok(StepOutcome::Complete);
         }
         if !arena_is_placeholder(&items[idx]) {
             return match ctx.duplicate_keys {
-                DuplicateKeyBehavior::Reject => Err(ParseError::DuplicateKey {
-                    key: segment.to_string(),
+                DuplicateKeyBehavior::Reject => Err(ParseError::DuplicateSequenceIndex {
+                    parent: parent.clone(),
+                    index: idx,
                 }),
                 DuplicateKeyBehavior::FirstWins => Ok(StepOutcome::Complete),
                 DuplicateKeyBehavior::LastWins => {
-                    let value = value_to_set
-                        .take()
-                        .ok_or_else(|| ParseError::DuplicateKey {
-                            key: segment.to_string(),
-                        })?;
+                    let value =
+                        value_to_set
+                            .take()
+                            .ok_or_else(|| ParseError::DuplicateSequenceIndex {
+                                parent: parent.clone(),
+                                index: idx,
+                            })?;
                     items[idx] = ArenaValue::string(value);
                     Ok(StepOutcome::Complete)
                 }
@@ -389,8 +400,9 @@ fn handle_seq_segment<'arena>(
         }
         let value = value_to_set
             .take()
-            .ok_or_else(|| ParseError::DuplicateKey {
-                key: segment.to_string(),
+            .ok_or_else(|| ParseError::DuplicateSequenceIndex {
+                parent: parent.clone(),
+                index: idx,
             })?;
         items[idx] = ArenaValue::string(value);
         return Ok(StepOutcome::Complete);
@@ -412,8 +424,8 @@ fn handle_seq_segment<'arena>(
     }
 
     if idx < items.len() && matches!(&items[idx], ArenaValue::String(s) if !s.is_empty()) {
-        return Err(ParseError::DuplicateKey {
-            key: ctx.root_key.to_string(),
+        return Err(ParseError::NestedValueConflict {
+            parent: format_child_path(ctx.root_key, path, segment),
         });
     }
 
@@ -461,7 +473,7 @@ fn try_insert_or_duplicate<F>(key: &str, insert: F) -> Result<(), ParseError>
 where
     F: FnOnce() -> Result<(), ()>,
 {
-    insert().map_err(|_| ParseError::DuplicateKey {
+    insert().map_err(|_| ParseError::DuplicateRootKey {
         key: key.to_string(),
     })
 }
@@ -473,21 +485,43 @@ fn get_root_value<'arena, 'map>(
     root_key: &str,
 ) -> Result<&'map mut ArenaValue<'arena>, ParseError> {
     map.get_mut(root_segment)
-        .ok_or_else(|| ParseError::DuplicateKey {
+        .ok_or_else(|| ParseError::DuplicateRootKey {
             key: root_key.to_string(),
         })
 }
 
 #[inline]
-fn unexpected_nested_string(root_key: &str) -> ParseError {
-    ParseError::DuplicateKey {
-        key: root_key.to_string(),
+fn unexpected_nested_string(root_key: &str, path: &[&str]) -> ParseError {
+    ParseError::NestedValueConflict {
+        parent: format_parent_path(root_key, path),
     }
 }
 
 #[inline]
 fn should_promote_string_node() -> bool {
     !STRING_PROMOTION_SUPPRESSED.with(|flag| flag.get())
+}
+
+fn format_parent_path(root: &str, path: &[&str]) -> String {
+    if path.is_empty() {
+        return root.to_string();
+    }
+
+    let mut label = String::from(root);
+    for segment in path {
+        label.push('[');
+        label.push_str(segment);
+        label.push(']');
+    }
+    label
+}
+
+fn format_child_path(root: &str, path: &[&str], segment: &str) -> String {
+    let mut label = format_parent_path(root, path);
+    label.push('[');
+    label.push_str(segment);
+    label.push(']');
+    label
 }
 
 #[cfg(test)]

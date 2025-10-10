@@ -459,7 +459,7 @@ mod insert_nested_value_arena {
         )
         .expect_err("non-numeric segment should fail");
 
-        expect_duplicate_key(error, "items");
+        expect_duplicate_key(error, "name");
     }
 
     #[test]
@@ -762,7 +762,7 @@ mod arena_set_nested_value {
         })
         .expect_err("suppressed promotion without hints should report duplicate key");
 
-        expect_duplicate_key(error, "root");
+        expect_duplicate_key(error, "root[root]");
     }
 }
 
@@ -1132,7 +1132,7 @@ mod handle_seq_segment {
 
         assert!(result.is_err(), "expected duplicate key error");
         let err = result.err().unwrap();
-        expect_duplicate_key(err, "items");
+        expect_duplicate_key(err, overflow);
     }
 
     #[test]
@@ -1185,7 +1185,7 @@ mod handle_seq_segment {
 
         assert!(result.is_err(), "expected duplicate key error");
         let err = result.err().unwrap();
-        expect_duplicate_key(err, "items");
+        expect_duplicate_key(err, "alpha");
     }
 
     #[test]
@@ -1280,7 +1280,7 @@ mod unexpected_nested_string {
 
     #[test]
     fn should_surface_duplicate_key_error_when_nested_string_encountered_then_return_parse_error() {
-        let error = unexpected_nested_string("profile");
+        let error = unexpected_nested_string("profile", &[]);
         expect_duplicate_key(error, "profile");
     }
 }

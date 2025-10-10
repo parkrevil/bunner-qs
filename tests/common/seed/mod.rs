@@ -121,7 +121,14 @@ pub fn assert_case_outcome(case: &SeedCase, result: Result<Value, ParseError>) {
             });
         }
         SeedExpect::DuplicateKey => match result {
-            Err(ParseError::DuplicateKey { .. }) => {}
+            Err(
+                ParseError::DuplicateRootKey { .. }
+                | ParseError::DuplicateMapEntry { .. }
+                | ParseError::DuplicateSequenceIndex { .. }
+                | ParseError::InvalidSequenceIndex { .. }
+                | ParseError::NestedValueConflict { .. }
+                | ParseError::KeyPatternConflict { .. },
+            ) => {}
             other => panic!(
                 "case `{}` expected DuplicateKey, got {:?}",
                 case.name, other
@@ -177,7 +184,7 @@ pub fn assert_case_outcome(case: &SeedCase, result: Result<Value, ParseError>) {
             ),
         },
         SeedExpect::InvalidUtf8 => match result {
-            Err(ParseError::InvalidUtf8) => {}
+            Err(ParseError::InvalidUtf8 { .. }) => {}
             other => panic!("case `{}` expected InvalidUtf8, got {:?}", case.name, other),
         },
     }

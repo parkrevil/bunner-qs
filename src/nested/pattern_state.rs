@@ -158,8 +158,10 @@ impl PatternState {
             let node = &mut self.nodes[current];
             match node.kind {
                 Some(existing) if existing != kind => {
-                    return Err(ParseError::DuplicateKey {
-                        key: root_key.to_string(),
+                    let parent = format_resolved_path(root_key, container_path);
+                    return Err(ParseError::KeyPatternConflict {
+                        parent,
+                        segment: segment.to_string(),
                     });
                 }
                 Some(_) => {}
@@ -196,4 +198,18 @@ impl PatternState {
             .map(|idx| self.nodes[idx].children.len())
             .unwrap_or(0)
     }
+}
+
+fn format_resolved_path(root: &str, path: &[ResolvedSegment<'_>]) -> String {
+    if path.is_empty() {
+        return root.to_string();
+    }
+
+    let mut label = String::from(root);
+    for segment in path {
+        label.push('[');
+        label.push_str(segment.as_str());
+        label.push(']');
+    }
+    label
 }

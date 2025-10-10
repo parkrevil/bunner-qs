@@ -27,7 +27,12 @@ fn stringify_roundtrip(map: &Value) -> Value {
 
 fn duplicate_key_key(query: &str) -> String {
     match parse_default::<Value>(query).expect_err("duplicate key should fail") {
-        QsParseError::Parse(ParseError::DuplicateKey { key }) => key,
+        QsParseError::Parse(ParseError::DuplicateRootKey { key }) => key,
+        QsParseError::Parse(ParseError::DuplicateMapEntry { segment, .. }) => segment,
+        QsParseError::Parse(ParseError::DuplicateSequenceIndex { index, .. }) => index.to_string(),
+        QsParseError::Parse(ParseError::InvalidSequenceIndex { segment, .. }) => segment,
+        QsParseError::Parse(ParseError::NestedValueConflict { parent }) => parent,
+        QsParseError::Parse(ParseError::KeyPatternConflict { segment, .. }) => segment,
         QsParseError::Parse(other) => panic!("expected duplicate key error, got {other:?}"),
         QsParseError::MissingParseOptions => {
             unreachable!("parse options must be configured before parsing")
@@ -132,7 +137,7 @@ mod parse_conflict_tests {
 
         let key = duplicate_key_key(query);
 
-        assert_eq!(key, "items");
+        assert_eq!(key, "items[items][0]");
     }
 
     #[test]
@@ -152,7 +157,7 @@ mod parse_conflict_tests {
 
         let key = duplicate_key_key(query);
 
-        assert_eq!(key, "key");
+        assert_eq!(key, "0");
     }
 
     #[test]
@@ -197,9 +202,10 @@ mod parse_limits_tests {
         let error = depth_error(query, 2);
 
         match error {
-            ParseError::DepthExceeded { key, limit } => {
+            ParseError::DepthExceeded { key, limit, depth } => {
                 assert_eq!(key, "profile[contacts][phones][0][number]");
                 assert_eq!(limit, 2);
+                assert_eq!(depth, 4);
             }
             other => panic!("expected depth exceeded error, got {other:?}"),
         }

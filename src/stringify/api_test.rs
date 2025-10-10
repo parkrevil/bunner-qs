@@ -82,6 +82,10 @@ mod stringify {
         })
         .expect_err("control characters should fail");
 
-        assert_matches!(error, StringifyError::InvalidValue { key } if key == "body");
+        assert_matches!(
+            error,
+            StringifyError::InvalidValue { key, value }
+                if key == "body" && value == "line1\nline2"
+        );
     }
 }

@@ -1,5 +1,6 @@
 use super::{ParseError, preflight};
 use crate::config::ParseOptions;
+use crate::parsing::errors::ParseLocation;
 use assert_matches::assert_matches;
 
 mod preflight {
@@ -17,7 +18,7 @@ mod preflight {
 
         assert_matches!(
             result,
-            Err(ParseError::InputTooLong { limit }) if limit == 3
+            Err(ParseError::InputTooLong { limit, actual: _ }) if limit == 3
         );
     }
 
@@ -41,7 +42,8 @@ mod preflight {
 
         assert_matches!(
             result,
-            Err(ParseError::UnexpectedQuestionMark { index }) if index == 1
+            Err(ParseError::UnexpectedQuestionMark { index, location }) if index == 1
+                && location == ParseLocation::Query
         );
     }
 
@@ -55,8 +57,11 @@ mod preflight {
 
         assert_matches!(
             result,
-            Err(ParseError::InvalidCharacter { character, index })
-                if character == '\u{001F}' && index == 3
+            Err(ParseError::InvalidCharacter {
+                character,
+                index,
+                location,
+            }) if character == '\u{001F}' && index == 3 && location == ParseLocation::Query
         );
     }
 
@@ -69,8 +74,11 @@ mod preflight {
 
         assert_matches!(
             result,
-            Err(ParseError::InvalidCharacter { character, index })
-                if character == ' ' && index == 4
+            Err(ParseError::InvalidCharacter {
+                character,
+                index,
+                location,
+            }) if character == ' ' && index == 4 && location == ParseLocation::Query
         );
     }
 
@@ -93,8 +101,11 @@ mod preflight {
 
         assert_matches!(
             result,
-            Err(ParseError::InvalidCharacter { character, index })
-                if character == ' ' && index == 3
+            Err(ParseError::InvalidCharacter {
+                character,
+                index,
+                location,
+            }) if character == ' ' && index == 3 && location == ParseLocation::Query
         );
     }
 }

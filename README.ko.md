@@ -25,48 +25,33 @@
 - **정책 제어**: 공백 처리, 중복 키 정책, 허용 한도 옵션
 - **표준 준수**: RFC 3986 퍼센트 인코딩을 완전하게 지원
 
-### 미리보기
-
-#### ✅ 지원
+### ✅ 지원 포맷
 ```
 a=1&b=two                           → {"a": "1", "b": "two"}
 flag                                → {"flag": ""}
 flag=                               → {"flag": ""}
 name=J%C3%BCrgen                    → {"name": "Jürgen"}
 키=값                               → {"키": "값"}
+
+profile[name]=Ada&profile[contacts][email]=ada@example.com&profile[contacts][phones][0]=+44%20123&profile[contacts][phones][1]=+44%20987
+                                     → {"profile": {"name": "Ada", "contacts": {"email": "ada@example.com", "phones": ["+44 123", "+44 987"]}}}
 a[b][c]=value                       → {"a": {"b": {"c": "value"}}}
+matrix[0][0]=1&matrix[0][1]=2&matrix[1][0]=3
+                                     → {"matrix": [["1", "2"], ["3"]]}
+
 a[0]=x&a[1]=y                       → {"a": ["x", "y"]}
 a[1]=x                              → {"a": ["", "x"]}
 a[0]=x&a[2]=y                       → {"a": ["x", "", "y"]}
+items[0]=apple&items[2]=cherry      → {"items": ["apple", "", "cherry"]}
+
 a[]=x&a[]=y                         → {"a": ["x", "y"]}
+tags[]=rust&tags[]=serde            → {"tags": ["rust", "serde"]}
 a[][b]=1                            → {"a": [{"b": "1"}]}
+key[0][a]=1&key[1]=&key[2][b]=2     → {"key": [{"a": "1"}, "", {"b": "2"}]}
 
 # space_as_plus 옵션
 (space_as_plus=false) a=hello+world → {"a": "hello+world"}
 (space_as_plus=true)  a=hello+world → {"a": "hello world"}
-```
-
-❌ 미지원
-```
-a[b=1                               → ParseError::UnmatchedBracket
-a]                                  → ParseError::UnmatchedBracket
-a=1?b=2                             → ParseError::UnexpectedQuestionMark
-a=%ZZ                               → ParseError::InvalidPercentEncoding
-a=%01                               → ParseError::InvalidCharacter
-a=%FF                               → ParseError::InvalidUtf8
-a=1&a=2                             → ParseError::DuplicateKey
-a[0]=x&a[b]=y                       → ParseError::DuplicateKey
-a[b]=1&a[]=2                        → ParseError::DuplicateKey
-a=1&a[b]=2                          → ParseError::DuplicateKey
-
-# max_depth 옵션
-(max_depth=1)   a[b][c]=1           → ParseError::DepthExceeded
-
-# max_depth 옵션
-(max_params=1)  a=1&b=2             → ParseError::TooManyParameters
-
-# max_depth 옵션
-(max_length=3)  aaaa                → ParseError::InputTooLong
 ```
 
 > [!IMPORTANT]
@@ -195,7 +180,7 @@ let form_options = ParseOptions::new().space_as_plus(true);
 // 중복 키 거부
 let strict = ParseOptions::new()
     .duplicate_keys(DuplicateKeyBehavior::Reject);
-// "a=1&a=2" → ParseError::DuplicateKey
+// "a=1&a=2" → ParseError::DuplicateRootKey
 
 // 마지막 값 채택
 let last_wins = ParseOptions::new()
@@ -340,16 +325,21 @@ match qs.parse::<Value>("a=1") {
 
 | 오류 | 설명 | 예시 |
 |------|------|------|
-| `ParseError::InputTooLong` | 입력이 `max_length`를 초과했습니다. | `max_length(10)` 설정에 20바이트 입력 |
-| `ParseError::TooManyParameters` | `max_params` 제한을 초과했습니다. | `max_params(5)` 설정에 10개 파라미터 |
-| `ParseError::DuplicateKey` | 중복 키가 정책에 위배됩니다. | `duplicate_keys(Reject)` 설정에 `a=1&a=2` |
-| `ParseError::InvalidPercentEncoding` | 잘못된 퍼센트 인코딩이 발견되었습니다. | `a=%ZZ` (유효하지 않은 hex) |
-| `ParseError::InvalidCharacter` | 허용되지 않은 문자가 포함되어 있습니다. | `a=<script>` (제어 문자) |
-| `ParseError::UnexpectedQuestionMark` | 쿼리 내부에서 `?`가 발견되었습니다. | `a=1?b=2` (중간에 `?`) |
-| `ParseError::UnmatchedBracket` | 브래킷 구조가 불완전합니다. | `a[b=1` (닫는 브래킷 누락) |
-| `ParseError::DepthExceeded` | 중첩 깊이 제한을 초과했습니다. | `max_depth(3)` 설정에 `a[b][c][d]` |
-| `ParseError::InvalidUtf8` | UTF-8 디코딩에 실패했습니다. | 잘못된 바이트 시퀀스 |
-| `ParseError::Serde` | 타깃 타입으로 역직렬화에 실패했습니다. | 숫자 필드에 문자열 값 |
+| `ParseError::InputTooLong` | 입력이 `max_length`를 초과했습니다. | • `max_length(3)` 설정 후 `aaaa` (4바이트)<br>• `max_length(1)` 설정 후 `a=1` (3바이트) |
+| `ParseError::TooManyParameters` | `max_params` 제한을 초과했습니다. | • `max_params(1)` 설정 후 `a=1&b=2`<br>• `max_params(2)` 설정 후 `x=1&y=2&z=3` |
+| `ParseError::DuplicateRootKey` | 루트 키가 중복되었습니다. | • `duplicate_keys(Reject)` + `a=1&a=2`<br>• `duplicate_keys(Reject)` + `user=foo&user=bar` |
+| `ParseError::DuplicateMapEntry` | 같은 부모 아래 맵 키가 중복되었습니다. | • `a[b]=1&a[b]=2`<br>• `profile[contacts][email]=a@x.io&profile[contacts][email]=b@y.io` |
+| `ParseError::DuplicateSequenceIndex` | 같은 부모 아래 시퀀스 인덱스가 중복되었습니다. | • `a[0]=x&a[0]=y`<br>• `items[]=first&items[0]=override` |
+| `ParseError::InvalidSequenceIndex` | 시퀀스 인덱스가 `usize` 범위를 벗어났습니다. | • `a[18446744073709551616]=1`<br>• `items[340282366920938463463374607431768211456]=x` |
+| `ParseError::NestedValueConflict` | 스칼라와 구조형 값을 혼합할 수 없습니다. | • `a=1&a[b]=2`<br>• `tags[]=rust&tags=legacy` |
+| `ParseError::KeyPatternConflict` | 동일 부모에서 시퀀스와 맵 패턴을 혼합했습니다. | • `a[0]=x&a[b]=y`<br>• `a[]=x&a[foo]=y`<br>• `profile[user]=id&profile[0]=guest` |
+| `ParseError::InvalidPercentEncoding` | 잘못된 퍼센트 인코딩이 발견되었습니다. | • `a=%ZZ` (잘못된 hex)<br>• `a=%F` (두 자리 미만)<br>• `a=100%` (`%` 뒤에 인코딩 없음) |
+| `ParseError::InvalidCharacter` | 허용되지 않은 문자가 포함되어 있습니다. | • `a=hello world` (미인코딩 공백)<br>• `a=%01` (제어 문자 디코딩)<br>• `=1` (키에 제어 문자) |
+| `ParseError::UnexpectedQuestionMark` | 쿼리 내부에서 `?`가 발견되었습니다. | • `a=1?b=2` (중간 `?`)<br>• `??a=1` (trim 이후 선두 `?` 유지) |
+| `ParseError::UnmatchedBracket` | 브래킷 구조가 불완전합니다. | • `a[b=1` (닫는 대괄호 누락)<br>• `a]=1` (열린 괄호 없이 닫힘)<br>• `arr[[0]=x` (여분의 `[` ) |
+| `ParseError::DepthExceeded` | 중첩 깊이 제한을 초과했습니다. | • `max_depth(1)` 설정 후 `a[b]=1`<br>• `max_depth(2)` 설정 후 `a[b][c][d]=1` |
+| `ParseError::InvalidUtf8` | UTF-8 디코딩에 실패했습니다. | • `a=%FF` (잘못된 바이트)<br>• `name=%E0%80%80` (과도한 UTF-8)<br>• `title=%C3` (불완전한 시퀀스) |
+| `ParseError::Serde` | 타깃 타입으로 역직렬화에 실패했습니다. | • `age=not-a-number` (정수 필드)<br>• `active=yes` (bool 필드에 비지원 문자열)<br>• `tags[0]=x`를 `struct{ tags: HashMap<_,_> }`로 역직렬화 |
 
 ```rust
 // 오류 처리 예시

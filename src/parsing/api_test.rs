@@ -1,6 +1,7 @@
 use super::{assume_json_value, parse};
 use crate::ParseOptions;
 use crate::parsing::ParseError;
+use crate::parsing::errors::ParseLocation;
 use assert_matches::assert_matches;
 use serde::Deserialize;
 use serde::de::DeserializeOwned;
@@ -72,7 +73,8 @@ mod parse {
 
         assert_matches!(
             result,
-            Err(ParseError::UnexpectedQuestionMark { index }) if index == 4
+            Err(ParseError::UnexpectedQuestionMark { index, location })
+                if index == 4 && location == ParseLocation::Query
         );
     }
 }

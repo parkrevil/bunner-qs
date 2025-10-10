@@ -1,4 +1,5 @@
 use crate::parsing::ParseError;
+use crate::parsing::errors::ParseLocation;
 use smallvec::SmallVec;
 use std::borrow::{Borrow, Cow};
 use std::fmt;
@@ -21,7 +22,9 @@ impl SegmentKey {
     }
 
     pub(crate) fn as_str(&self) -> Result<&str, ParseError> {
-        std::str::from_utf8(&self.0).map_err(|_| ParseError::InvalidUtf8)
+        std::str::from_utf8(&self.0).map_err(|_| ParseError::InvalidUtf8 {
+            location: ParseLocation::Parameter,
+        })
     }
 }
 

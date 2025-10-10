@@ -1,5 +1,6 @@
 use super::*;
 use crate::parsing::ParseError;
+use crate::parsing::errors::ParseLocation;
 use assert_matches::assert_matches;
 use std::borrow::Cow;
 
@@ -44,7 +45,10 @@ mod decode_pair {
 
         assert_matches!(
             error,
-            ParseError::UnmatchedBracket { ref key } if key == "foo["
+            ParseError::UnmatchedBracket {
+                ref key,
+                bracket,
+            } if key == "foo[" && bracket == '['
         );
     }
 
@@ -59,8 +63,9 @@ mod decode_pair {
 
         assert_matches!(
             error,
-            ParseError::InvalidPercentEncoding { index } => {
+            ParseError::InvalidPercentEncoding { index, location } => {
                 assert_eq!(index, 3);
+                assert_eq!(location, ParseLocation::Key);
             }
         );
     }
@@ -77,8 +82,12 @@ mod decode_pair {
 
         assert_matches!(
             error,
-            ParseError::DepthExceeded { ref key, limit }
-                if key == "user[address][city]" && limit == 1
+            ParseError::DepthExceeded {
+                ref key,
+                limit,
+                depth,
+            }
+                if key == "user[address][city]" && limit == 1 && depth == 2
         );
     }
 
@@ -93,7 +102,10 @@ mod decode_pair {
 
         assert_matches!(
             error,
-            ParseError::InvalidPercentEncoding { index } if index == 5
+            ParseError::InvalidPercentEncoding {
+                index,
+                location,
+            } if index == 5 && location == ParseLocation::Value
         );
     }
 

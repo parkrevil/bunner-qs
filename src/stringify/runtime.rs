@@ -109,6 +109,7 @@ fn process_pairs(
             Value::String(s) => {
                 ensure_no_control(s).map_err(|_| StringifyError::InvalidValue {
                     key: key_buffer.clone(),
+                    value: s.to_string(),
                 })?;
                 write_pair(output, key_buffer, s, runtime.space_as_plus, first_pair);
             }

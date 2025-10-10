@@ -3,6 +3,7 @@ use crate::arena_helpers::map_with_capacity;
 use crate::config::{DuplicateKeyBehavior, ParseOptions};
 use crate::parsing::ParseError;
 use crate::parsing::arena::ArenaValue;
+use crate::parsing::errors::ParseLocation;
 use assert_matches::assert_matches;
 
 mod with_arena_query_map {
@@ -38,8 +39,8 @@ mod with_arena_query_map {
 
         let error = with_arena_query_map(trimmed, 0, &options, |_, _| Ok(())).unwrap_err();
 
-        assert_matches!(error, ParseError::DuplicateKey { .. });
-        if let ParseError::DuplicateKey { key } = error {
+        assert_matches!(error, ParseError::DuplicateRootKey { .. });
+        if let ParseError::DuplicateRootKey { key } = error {
             assert_eq!(key, "foo");
         }
     }
@@ -124,7 +125,10 @@ mod with_arena_query_map {
 
         assert_matches!(
             error,
-            ParseError::UnmatchedBracket { ref key } if key == "foo["
+            ParseError::UnmatchedBracket {
+                ref key,
+                bracket,
+            } if key == "foo[" && bracket == '['
         );
     }
 
@@ -149,7 +153,13 @@ mod with_arena_query_map {
 
         let error = with_arena_query_map("foo=%GG", 0, &options, |_, _| Ok(())).unwrap_err();
 
-        assert_matches!(error, ParseError::InvalidPercentEncoding { index: 4 });
+        assert_matches!(
+            error,
+            ParseError::InvalidPercentEncoding {
+                index: 4,
+                location: ParseLocation::Value,
+            }
+        );
     }
 
     #[test]
@@ -236,7 +246,10 @@ mod with_arena_query_map {
 
         assert_matches!(
             error,
-            ParseError::InvalidPercentEncoding { index } if index == offset + 5
+            ParseError::InvalidPercentEncoding {
+                index,
+                location,
+            } if index == offset + 5 && location == ParseLocation::Value
         );
     }
 }

@@ -44,7 +44,7 @@ mod resolve {
             .resolve(&path, "field", "items")
             .expect_err("conflict");
 
-        expect_duplicate_key(error, "items");
+        expect_duplicate_key(error, "field");
     }
 }
 

@@ -48,7 +48,7 @@ fn insert_root_value<'arena>(
     match map.try_insert_str(arena, key, ArenaValue::string(value)) {
         Ok(()) => Ok(()),
         Err(()) => match duplicate_keys {
-            DuplicateKeyBehavior::Reject => Err(ParseError::DuplicateKey {
+            DuplicateKeyBehavior::Reject => Err(ParseError::DuplicateRootKey {
                 key: duplicate_key_label(key),
             }),
             DuplicateKeyBehavior::FirstWins => Ok(()),

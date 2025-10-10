@@ -14,7 +14,8 @@ mod decode_component {
         let raw = "simple";
         let mut scratch = super::scratch_vec();
 
-        let result = decode_component(raw, false, 0, &mut scratch).expect("decode ascii");
+        let result = decode_component(raw, false, 0, ParseLocation::Key, &mut scratch)
+            .expect("decode ascii");
 
         assert_matches!(result, Cow::Borrowed("simple"));
     }
@@ -25,7 +26,8 @@ mod decode_component {
         let raw = "one+two";
         let mut scratch = super::scratch_vec();
 
-        let result = decode_component(raw, true, 5, &mut scratch).expect("decode plus");
+        let result =
+            decode_component(raw, true, 5, ParseLocation::Key, &mut scratch).expect("decode plus");
 
         assert_matches!(result, Cow::Owned(string) if string == "one two");
     }
@@ -35,13 +37,14 @@ mod decode_component {
         let raw = "%2G";
         let mut scratch = super::scratch_vec();
 
-        let error = decode_component(raw, false, 12, &mut scratch)
+        let error = decode_component(raw, false, 12, ParseLocation::Key, &mut scratch)
             .expect_err("invalid second hex digit should fail");
 
         assert_matches!(
             error,
-            ParseError::InvalidPercentEncoding { index } => {
+            ParseError::InvalidPercentEncoding { index, location } => {
                 assert_eq!(index, 12);
+                assert_eq!(location, ParseLocation::Key);
             }
         );
     }
@@ -52,13 +55,19 @@ mod decode_component {
         let raw = "bad\u{0007}";
         let mut scratch = super::scratch_vec();
 
-        let error = decode_component(raw, false, 3, &mut scratch).expect_err("control char");
+        let error = decode_component(raw, false, 3, ParseLocation::Key, &mut scratch)
+            .expect_err("control char");
 
         assert_matches!(
             error,
-            ParseError::InvalidCharacter { character, index } => {
+            ParseError::InvalidCharacter {
+                character,
+                index,
+                location,
+            } => {
                 assert_eq!(character, '\u{0007}');
                 assert_eq!(index, 6);
+                assert_eq!(location, ParseLocation::Key);
             }
         );
     }
@@ -70,22 +79,27 @@ mod fast_path_ascii {
     #[test]
     fn should_return_borrowed_result_when_all_bytes_visible_then_avoid_allocation() {
         let raw = "visible";
-        let outcome =
-            fast_path_ascii_for_test(raw, raw.as_bytes(), 0).expect("fast path should borrow");
+        let outcome = fast_path_ascii_for_test(raw, raw.as_bytes(), 0, ParseLocation::Key)
+            .expect("fast path should borrow");
         assert_matches!(outcome, Cow::Borrowed("visible"));
     }
 
     #[test]
     fn should_error_when_control_character_detected_then_return_decode_error() {
         let raw = "bad\u{0007}";
-        let err = fast_path_ascii_for_test(raw, raw.as_bytes(), 10)
+        let err = fast_path_ascii_for_test(raw, raw.as_bytes(), 10, ParseLocation::Key)
             .expect_err("control characters should error");
 
         assert_matches!(
             err,
-            ParseError::InvalidCharacter { character, index } => {
+            ParseError::InvalidCharacter {
+                character,
+                index,
+                location,
+            } => {
                 assert_eq!(character, '\u{0007}');
                 assert_eq!(index, 13);
+                assert_eq!(location, ParseLocation::Key);
             }
         );
     }
@@ -100,8 +114,15 @@ mod decode_with_special_chars {
         let raw = "%2B+matrix";
         let mut scratch = super::scratch_vec();
 
-        let result = decode_with_special_chars_for_test(raw, raw.as_bytes(), true, 0, &mut scratch)
-            .expect("percent and plus decode");
+        let result = decode_with_special_chars_for_test(
+            raw,
+            raw.as_bytes(),
+            true,
+            0,
+            ParseLocation::Key,
+            &mut scratch,
+        )
+        .expect("percent and plus decode");
 
         assert_matches!(result, Cow::Owned(text) if text == "+ matrix");
     }
@@ -112,10 +133,23 @@ mod decode_with_special_chars {
         let raw = "%2Z";
         let mut scratch = super::scratch_vec();
 
-        let err = decode_with_special_chars_for_test(raw, raw.as_bytes(), false, 4, &mut scratch)
-            .expect_err("invalid percent should bubble up");
+        let err = decode_with_special_chars_for_test(
+            raw,
+            raw.as_bytes(),
+            false,
+            4,
+            ParseLocation::Key,
+            &mut scratch,
+        )
+        .expect_err("invalid percent should bubble up");
 
-        assert_matches!(err, ParseError::InvalidPercentEncoding { index: 4 });
+        assert_matches!(
+            err,
+            ParseError::InvalidPercentEncoding {
+                index: 4,
+                location: ParseLocation::Key,
+            }
+        );
     }
 
     #[test]
@@ -123,9 +157,15 @@ mod decode_with_special_chars {
         let raw = "café";
         let mut scratch = super::scratch_vec();
 
-        let result =
-            decode_with_special_chars_for_test(raw, raw.as_bytes(), false, 0, &mut scratch)
-                .expect("utf8 cluster should decode");
+        let result = decode_with_special_chars_for_test(
+            raw,
+            raw.as_bytes(),
+            false,
+            0,
+            ParseLocation::Key,
+            &mut scratch,
+        )
+        .expect("utf8 cluster should decode");
 
         assert_matches!(result, Cow::Borrowed("café"));
     }
@@ -139,8 +179,8 @@ mod decode_percent_sequence {
         let bytes = b"%2A";
         let mut scratch = super::scratch_vec();
 
-        let next =
-            decode_percent_sequence_for_test(bytes, 0, 0, &mut scratch).expect("percent sequence");
+        let next = decode_percent_sequence_for_test(bytes, 0, 0, ParseLocation::Key, &mut scratch)
+            .expect("percent sequence");
 
         assert_eq!(next, 3);
         assert_eq!(scratch, vec![b'*']);
@@ -151,10 +191,16 @@ mod decode_percent_sequence {
         let bytes = b"%2";
         let mut scratch = super::scratch_vec();
 
-        let err = decode_percent_sequence_for_test(bytes, 0, 2, &mut scratch)
+        let err = decode_percent_sequence_for_test(bytes, 0, 2, ParseLocation::Key, &mut scratch)
             .expect_err("truncated percent should err");
 
-        assert_matches!(err, ParseError::InvalidPercentEncoding { index: 2 });
+        assert_matches!(
+            err,
+            ParseError::InvalidPercentEncoding {
+                index: 2,
+                location: ParseLocation::Key,
+            }
+        );
     }
 
     #[test]
@@ -162,10 +208,16 @@ mod decode_percent_sequence {
         let bytes = b"%4Z";
         let mut scratch = super::scratch_vec();
 
-        let err = decode_percent_sequence_for_test(bytes, 0, 7, &mut scratch)
+        let err = decode_percent_sequence_for_test(bytes, 0, 7, ParseLocation::Key, &mut scratch)
             .expect_err("invalid hex digit should err");
 
-        assert_matches!(err, ParseError::InvalidPercentEncoding { index: 7 });
+        assert_matches!(
+            err,
+            ParseError::InvalidPercentEncoding {
+                index: 7,
+                location: ParseLocation::Key,
+            }
+        );
     }
 }
 
@@ -192,7 +244,7 @@ mod decode_ascii_run {
         let bytes = b"abc%20";
         let mut scratch = super::scratch_vec();
 
-        let next = decode_ascii_run_for_test(bytes, 0, 0, false, &mut scratch)
+        let next = decode_ascii_run_for_test(bytes, 0, 0, false, ParseLocation::Key, &mut scratch)
             .expect("ascii run should succeed");
 
         assert_eq!(next, 3);
@@ -204,7 +256,7 @@ mod decode_ascii_run {
         let bytes = b"pre+more";
         let mut scratch = super::scratch_vec();
 
-        let next = decode_ascii_run_for_test(bytes, 0, 0, true, &mut scratch)
+        let next = decode_ascii_run_for_test(bytes, 0, 0, true, ParseLocation::Key, &mut scratch)
             .expect("ascii run should stop at plus");
 
         assert_eq!(next, 3);
@@ -216,14 +268,19 @@ mod decode_ascii_run {
         let bytes = b"ok\x07";
         let mut scratch = super::scratch_vec();
 
-        let err = decode_ascii_run_for_test(bytes, 0, 5, false, &mut scratch)
+        let err = decode_ascii_run_for_test(bytes, 0, 5, false, ParseLocation::Key, &mut scratch)
             .expect_err("control char should fail");
 
         assert_matches!(
             err,
-            ParseError::InvalidCharacter { character, index } => {
+            ParseError::InvalidCharacter {
+                character,
+                index,
+                location,
+            } => {
                 assert_eq!(character, '\u{0007}');
                 assert_eq!(index, 7);
+                assert_eq!(location, ParseLocation::Key);
             }
         );
     }
@@ -237,8 +294,9 @@ mod decode_utf8_cluster {
         let raw = "😊 rest";
         let mut scratch = super::scratch_vec();
 
-        let next = decode_utf8_cluster_for_test(raw, raw.as_bytes(), 0, &mut scratch)
-            .expect("utf8 cluster should succeed");
+        let next =
+            decode_utf8_cluster_for_test(raw, raw.as_bytes(), 0, ParseLocation::Key, &mut scratch)
+                .expect("utf8 cluster should succeed");
 
         assert_eq!(next, "😊".len());
         assert_eq!(scratch, "😊".as_bytes());
@@ -249,10 +307,16 @@ mod decode_utf8_cluster {
         let raw = "data";
         let mut scratch = super::scratch_vec();
 
-        let err = decode_utf8_cluster_for_test(raw, raw.as_bytes(), raw.len(), &mut scratch)
-            .expect_err("out of bounds should error");
+        let err = decode_utf8_cluster_for_test(
+            raw,
+            raw.as_bytes(),
+            raw.len(),
+            ParseLocation::Key,
+            &mut scratch,
+        )
+        .expect_err("out of bounds should error");
 
-        assert_matches!(err, ParseError::InvalidUtf8);
+        assert_matches!(err, ParseError::InvalidUtf8 { location } if location == ParseLocation::Key);
     }
 }
 
@@ -263,7 +327,8 @@ mod finalize_decoded {
     fn should_return_owned_string_when_bytes_are_valid_utf8_then_collect_string() {
         let mut scratch = b"hello".to_vec();
 
-        let result = finalize_decoded_for_test(&mut scratch).expect("valid utf8");
+        let result =
+            finalize_decoded_for_test(ParseLocation::Key, &mut scratch).expect("valid utf8");
 
         assert_matches!(result, Cow::Owned(text) if text == "hello");
         assert!(scratch.capacity() >= 5);
@@ -273,9 +338,10 @@ mod finalize_decoded {
     fn should_return_invalid_utf8_error_when_bytes_are_invalid_utf8_then_restore_cursor_state() {
         let mut scratch = vec![0xF0, 0x28, 0x8C, 0x28];
 
-        let err = finalize_decoded_for_test(&mut scratch).expect_err("invalid utf8");
+        let err =
+            finalize_decoded_for_test(ParseLocation::Key, &mut scratch).expect_err("invalid utf8");
 
-        assert_matches!(err, ParseError::InvalidUtf8);
+        assert_matches!(err, ParseError::InvalidUtf8 { location } if location == ParseLocation::Key);
         assert_eq!(scratch, vec![0xF0, 0x28, 0x8C, 0x28]);
     }
 }
@@ -285,17 +351,23 @@ mod ensure_visible {
 
     #[test]
     fn should_allow_visible_ascii_character_when_byte_is_visible_then_return_true() {
-        ensure_visible_for_test(b'A', 0).expect("visible char should succeed");
+        ensure_visible_for_test(b'A', 0, ParseLocation::Key).expect("visible char should succeed");
     }
 
     #[test]
     fn should_error_for_control_character_when_control_byte_is_provided_then_return_false() {
-        let err = ensure_visible_for_test(0x1F, 42).expect_err("control char should error");
+        let err = ensure_visible_for_test(0x1F, 42, ParseLocation::Key)
+            .expect_err("control char should error");
 
         match err {
-            ParseError::InvalidCharacter { character, index } => {
+            ParseError::InvalidCharacter {
+                character,
+                index,
+                location,
+            } => {
                 assert_eq!(character, '\u{001F}');
                 assert_eq!(index, 42);
+                assert_eq!(location, ParseLocation::Key);
             }
             other => panic!("expected InvalidCharacter, got {other:?}"),
         }

@@ -644,10 +644,10 @@ mod error_reporting_tests {
             .expect_err("expected duplicate key error");
 
         match err {
-            ParseError::DuplicateKey { ref key } if key == "username" => {
+            ParseError::DuplicateRootKey { ref key } if key == "username" => {
                 let message = err.to_string();
                 assert!(
-                    message.contains("duplicate key"),
+                    message.contains("duplicate root key"),
                     "unexpected duplicate key message: {message}"
                 );
             }

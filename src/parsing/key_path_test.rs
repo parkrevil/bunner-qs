@@ -22,7 +22,10 @@ mod validate_brackets {
 
         assert_matches!(
             result,
-            Err(ParseError::UnmatchedBracket { key: ref error_key }) if error_key == key
+            Err(ParseError::UnmatchedBracket {
+                key: ref error_key,
+                bracket,
+            }) if error_key == key && bracket == ']'
         );
     }
 
@@ -34,7 +37,10 @@ mod validate_brackets {
 
         assert_matches!(
             result,
-            Err(ParseError::UnmatchedBracket { key: ref error_key }) if error_key == key
+            Err(ParseError::UnmatchedBracket {
+                key: ref error_key,
+                bracket,
+            }) if error_key == key && bracket == '['
         );
     }
 
@@ -48,8 +54,9 @@ mod validate_brackets {
             result,
             Err(ParseError::DepthExceeded {
                 key: ref error_key,
-                limit
-            }) if error_key == key && limit == 2
+                limit,
+                depth,
+            }) if error_key == key && limit == 2 && depth == 3
         );
     }
 }

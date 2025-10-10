@@ -15,6 +15,7 @@ pub(crate) fn validate_brackets(key: &str, max_depth: Option<usize>) -> Result<(
                 if open == 0 {
                     return Err(ParseError::UnmatchedBracket {
                         key: key.to_string(),
+                        bracket: ']',
                     });
                 }
                 open -= 1;
@@ -26,6 +27,7 @@ pub(crate) fn validate_brackets(key: &str, max_depth: Option<usize>) -> Result<(
     if open != 0 {
         return Err(ParseError::UnmatchedBracket {
             key: key.to_string(),
+            bracket: '[',
         });
     }
 
@@ -35,6 +37,7 @@ pub(crate) fn validate_brackets(key: &str, max_depth: Option<usize>) -> Result<(
         return Err(ParseError::DepthExceeded {
             key: key.to_string(),
             limit,
+            depth: total_pairs,
         });
     }
 

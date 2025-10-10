@@ -59,9 +59,9 @@ fn expect_too_many_parameters(query: &str, options: &ParseOptions) -> (usize, us
     }
 }
 
-fn expect_input_too_long(query: &str, options: &ParseOptions) -> usize {
+fn expect_input_too_long(query: &str, options: &ParseOptions) -> (usize, usize) {
     match parse_query::<Value>(query, options).expect_err("should exceed length limit") {
-        QsParseError::Parse(ParseError::InputTooLong { limit }) => limit,
+        QsParseError::Parse(ParseError::InputTooLong { limit, actual }) => (limit, actual),
         QsParseError::Parse(other) => panic!("expected input too long error, got {other:?}"),
         QsParseError::MissingParseOptions => {
             unreachable!("parse options must be configured before parsing")
@@ -69,9 +69,9 @@ fn expect_input_too_long(query: &str, options: &ParseOptions) -> usize {
     }
 }
 
-fn expect_depth_exceeded(query: &str, options: &ParseOptions) -> (String, usize) {
+fn expect_depth_exceeded(query: &str, options: &ParseOptions) -> (String, usize, usize) {
     match parse_query::<Value>(query, options).expect_err("should exceed depth limit") {
-        QsParseError::Parse(ParseError::DepthExceeded { key, limit }) => (key, limit),
+        QsParseError::Parse(ParseError::DepthExceeded { key, limit, depth }) => (key, limit, depth),
         QsParseError::Parse(other) => panic!("expected depth exceeded error, got {other:?}"),
         QsParseError::MissingParseOptions => {
             unreachable!("parse options must be configured before parsing")
@@ -149,10 +149,11 @@ mod parse_limits_tests {
         let blocked = build_parse_options(|builder| builder.max_length(query.len() - 1));
 
         let parsed = parse_with_options(query, &allowed);
-        let limit = expect_input_too_long(query, &blocked);
+        let (limit, actual) = expect_input_too_long(query, &blocked);
 
         assert_str_path(&parsed, &["token"], "abcdef");
         assert_eq!(limit, query.len() - 1);
+        assert_eq!(actual, query.len());
     }
 
     #[test]
@@ -160,20 +161,22 @@ mod parse_limits_tests {
         let options = build_parse_options(|builder| builder.max_depth(2));
 
         let nested = parse_with_options("a[b][c]=ok", &options);
-        let (key, limit) = expect_depth_exceeded("a[b][c][d]=fail", &options);
+        let (key, limit, depth) = expect_depth_exceeded("a[b][c][d]=fail", &options);
 
         assert_str_path(&nested, &["a", "b", "c"], "ok");
         assert_eq!(key, "a[b][c][d]");
         assert_eq!(limit, 2);
+        assert_eq!(depth, 3);
     }
 
     #[test]
     fn should_prioritize_length_limit_when_length_and_params_conflict() {
         let options = build_parse_options(|builder| builder.max_params(5).max_length(5));
 
-        let limit = expect_input_too_long("toolong=value", &options);
+        let (limit, actual) = expect_input_too_long("toolong=value", &options);
 
         assert_eq!(limit, 5);
+        assert_eq!(actual, "toolong=value".len());
     }
 
     #[test]
@@ -189,10 +192,11 @@ mod parse_limits_tests {
     fn should_error_when_depth_limit_combines_with_param_budget() {
         let options = build_parse_options(|builder| builder.max_params(10).max_depth(1));
 
-        let (key, limit) = expect_depth_exceeded("a[b][c]=1", &options);
+        let (key, limit, depth) = expect_depth_exceeded("a[b][c]=1", &options);
 
         assert_eq!(key, "a[b][c]");
         assert_eq!(limit, 1);
+        assert_eq!(depth, 2);
     }
 
     #[test]
@@ -305,10 +309,11 @@ mod parse_builder_tests {
             build_parse_options(|builder| builder.space_as_plus(true).max_length(query.len() - 1));
 
         let parsed = parse_with_options(query, &permissive);
-        let limit = expect_input_too_long(query, &strict);
+        let (limit, actual) = expect_input_too_long(query, &strict);
 
         assert_str_path(&parsed, &["note"], "one two three");
         assert_eq!(limit, query.len() - 1);
+        assert_eq!(actual, query.len());
     }
 }
 

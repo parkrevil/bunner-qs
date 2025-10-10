@@ -1,5 +1,6 @@
 use crate::config::ParseOptions;
 use crate::parsing::ParseError;
+use crate::parsing::errors::ParseLocation;
 use crate::util::is_ascii_control;
 
 pub(crate) fn preflight<'a>(
@@ -9,7 +10,10 @@ pub(crate) fn preflight<'a>(
     if let Some(limit) = options.max_length
         && raw.len() > limit
     {
-        return Err(ParseError::InputTooLong { limit });
+        return Err(ParseError::InputTooLong {
+            limit,
+            actual: raw.len(),
+        });
     }
 
     let (trimmed, offset) = match raw.strip_prefix('?') {
@@ -26,12 +30,16 @@ pub(crate) fn preflight<'a>(
 
 fn check_character(ch: char, index: usize) -> Result<(), ParseError> {
     if ch == '?' {
-        return Err(ParseError::UnexpectedQuestionMark { index });
+        return Err(ParseError::UnexpectedQuestionMark {
+            index,
+            location: ParseLocation::Query,
+        });
     }
     if is_disallowed_control(ch) {
         return Err(ParseError::InvalidCharacter {
             character: ch,
             index,
+            location: ParseLocation::Query,
         });
     }
     Ok(())

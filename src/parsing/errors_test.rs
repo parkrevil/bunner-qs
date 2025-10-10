@@ -7,13 +7,13 @@ mod parse_error_display {
     #[test]
     fn should_render_duplicate_key_error_with_key_name_when_duplicate_key_error_occurs_then_include_key_in_message()
      {
-        let error = ParseError::DuplicateKey {
+        let error = ParseError::DuplicateRootKey {
             key: "color".into(),
         };
 
         let message = error.to_string();
 
-        assert_eq!(message, "duplicate key 'color' not allowed");
+        assert_eq!(message, "duplicate root key 'color' not allowed");
     }
 
     #[test]

@@ -11,6 +11,7 @@ use api::{build_parse_options as api_build_parse_options, parse_default, parse_q
 use asserts::{assert_str_path, assert_string_array_path};
 use bunner_qs_rs::parsing::ParseError;
 use bunner_qs_rs::parsing::errors::DeserializeError;
+use bunner_qs_rs::parsing::errors::ParseLocation;
 use bunner_qs_rs::{DuplicateKeyBehavior, ParseOptions, QsParseError};
 use json::json_from_pairs;
 use serde::Deserialize;
@@ -42,40 +43,48 @@ fn parse_with_options(query: &str, options: &ParseOptions) -> Value {
     })
 }
 
-fn expect_invalid_percent_encoding(query: &str) -> (usize, String) {
+fn expect_invalid_percent_encoding(query: &str) -> (usize, ParseLocation, String) {
     let err = parse_default::<Value>(query).expect_err("expected invalid percent encoding error");
     let message = err.to_string();
     match err {
-        QsParseError::Parse(ParseError::InvalidPercentEncoding { index }) => (index, message),
+        QsParseError::Parse(ParseError::InvalidPercentEncoding { index, location }) => {
+            (index, location, message)
+        }
         other => panic!("expected invalid percent encoding, got {other:?}"),
     }
 }
 
-fn expect_unmatched_bracket(query: &str) -> (String, String) {
+fn expect_unmatched_bracket(query: &str) -> (String, char, String) {
     let err = parse_default::<Value>(query).expect_err("expected unmatched bracket error");
     let message = err.to_string();
     match err {
-        QsParseError::Parse(ParseError::UnmatchedBracket { key }) => (key, message),
+        QsParseError::Parse(ParseError::UnmatchedBracket { key, bracket }) => {
+            (key, bracket, message)
+        }
         other => panic!("expected unmatched bracket, got {other:?}"),
     }
 }
 
-fn expect_invalid_character(query: &str) -> (char, usize, String) {
+fn expect_invalid_character(query: &str) -> (char, usize, ParseLocation, String) {
     let err = parse_default::<Value>(query).expect_err("expected invalid character error");
     let message = err.to_string();
     match err {
-        QsParseError::Parse(ParseError::InvalidCharacter { character, index }) => {
-            (character, index, message)
-        }
+        QsParseError::Parse(ParseError::InvalidCharacter {
+            character,
+            index,
+            location,
+        }) => (character, index, location, message),
         other => panic!("expected invalid character, got {other:?}"),
     }
 }
 
-fn expect_unexpected_question_mark(query: &str) -> (usize, String) {
+fn expect_unexpected_question_mark(query: &str) -> (usize, ParseLocation, String) {
     let err = parse_default::<Value>(query).expect_err("expected unexpected question mark error");
     let message = err.to_string();
     match err {
-        QsParseError::Parse(ParseError::UnexpectedQuestionMark { index }) => (index, message),
+        QsParseError::Parse(ParseError::UnexpectedQuestionMark { index, location }) => {
+            (index, location, message)
+        }
         other => panic!("expected unexpected question mark, got {other:?}"),
     }
 }
@@ -84,16 +93,25 @@ fn expect_duplicate_key(query: &str) -> (String, String) {
     let err = parse_default::<Value>(query).expect_err("expected duplicate key error");
     let message = err.to_string();
     match err {
-        QsParseError::Parse(ParseError::DuplicateKey { key }) => (key, message),
+        QsParseError::Parse(ParseError::DuplicateRootKey { key }) => (key, message),
+        QsParseError::Parse(ParseError::DuplicateMapEntry { segment, .. }) => (segment, message),
+        QsParseError::Parse(ParseError::DuplicateSequenceIndex { index, .. }) => {
+            (index.to_string(), message)
+        }
+        QsParseError::Parse(ParseError::InvalidSequenceIndex { segment, .. }) => (segment, message),
+        QsParseError::Parse(ParseError::NestedValueConflict { parent }) => (parent, message),
+        QsParseError::Parse(ParseError::KeyPatternConflict { segment, .. }) => (segment, message),
         other => panic!("expected duplicate key, got {other:?}"),
     }
 }
 
-fn expect_depth_exceeded(query: &str, options: &ParseOptions) -> (String, usize, String) {
+fn expect_depth_exceeded(query: &str, options: &ParseOptions) -> (String, usize, usize, String) {
     let err = parse_query::<Value>(query, options).expect_err("expected depth exceeded error");
     let message = err.to_string();
     match err {
-        QsParseError::Parse(ParseError::DepthExceeded { key, limit }) => (key, limit, message),
+        QsParseError::Parse(ParseError::DepthExceeded { key, limit, depth }) => {
+            (key, limit, depth, message)
+        }
         other => panic!("expected depth exceeded, got {other:?}"),
     }
 }
@@ -109,20 +127,20 @@ fn expect_too_many_parameters(query: &str, options: &ParseOptions) -> (usize, us
     }
 }
 
-fn expect_input_too_long(query: &str, options: &ParseOptions) -> (usize, String) {
+fn expect_input_too_long(query: &str, options: &ParseOptions) -> (usize, usize, String) {
     let err = parse_query::<Value>(query, options).expect_err("expected input too long error");
     let message = err.to_string();
     match err {
-        QsParseError::Parse(ParseError::InputTooLong { limit }) => (limit, message),
+        QsParseError::Parse(ParseError::InputTooLong { limit, actual }) => (limit, actual, message),
         other => panic!("expected input too long, got {other:?}"),
     }
 }
 
-fn expect_invalid_utf8(query: &str) -> String {
+fn expect_invalid_utf8(query: &str) -> (ParseLocation, String) {
     let err = parse_default::<Value>(query).expect_err("expected invalid utf8 error");
     let message = err.to_string();
     match err {
-        QsParseError::Parse(ParseError::InvalidUtf8) => message,
+        QsParseError::Parse(ParseError::InvalidUtf8 { location }) => (location, message),
         other => panic!("expected invalid utf8, got {other:?}"),
     }
 }
@@ -387,13 +405,20 @@ mod option_behavior_tests {
         let param_error = expect_too_many_parameters("a=1&b=2", &param_limited);
         let length_error = expect_input_too_long("toolong=1", &length_limited);
 
-        assert_eq!(param_error.0, 1);
-        assert_eq!(param_error.1, 2);
-        assert_eq!(param_error.2, "too many parameters: received 2, limit 1");
-        assert_eq!(length_error.0, 5);
+        let (param_limit, param_actual, param_message) = param_error;
+        let (length_limit, length_actual, length_message) = length_error;
+
+        assert_eq!(param_limit, 1);
+        assert_eq!(param_actual, 2);
+        assert_eq!(param_message, "too many parameters: received 2, limit 1");
+        assert_eq!(length_limit, 5);
+        assert_eq!(length_actual, "toolong=1".len());
         assert_eq!(
-            length_error.1,
-            "input exceeds maximum length of 5 characters"
+            length_message,
+            format!(
+                "input exceeds maximum length of 5 characters (received {})",
+                length_actual
+            )
         );
     }
 
@@ -432,10 +457,14 @@ mod error_handling_tests {
      {
         let query = "bad=%2";
 
-        let (index, message) = expect_invalid_percent_encoding(query);
+        let (index, location, message) = expect_invalid_percent_encoding(query);
 
         assert_eq!(index, 4);
-        assert_eq!(message, "invalid percent-encoding at byte offset 4");
+        assert_eq!(location, ParseLocation::Value);
+        assert_eq!(
+            message,
+            "invalid percent-encoding in value at byte offset 4"
+        );
     }
 
     #[test]
@@ -443,9 +472,10 @@ mod error_handling_tests {
      {
         let query = "bad=%ZZ";
 
-        let (index, _) = expect_invalid_percent_encoding(query);
+        let (index, location, _) = expect_invalid_percent_encoding(query);
 
         assert_eq!(index, 4);
+        assert_eq!(location, ParseLocation::Value);
     }
 
     #[test]
@@ -453,9 +483,10 @@ mod error_handling_tests {
      {
         let query = "a]=1";
 
-        let (key, _) = expect_unmatched_bracket(query);
+        let (key, bracket, _) = expect_unmatched_bracket(query);
 
         assert_eq!(key, "a]");
+        assert_eq!(bracket, ']');
     }
 
     #[test]
@@ -463,9 +494,10 @@ mod error_handling_tests {
      {
         let query = "profile[key=name]=alice";
 
-        let (key, _) = expect_unmatched_bracket(query);
+        let (key, bracket, _) = expect_unmatched_bracket(query);
 
         assert_eq!(key, "profile[key");
+        assert_eq!(bracket, '[');
     }
 
     #[test]
@@ -473,13 +505,14 @@ mod error_handling_tests {
      {
         let input = format!("bad{}key=1", '\u{0007}');
 
-        let (character, index, message) = expect_invalid_character(&input);
+        let (character, index, location, message) = expect_invalid_character(&input);
 
         assert_eq!(character, '\u{0007}');
         assert_eq!(index, 3);
+        assert_eq!(location, ParseLocation::Query);
         assert_eq!(
             message,
-            "query contains invalid character `\u{7}` at byte offset 3"
+            "invalid character `\u{7}` in query at byte offset 3"
         );
     }
 
@@ -488,13 +521,14 @@ mod error_handling_tests {
      {
         let query = "bad=%07";
 
-        let (character, index, message) = expect_invalid_character(query);
+        let (character, index, location, message) = expect_invalid_character(query);
 
         assert_eq!(character, '\u{0007}');
         assert_eq!(index, 4);
+        assert_eq!(location, ParseLocation::Value);
         assert_eq!(
             message,
-            "query contains invalid character `\u{7}` at byte offset 4"
+            "invalid character `\u{7}` in value at byte offset 4"
         );
     }
 
@@ -503,12 +537,13 @@ mod error_handling_tests {
      {
         let query = "foo?bar=1";
 
-        let (index, message) = expect_unexpected_question_mark(query);
+        let (index, location, message) = expect_unexpected_question_mark(query);
 
         assert_eq!(index, 3);
+        assert_eq!(location, ParseLocation::Query);
         assert_eq!(
             message,
-            "unexpected '?' character inside query at byte offset 3"
+            "unexpected '?' character in query at byte offset 3"
         );
     }
 
@@ -517,14 +552,12 @@ mod error_handling_tests {
      {
         let query = "bad key=1";
 
-        let (character, index, message) = expect_invalid_character(query);
+        let (character, index, location, message) = expect_invalid_character(query);
 
         assert_eq!(character, ' ');
         assert_eq!(index, 3);
-        assert_eq!(
-            message,
-            "query contains invalid character ` ` at byte offset 3"
-        );
+        assert_eq!(location, ParseLocation::Query);
+        assert_eq!(message, "invalid character ` ` in query at byte offset 3");
     }
 
     #[test]
@@ -532,16 +565,19 @@ mod error_handling_tests {
      {
         let depth_limited = build_parse_options(|builder| builder.max_depth(1));
 
-        let (key, message) = expect_unmatched_bracket("a[=1");
-        let (depth_key, limit, depth_message) = expect_depth_exceeded("a[b][c]=1", &depth_limited);
+        let (key, bracket, message) = expect_unmatched_bracket("a[=1");
+        let (depth_key, limit, depth, depth_message) =
+            expect_depth_exceeded("a[b][c]=1", &depth_limited);
 
         assert_eq!(key, "a[");
-        assert_eq!(message, "unmatched bracket sequence in key 'a['");
+        assert_eq!(bracket, '[');
+        assert_eq!(message, "unmatched '[' bracket sequence in key 'a['");
         assert_eq!(depth_key, "a[b][c]");
         assert_eq!(limit, 1);
+        assert_eq!(depth, 2);
         assert_eq!(
             depth_message,
-            "maximum bracket depth exceeded in key 'a[b][c]' (limit 1)"
+            "maximum bracket depth exceeded in key 'a[b][c]' (depth 2, limit 1)"
         );
     }
 
@@ -552,7 +588,7 @@ mod error_handling_tests {
         let (key, message) = expect_duplicate_key(query);
 
         assert_eq!(key, "color");
-        assert_eq!(message, "duplicate key 'color' not allowed");
+        assert_eq!(message, "duplicate root key 'color' not allowed");
     }
 
     #[test]
@@ -586,9 +622,10 @@ mod error_handling_tests {
      {
         let query = "bad=%FF";
 
-        let message = expect_invalid_utf8(query);
+        let (location, message) = expect_invalid_utf8(query);
 
-        assert_eq!(message, "decoded component is not valid UTF-8");
+        assert_eq!(location, ParseLocation::Value);
+        assert_eq!(message, "decoded component in value is not valid UTF-8");
     }
 }
 

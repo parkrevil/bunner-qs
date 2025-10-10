@@ -215,8 +215,9 @@ proptest! {
         };
         let result = parse_with::<Value>(&query, &opts);
         match result {
-            Err(ParseError::InputTooLong { limit: lim }) => {
+            Err(ParseError::InputTooLong { limit: lim, actual }) => {
                 prop_assert_eq!(lim, limit);
+                prop_assert_eq!(actual, query.len());
             }
             other => prop_assert!(false, "expected InputTooLong, got {:?}", other),
         }

@@ -242,8 +242,9 @@ fn should_reject_control_characters_when_value_contains_line_break_then_emit_inv
     });
     let result = stringify_default(&map);
     match result {
-        Err(QsStringifyError::Stringify(StringifyError::InvalidValue { key })) => {
+        Err(QsStringifyError::Stringify(StringifyError::InvalidValue { key, value })) => {
             assert_eq!(key, "normal");
+            assert_eq!(value, "line\nbreak");
         }
         other => panic!("expected InvalidValue error, got {:?}", other),
     }
@@ -258,8 +259,9 @@ fn should_reject_delete_character_when_value_contains_delete_control_then_emit_i
 
     let result = stringify_default(&map);
     match result {
-        Err(QsStringifyError::Stringify(StringifyError::InvalidValue { key })) => {
+        Err(QsStringifyError::Stringify(StringifyError::InvalidValue { key, value })) => {
             assert_eq!(key, "note");
+            assert_eq!(value, format!("alert{}signal", '\u{007F}'));
         }
         other => panic!("expected InvalidValue error, got {:?}", other),
     }
@@ -278,8 +280,9 @@ fn should_reject_control_characters_when_nested_value_contains_them_then_emit_in
 
     let result = stringify_default(&map);
     match result {
-        Err(QsStringifyError::Stringify(StringifyError::InvalidValue { key })) => {
+        Err(QsStringifyError::Stringify(StringifyError::InvalidValue { key, value })) => {
             assert_eq!(key, "profile[address][line1]");
+            assert_eq!(value, "First\nLine");
         }
         other => panic!("expected InvalidValue error, got {:?}", other),
     }

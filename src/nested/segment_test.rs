@@ -1,5 +1,6 @@
 use super::{ContainerType, ResolvedSegment, SegmentKey, SegmentKind};
 use crate::parsing::ParseError;
+use crate::parsing::errors::ParseLocation;
 use assert_matches::assert_matches;
 use std::borrow::{Borrow, Cow};
 
@@ -102,7 +103,7 @@ mod segment_key_debug {
 
         let result = key.as_str();
 
-        assert_matches!(result, Err(ParseError::InvalidUtf8));
+        assert_matches!(result, Err(ParseError::InvalidUtf8 { location }) if location == ParseLocation::Parameter);
     }
 
     #[test]

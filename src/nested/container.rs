@@ -27,8 +27,8 @@ pub(crate) fn arena_ensure_container<'arena>(
                 *value = ArenaValue::seq_with_capacity(arena, 0);
                 Ok(())
             }
-            ArenaValue::String(_) => Err(ParseError::DuplicateKey {
-                key: root_key.to_string(),
+            ArenaValue::String(_) => Err(ParseError::NestedValueConflict {
+                parent: root_key.to_string(),
             }),
         },
         ContainerType::Object => match value {
@@ -37,8 +37,8 @@ pub(crate) fn arena_ensure_container<'arena>(
                 *value = ArenaValue::map_with_capacity(arena, 0);
                 Ok(())
             }
-            ArenaValue::String(_) => Err(ParseError::DuplicateKey {
-                key: root_key.to_string(),
+            ArenaValue::String(_) => Err(ParseError::NestedValueConflict {
+                parent: root_key.to_string(),
             }),
         },
     }
