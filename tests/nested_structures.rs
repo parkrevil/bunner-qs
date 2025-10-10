@@ -55,7 +55,8 @@ mod parse_roundtrip_tests {
     use super::*;
 
     #[test]
-    fn should_roundtrip_deep_structures_when_nested_contacts_present_then_preserve_profile_contacts_structure() {
+    fn should_roundtrip_deep_structures_when_nested_contacts_present_then_preserve_profile_contacts_structure()
+     {
         let query = "profile[name]=Ada&profile[contacts][email]=ada@example.com&profile[contacts][phones][0]=+44%20123&profile[contacts][phones][1]=+44%20987&profile[meta][created]=2024";
 
         let parsed = assert_parse_roundtrip(query);
@@ -75,7 +76,8 @@ mod parse_roundtrip_tests {
     }
 
     #[test]
-    fn should_preserve_objects_when_arrays_have_gaps_then_maintain_array_objects_and_placeholders() {
+    fn should_preserve_objects_when_arrays_have_gaps_then_maintain_array_objects_and_placeholders()
+    {
         let query = "key[0][a]=1&key[1]=&key[2][b]=2";
 
         let parsed = parse_value(query);
@@ -100,7 +102,8 @@ mod parse_roundtrip_tests {
     }
 
     #[test]
-    fn should_collect_values_when_uniform_numeric_pattern_used_then_collect_numeric_indices_in_order() {
+    fn should_collect_values_when_uniform_numeric_pattern_used_then_collect_numeric_indices_in_order()
+     {
         let query = "items[0]=apple&items[1]=banana";
 
         let parsed = parse_value(query);
@@ -109,7 +112,8 @@ mod parse_roundtrip_tests {
     }
 
     #[test]
-    fn should_preserve_order_when_stringifying_numeric_indices_then_preserve_order_after_roundtrip() {
+    fn should_preserve_order_when_stringifying_numeric_indices_then_preserve_order_after_roundtrip()
+    {
         let map = json!({ "items": ["alpha", "beta", "gamma"] });
 
         let reparsed = stringify_roundtrip(&map);
@@ -122,7 +126,8 @@ mod parse_conflict_tests {
     use super::*;
 
     #[test]
-    fn should_return_duplicate_key_when_array_and_scalar_conflict_then_fail_with_duplicate_items_key() {
+    fn should_return_duplicate_key_when_array_and_scalar_conflict_then_fail_with_duplicate_items_key()
+     {
         let query = "items[0]=apple&items[0][kind]=fruit";
 
         let key = duplicate_key_key(query);
@@ -131,7 +136,8 @@ mod parse_conflict_tests {
     }
 
     #[test]
-    fn should_return_duplicate_key_when_array_and_object_conflict_then_report_conflicting_items_key() {
+    fn should_return_duplicate_key_when_array_and_object_conflict_then_report_conflicting_items_key()
+     {
         let query = "items[0][kind]=fruit&items[0]=apple";
 
         let key = duplicate_key_key(query);
@@ -140,7 +146,8 @@ mod parse_conflict_tests {
     }
 
     #[test]
-    fn should_return_duplicate_key_when_append_and_numeric_patterns_mix_then_fail_when_append_and_numeric_patterns_mix() {
+    fn should_return_duplicate_key_when_append_and_numeric_patterns_mix_then_fail_when_append_and_numeric_patterns_mix()
+     {
         let query = "key[]=1&key[0]=1";
 
         let key = duplicate_key_key(query);
@@ -149,7 +156,8 @@ mod parse_conflict_tests {
     }
 
     #[test]
-    fn should_return_duplicate_key_when_scalar_and_nested_patterns_mix_then_fail_when_scalar_and_nested_mix() {
+    fn should_return_duplicate_key_when_scalar_and_nested_patterns_mix_then_fail_when_scalar_and_nested_mix()
+     {
         let query = "foo=1&foo[bar]=2";
 
         let key = duplicate_key_key(query);
@@ -158,7 +166,8 @@ mod parse_conflict_tests {
     }
 
     #[test]
-    fn should_return_duplicate_key_when_scalar_duplicates_present_then_fail_when_scalar_duplicates_repeat() {
+    fn should_return_duplicate_key_when_scalar_duplicates_present_then_fail_when_scalar_duplicates_repeat()
+     {
         let query = "foo=1&foo=2";
 
         let key = duplicate_key_key(query);
@@ -167,7 +176,8 @@ mod parse_conflict_tests {
     }
 
     #[test]
-    fn should_materialize_sparse_numeric_indices_when_indices_skip_values_then_materialize_missing_indices_with_gaps() {
+    fn should_materialize_sparse_numeric_indices_when_indices_skip_values_then_materialize_missing_indices_with_gaps()
+     {
         let query = "items[0]=apple&items[2]=cherry";
 
         let parsed = parse_value(query);

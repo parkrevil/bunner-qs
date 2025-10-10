@@ -61,7 +61,8 @@ where
 }
 
 #[test]
-fn should_allow_seed_cases_when_parse_options_match_expectations_then_match_expected_allow_case_outcome() {
+fn should_allow_seed_cases_when_parse_options_match_expectations_then_match_expected_allow_case_outcome()
+ {
     for case in allow_cases() {
         let opts = case.parse_options();
         let result = parse_with::<Value>(&case.input, &opts);
@@ -70,7 +71,8 @@ fn should_allow_seed_cases_when_parse_options_match_expectations_then_match_expe
 }
 
 #[test]
-fn should_reject_seed_cases_when_parse_options_detect_errors_then_match_expected_rejection_outcome() {
+fn should_reject_seed_cases_when_parse_options_detect_errors_then_match_expected_rejection_outcome()
+{
     for case in reject_cases() {
         let opts = case.parse_options();
         let result = parse_with::<Value>(&case.input, &opts);
@@ -79,7 +81,8 @@ fn should_reject_seed_cases_when_parse_options_detect_errors_then_match_expected
 }
 
 #[test]
-fn should_roundtrip_seed_cases_when_normalization_is_expected_then_preserve_normalized_roundtrip_structure() {
+fn should_roundtrip_seed_cases_when_normalization_is_expected_then_preserve_normalized_roundtrip_structure()
+ {
     for case in roundtrip_cases() {
         let name = &case.name;
         let parse_opts = case.parse_options();
