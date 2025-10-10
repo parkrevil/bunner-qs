@@ -167,12 +167,12 @@ mod parse_conflict_tests {
     }
 
     #[test]
-    fn should_return_duplicate_key_when_numeric_indexes_are_sparse() {
+    fn should_materialize_sparse_numeric_indices() {
         let query = "items[0]=apple&items[2]=cherry";
 
-        let key = duplicate_key_key(query);
+        let parsed = parse_value(query);
 
-        assert_eq!(key, "items");
+        assert_string_array_path(&parsed, &["items"], &["apple", "", "cherry"]);
     }
 }
 

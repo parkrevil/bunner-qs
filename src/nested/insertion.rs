@@ -354,9 +354,10 @@ fn handle_seq_segment<'arena>(
     };
 
     if idx > items.len() {
-        return Err(ParseError::DuplicateKey {
-            key: ctx.root_key.to_string(),
-        });
+        let placeholder = ctx.arena.alloc_str("");
+        while items.len() < idx {
+            items.push(ArenaValue::string(placeholder));
+        }
     }
 
     if is_last {

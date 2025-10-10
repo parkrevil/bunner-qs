@@ -463,13 +463,12 @@ mod insert_nested_value_arena {
     }
 
     #[test]
-    fn should_return_duplicate_key_when_sequence_index_skips_existing_length_then_reject_sparse_insert()
-     {
+    fn should_pad_sequence_with_placeholders_when_sparse_index_inserted() {
         let arena = ParseArena::new();
         let mut map = map_with_capacity(&arena, 0);
         let mut state = acquire_pattern_state();
 
-        let error = insert_value(
+        insert_value(
             &arena,
             &mut map,
             &["items", "1"],
@@ -477,9 +476,18 @@ mod insert_nested_value_arena {
             &mut state,
             DuplicateKeyBehavior::Reject,
         )
-        .expect_err("sparse sequence index should be rejected");
+        .expect("sparse sequence index should be padded");
 
-        expect_duplicate_key(error, "items");
+        let entries = map.entries_slice();
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].0, "items");
+        let sequence = entries[0]
+            .1
+            .as_seq_slice()
+            .expect("expected sequence container for sparse insert");
+        assert_eq!(sequence.len(), 2);
+        assert!(arena_is_placeholder(&sequence[0]));
+        assert!(matches!(sequence[1], ArenaValue::String(text) if text == "late"));
     }
 
     #[test]

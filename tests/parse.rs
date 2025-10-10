@@ -527,12 +527,27 @@ mod error_handling_tests {
     }
 
     #[test]
-    fn should_return_duplicate_key_error_when_array_indices_are_sparse() {
+    fn should_materialize_sparse_array_when_indices_skip_values() {
         let query = "items[0]=apple&items[2]=cherry";
 
-        let (key, _) = expect_duplicate_key(query);
+        let parsed = parse_value(query);
+        let expected = json!({
+            "items": ["apple", "", "cherry"],
+        });
 
-        assert_eq!(key, "items");
+        assert_eq!(parsed, expected);
+    }
+
+    #[test]
+    fn should_pad_missing_indices_when_first_element_is_non_zero() {
+        let query = "items[1]=late";
+
+        let parsed = parse_value(query);
+        let expected = json!({
+            "items": ["", "late"],
+        });
+
+        assert_eq!(parsed, expected);
     }
 
     #[test]

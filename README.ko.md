@@ -36,6 +36,8 @@ name=J%C3%BCrgen                    → {"name": "Jürgen"}
 키=값                               → {"키": "값"}
 a[b][c]=value                       → {"a": {"b": {"c": "value"}}}
 a[0]=x&a[1]=y                       → {"a": ["x", "y"]}
+a[1]=x                              → {"a": ["", "x"]}
+a[0]=x&a[2]=y                       → {"a": ["x", "", "y"]}
 a[]=x&a[]=y                         → {"a": ["x", "y"]}
 a[][b]=1                            → {"a": [{"b": "1"}]}
 
@@ -53,9 +55,6 @@ a=%ZZ                               → ParseError::InvalidPercentEncoding
 a=%01                               → ParseError::InvalidCharacter
 a=%FF                               → ParseError::InvalidUtf8
 a=1&a=2                             → ParseError::DuplicateKey
-a[foo]=x                            → ParseError::DuplicateKey
-a[1]=x                              → ParseError::DuplicateKey
-a[0]=x&a[2]=y                       → ParseError::DuplicateKey
 a[0]=x&a[b]=y                       → ParseError::DuplicateKey
 a[b]=1&a[]=2                        → ParseError::DuplicateKey
 a=1&a[b]=2                          → ParseError::DuplicateKey

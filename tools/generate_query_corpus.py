@@ -143,13 +143,6 @@ def extend_complex_reject_cases(cases: List[Case]) -> None:
 
     add_case(
         cases,
-        "deep_non_contiguous_index_0",
-        "grid_0[0][0]=a&grid_0[0][2]=c",
-        "duplicate_key",
-    )
-
-    add_case(
-        cases,
         "array_index_reset_conflict_0",
         "items_0[]=a&items_0[1]=b",
         "duplicate_key",
@@ -165,6 +158,16 @@ def build_allow_cases() -> List[Case]:
         {"name": "unicode_literal", "input": "emoji=😀", "expect": "ok"},
         {"name": "percent_encoded_unicode", "input": "name=%E6%9D%8E%E9%9B%84", "expect": "ok"},
         {"name": "nested_arrays_unicode", "input": "items[0]=苹果&items[1]=バナナ", "expect": "ok"},
+        {
+            "name": "sparse_index_materializes_placeholders",
+            "input": "items[0]=x&items[2]=z",
+            "expect": "ok",
+        },
+        {
+            "name": "sparse_nested_index_materializes_placeholders",
+            "input": "grid[0][0]=a&grid[0][2]=c",
+            "expect": "ok",
+        },
         {
             "name": "form_plus_spaces",
             "input": "note=hello+world",
@@ -297,11 +300,6 @@ def build_reject_cases() -> List[Case]:
         {
             "name": "mixed_append_numeric",
             "input": "items[]=1&items[0]=2",
-            "expect": "duplicate_key",
-        },
-        {
-            "name": "non_contiguous_index",
-            "input": "items[0]=x&items[2]=z",
             "expect": "duplicate_key",
         },
         {
