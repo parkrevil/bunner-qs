@@ -1,8 +1,8 @@
 use super::{assume_json_value, parse};
 use crate::ParseOptions;
 use crate::parsing::ParseError;
-use crate::serde_adapter::DeserializeErrorKind;
 use crate::parsing::errors::ParseLocation;
+use crate::serde_adapter::DeserializeErrorKind;
 use assert_matches::assert_matches;
 use serde::Deserialize;
 use serde::de::DeserializeOwned;
@@ -112,8 +112,7 @@ mod parse {
     fn given_param_limit_when_parse_then_returns_too_many_parameters_error() {
         let options = ParseOptions::new().max_params(1);
 
-        let result: Result<Value, ParseError> =
-            parse_with_options("a=1&b=2", &options);
+        let result: Result<Value, ParseError> = parse_with_options("a=1&b=2", &options);
 
         assert_matches!(
             result,
@@ -126,8 +125,7 @@ mod parse {
     fn given_length_limit_when_parse_then_returns_input_too_long_error() {
         let options = ParseOptions::new().max_length(4);
 
-        let result: Result<Value, ParseError> =
-            parse_with_options("name=neo", &options);
+        let result: Result<Value, ParseError> = parse_with_options("name=neo", &options);
 
         assert_matches!(
             result,

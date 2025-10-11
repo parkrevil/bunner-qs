@@ -15,8 +15,8 @@ use asserts::assert_str_path;
 use bunner_qs_rs::stringify::StringifyError;
 use bunner_qs_rs::{QsStringifyError, StringifyOptions};
 use json::json_from_pairs;
-use serde::ser::{SerializeMap, Serializer};
 use serde::Serialize;
+use serde::ser::{SerializeMap, Serializer};
 use serde_helpers::{
     assert_encoded_contains, assert_parse_roundtrip, assert_stringify_roundtrip,
     assert_stringify_roundtrip_with_options,
@@ -308,7 +308,10 @@ fn should_fail_when_custom_serializer_emits_value_without_key_then_emit_missing_
 
     match result {
         Err(QsStringifyError::Stringify(StringifyError::Serialize(err))) => {
-            assert_eq!(format!("{err}"), "serialize_value called before serialize_key");
+            assert_eq!(
+                format!("{err}"),
+                "serialize_value called before serialize_key"
+            );
         }
         other => panic!("expected serialize error for orphan value, got {:?}", other),
     }

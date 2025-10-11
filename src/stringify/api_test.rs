@@ -108,7 +108,10 @@ mod stringify {
         let error = stringify_default(&Option::<u8>::None)
             .expect_err("none should trigger unexpected skip error");
 
-        assert_matches!(error, StringifyError::Serialize(SerializeError::UnexpectedSkip));
+        assert_matches!(
+            error,
+            StringifyError::Serialize(SerializeError::UnexpectedSkip)
+        );
     }
 
     #[derive(Debug)]
@@ -127,8 +130,7 @@ mod stringify {
 
     #[test]
     fn given_invalid_key_when_stringify_then_returns_invalid_key_error() {
-        let error = stringify_default(&InvalidKeyPayload)
-            .expect_err("invalid key should fail");
+        let error = stringify_default(&InvalidKeyPayload).expect_err("invalid key should fail");
 
         assert_matches!(
             error,

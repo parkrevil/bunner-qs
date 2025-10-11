@@ -6,7 +6,10 @@ mod to_string {
 
     #[test]
     fn should_format_input_too_long_when_to_string_called_then_include_limit_and_actual() {
-        let error = ParseError::InputTooLong { limit: 5, actual: 8 };
+        let error = ParseError::InputTooLong {
+            limit: 5,
+            actual: 8,
+        };
         let message = error.to_string();
 
         assert_eq!(
@@ -16,8 +19,7 @@ mod to_string {
     }
 
     #[test]
-    fn should_format_too_many_parameters_when_to_string_called_then_include_limit_and_actual()
-     {
+    fn should_format_too_many_parameters_when_to_string_called_then_include_limit_and_actual() {
         let error = ParseError::TooManyParameters {
             limit: 2,
             actual: 3,
@@ -102,15 +104,11 @@ mod to_string {
         };
         let message = error.to_string();
 
-        assert_eq!(
-            message,
-            "unexpected '?' character in key at byte offset 4"
-        );
+        assert_eq!(message, "unexpected '?' character in key at byte offset 4");
     }
 
     #[test]
-    fn should_format_invalid_character_when_to_string_called_then_include_character_and_location()
-     {
+    fn should_format_invalid_character_when_to_string_called_then_include_character_and_location() {
         let error = ParseError::InvalidCharacter {
             character: '\u{0007}',
             index: 3,
