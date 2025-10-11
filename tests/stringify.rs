@@ -15,6 +15,7 @@ use asserts::assert_str_path;
 use bunner_qs_rs::stringify::StringifyError;
 use bunner_qs_rs::{QsStringifyError, StringifyOptions};
 use json::json_from_pairs;
+use serde::ser::{SerializeMap, Serializer};
 use serde::Serialize;
 use serde_helpers::{
     assert_encoded_contains, assert_parse_roundtrip, assert_stringify_roundtrip,
@@ -285,6 +286,31 @@ fn should_reject_control_characters_when_nested_value_contains_them_then_emit_in
             assert_eq!(value, "First\nLine");
         }
         other => panic!("expected InvalidValue error, got {:?}", other),
+    }
+}
+
+#[test]
+fn should_fail_when_custom_serializer_emits_value_without_key_then_emit_missing_key_message() {
+    struct OrphanValue;
+
+    impl Serialize for OrphanValue {
+        fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+        {
+            let mut map = serializer.serialize_map(Some(1))?;
+            map.serialize_value("orphan")?;
+            map.end()
+        }
+    }
+
+    let result = stringify_default(&OrphanValue);
+
+    match result {
+        Err(QsStringifyError::Stringify(StringifyError::Serialize(err))) => {
+            assert_eq!(format!("{err}"), "serialize_value called before serialize_key");
+        }
+        other => panic!("expected serialize error for orphan value, got {:?}", other),
     }
 }
 

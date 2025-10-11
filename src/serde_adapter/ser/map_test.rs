@@ -45,7 +45,7 @@ mod value_map_serializer {
     }
 
     #[test]
-    fn should_store_string_value_when_serializing_single_entry_then_return_object_with_value() {
+    fn given_single_entry_when_serialize_map_then_stores_string_value() {
         let mut serializer = ValueMapSerializer::new();
 
         SerializeMap::serialize_key(&mut serializer, &"city")
@@ -59,7 +59,7 @@ mod value_map_serializer {
     }
 
     #[test]
-    fn should_skip_entry_when_value_serializes_to_none_then_produce_empty_map() {
+    fn given_none_value_when_serialize_map_then_skips_entry() {
         let mut serializer = ValueMapSerializer::new();
 
         SerializeMap::serialize_key(&mut serializer, &"optional")
@@ -72,7 +72,7 @@ mod value_map_serializer {
     }
 
     #[test]
-    fn should_require_new_key_after_none_value_then_disallow_orphan_value() {
+    fn given_none_value_when_serialize_value_without_key_then_rejects_orphan() {
         let mut serializer = ValueMapSerializer::new();
 
         SerializeMap::serialize_key(&mut serializer, &"optional")
@@ -92,7 +92,7 @@ mod value_map_serializer {
     }
 
     #[test]
-    fn should_error_when_serialize_value_called_without_key_then_return_missing_key_message() {
+    fn given_missing_key_when_serialize_value_then_returns_missing_key_error() {
         let mut serializer = ValueMapSerializer::new();
 
         let error = SerializeMap::serialize_value(&mut serializer, &"orphan")
@@ -107,7 +107,7 @@ mod value_map_serializer {
     }
 
     #[test]
-    fn should_stringify_numeric_key_when_serializing_then_store_key_as_string() {
+    fn given_numeric_key_when_serialize_map_then_stores_stringified_key() {
         let mut serializer = ValueMapSerializer::new();
 
         SerializeMap::serialize_key(&mut serializer, &42u8)
@@ -120,7 +120,7 @@ mod value_map_serializer {
     }
 
     #[test]
-    fn should_propagate_error_when_key_serialization_fails_then_return_message() {
+    fn given_failing_key_when_serialize_map_then_propagates_error() {
         let mut serializer = ValueMapSerializer::new();
 
         let error = SerializeMap::serialize_key(&mut serializer, &FailingKey)
@@ -134,7 +134,7 @@ mod value_map_serializer {
     }
 
     #[test]
-    fn should_propagate_error_when_value_serialization_fails_then_return_message() {
+    fn given_failing_value_when_serialize_map_then_propagates_error() {
         let mut serializer = ValueMapSerializer::new();
         SerializeMap::serialize_key(&mut serializer, &"problem")
             .expect("serializing key should succeed");
@@ -150,7 +150,7 @@ mod value_map_serializer {
     }
 
     #[test]
-    fn should_replace_pending_key_when_next_key_overwritten_then_use_latest_value_label() {
+    fn given_replacement_key_when_serialize_map_then_uses_latest_key() {
         let mut serializer = ValueMapSerializer::new();
 
         SerializeMap::serialize_key(&mut serializer, &"stale")
@@ -166,7 +166,7 @@ mod value_map_serializer {
     }
 
     #[test]
-    fn should_allow_recovery_after_key_serialization_error_then_accept_new_key() {
+    fn given_key_error_when_recovering_serializer_then_accepts_new_key() {
         let mut serializer = ValueMapSerializer::new();
 
         let error = SerializeMap::serialize_key(&mut serializer, &FailingKey)
@@ -188,7 +188,7 @@ mod value_map_serializer {
     }
 
     #[test]
-    fn should_produce_empty_object_when_end_called_without_entries_then_return_empty_map() {
+    fn given_no_entries_when_end_serializer_then_returns_empty_object() {
         let serializer = ValueMapSerializer::new();
 
         let value = finalize(serializer);
@@ -197,7 +197,7 @@ mod value_map_serializer {
     }
 
     #[test]
-    fn should_recover_after_value_serialization_error_then_accept_new_entry() {
+    fn given_value_error_when_recovering_serializer_then_accepts_new_entry() {
         let mut serializer = ValueMapSerializer::new();
         SerializeMap::serialize_key(&mut serializer, &"broken")
             .expect("serializing key should succeed");
@@ -221,7 +221,7 @@ mod value_map_serializer {
     }
 
     #[test]
-    fn should_store_object_value_when_serializing_nested_structure_then_preserve_object() {
+    fn given_nested_structure_when_serialize_map_then_preserves_object_values() {
         let mut serializer = ValueMapSerializer::new();
 
         SerializeMap::serialize_key(&mut serializer, &"payload")
@@ -235,5 +235,24 @@ mod value_map_serializer {
         let payload_obj = payload.as_object().expect("payload should be object");
         assert_eq!(payload_obj.get("inner"), Some(&Value::String("1".into())));
         assert_eq!(payload_obj.get("flag"), Some(&Value::String("true".into())));
+    }
+
+    #[test]
+    fn given_multiple_entries_when_serialize_map_then_preserves_insertion_order() {
+        let mut serializer = ValueMapSerializer::new();
+
+        SerializeMap::serialize_key(&mut serializer, &"first")
+            .expect("serializing first key should succeed");
+        SerializeMap::serialize_value(&mut serializer, &"alpha")
+            .expect("serializing first value should succeed");
+        SerializeMap::serialize_key(&mut serializer, &"second")
+            .expect("serializing second key should succeed");
+        SerializeMap::serialize_value(&mut serializer, &"beta")
+            .expect("serializing second value should succeed");
+
+        let value = finalize(serializer);
+        let map = object(&value);
+        let keys: Vec<&str> = map.keys().map(|key| key.as_str()).collect();
+        assert_eq!(keys, ["first", "second"]);
     }
 }
